@@ -9,16 +9,16 @@ waypoint_controller:
     waypoint_timeout: 1.5         # seconds before fail-safe hover engages
 
     # PID gains for position control (optimized for stable tracking)
-    kp_xy: 1.35                  # Reduce proportional gain slightly to limit overshoot
-    ki_xy: 0.015                 # Lower integral to avoid slow oscillation build-up
-    kd_xy: 1.1                   # Extra derivative damping for lateral axes
-    kp_z: 1.2                    # Softer vertical proportional action for smoother climb
-    ki_z: 0.03                   # Reduced integral on altitude
-    kd_z: 1.15                   # Add damping to vertical channel
+    kp_xy: 1.45
+    ki_xy: 0.03
+    kd_xy: 1.05
+    kp_z: 1.25
+    ki_z: 0.05
+    kd_z: 1.0
 
     # Velocity limits - increased for faster tracking response
-    max_velocity_xy: 6.0         # m/s for X,Y - slightly reduced to curb aggressiveness
-    max_velocity_z: 3.0          # m/s for Z
+    max_velocity_xy: 8.5
+    max_velocity_z: 3.8
 
 attitude_controller:
   ros__parameters:
@@ -27,39 +27,24 @@ attitude_controller:
     attitude_tolerance: 0.035     # radians (约2.0°容差)
 
     # PID gains for attitude control (optimized for stable tracking)
-    kp_roll: 1.6                 # Slightly reduced proportional gain for better damping margin
-    ki_roll: 0.025               # Lower integral to cut sustained oscillation
-    kd_roll: 0.7                 # Higher derivative gain to stiffen damping
-    kp_pitch: 1.6                # Match pitch authority with roll
-    ki_pitch: 0.025              # Lower integral to cut sustained oscillation
-    kd_pitch: 0.7                # Higher derivative gain to stiffen damping
-    kp_yaw: 1.2                  # Reduced yaw proportional for smoother heading hold
-    ki_yaw: 0.025                # Lower integral on yaw
-    kd_yaw: 0.6                  # Extra damping for yaw
+    kp_roll: 1.35
+    ki_roll: 0.03
+    kd_roll: 1.05
+    kp_pitch: 1.35
+    ki_pitch: 0.03
+    kd_pitch: 1.05
+    kp_yaw: 1.2
+    ki_yaw: 0.025
+    kd_yaw: 0.75
 
     # Angular velocity limits
-    max_angular_velocity_roll: 2.3   # rad/s
-    max_angular_velocity_pitch: 2.3  # rad/s
-    max_angular_velocity_yaw: 1.6    # rad/s
-
+    max_angular_velocity_roll: 3.0
+    max_angular_velocity_pitch: 3.0
+    max_angular_velocity_yaw: 2.3
 velocity_controller:
   ros__parameters:
-    # Control parameters
     control_frequency: 140.0
-    velocity_smoothing: 0.35     # Extra smoothing to absorb command jitters
-
-    # Velocity and angular velocity limits (final safety limits)
-    max_linear_velocity_xy: 6.0  # m/s - balance responsiveness and stability
-    max_linear_velocity_z: 3.0   # m/s
-    max_angular_velocity_xy: 3.0 # rad/s (roll/pitch rates)
-    max_angular_velocity_z: 2.0  # rad/s (yaw rate)
-
-    # Velocity PID gains (world frame)
-    kp_vx: 0.75
-    kp_vy: 0.75
-    kp_vz: 0.7
-
-    # Angular velocity proportional gains (body frame)
-    kp_wx: 0.6
-    kp_wy: 0.6
-    kp_wz: 0.65
+    max_linear_velocity_xy: 8.5
+    max_linear_velocity_z: 3.8
+    max_angular_velocity_xy: 3.5
+    max_angular_velocity_z: 2.4
