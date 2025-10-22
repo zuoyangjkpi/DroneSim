@@ -828,29 +828,42 @@ class NMPCTrackerNode(Node):
         
         self.waypoint_pub.publish(waypoint_msg)
 
-        # Calculate desired attitude (face the person)
+        # Retrieve desired attitude from NMPC output
+        desired_attitude = getattr(self.controller, "target_attitude", None)
+
+        if desired_attitude is not None and len(desired_attitude) >= 2:
+            roll_cmd = float(np.clip(desired_attitude[0], -math.pi / 4, math.pi / 4))
+            pitch_cmd = float(np.clip(desired_attitude[1], -math.pi / 4, math.pi / 4))
+        else:
+            roll_cmd = 0.0
+            pitch_cmd = 0.0
+
         current_pos = self.controller.current_state.data[nmpc_config.STATE_X:nmpc_config.STATE_Z+1]
-        person_pos = self.controller.person_position
-        
-        to_person = person_pos - current_pos
-        desired_yaw = math.atan2(to_person[1], to_person[0])
-        
+        if self.controller.person_detected:
+            person_pos = self.controller.person_position
+            to_person = person_pos - current_pos
+            yaw_cmd = math.atan2(to_person[1], to_person[0])
+        else:
+            yaw_cmd = self.last_tracking_yaw if self.last_tracking_yaw is not None else self._get_current_yaw()
+
+        yaw_cmd = math.atan2(math.sin(yaw_cmd), math.cos(yaw_cmd))
+
         # Create and publish attitude command
         attitude_msg = Vector3Stamped()
         attitude_msg.header.stamp = self.get_clock().now().to_msg()
         attitude_msg.header.frame_id = self.drone_frame
-        attitude_msg.vector.x = 0.0  # roll
-        attitude_msg.vector.y = 0.0  # pitch
-        attitude_msg.vector.z = desired_yaw  # yaw
+        attitude_msg.vector.x = roll_cmd
+        attitude_msg.vector.y = pitch_cmd
+        attitude_msg.vector.z = yaw_cmd
         
         self.attitude_pub.publish(attitude_msg)
 
-        self.last_tracking_yaw = desired_yaw
+        self.last_tracking_yaw = yaw_cmd
         self._log_waypoint_command(
             source="NMPC",
             position=target_position,
-            velocity=self.controller.target_velocity,
-            yaw=desired_yaw,
+            velocity=None,
+            yaw=yaw_cmd,
             control=control
         )
 
@@ -942,6 +955,8 @@ class NMPCTrackerNode(Node):
         if velocity is not None:
             vel_fmt = np.round(np.asarray(velocity), 3).tolist()
             details.append(f"vel={vel_fmt}")
+        if yaw is not None:
+            details.append(f"yaw={round(float(yaw), 3)}")
         if control is not None:
             control_fmt = np.round(np.asarray(control), 3).tolist()
             details.append(f"control={control_fmt}")

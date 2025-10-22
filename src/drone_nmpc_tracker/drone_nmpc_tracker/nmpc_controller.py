@@ -61,7 +61,7 @@ class DroneNMPCController:
         # Current state
         self.current_state = State()
         self.target_position = np.array([0.0, 0.0, 2.0])
-        self.target_velocity = np.array([0.0, 0.0, 0.0])
+        self.target_attitude = np.zeros(3)
         
         # Person tracking state
         self.person_position = np.array([0.0, 0.0, 0.0])
@@ -73,6 +73,7 @@ class DroneNMPCController:
         self._phase_initialized = False
         self._last_target_update_time: Optional[float] = None
         self._distance_error_integral = 0.0
+        self._last_target_attitude = None
 
         # Control history for warm start
         self.control_history = []
@@ -86,7 +87,6 @@ class DroneNMPCController:
 
         # Internal smoothing state
         self._last_target_position = None
-        self._last_target_velocity = None
 
         # Initialize solver parameters
         self._init_solver_parameters()
@@ -244,57 +244,10 @@ class DroneNMPCController:
         self.target_position = new_target
         self._last_target_position = new_target.copy()
 
-        # Calculate target velocity for smooth circular motion
-        # Angular velocity is fixed at 0.01 rad/s for slow clockwise rotation
-        angular_velocity = min(
-            self.config.MAX_TRACKING_ANGULAR_VELOCITY,
-            self.config.BASE_TRACKING_ANGULAR_VELOCITY,
-        )
-        if not allow_phase_change:
-            angular_velocity = 0.0
-        tangential_speed = radius * angular_velocity
-        tangent_x = -math.sin(self._desired_phase) * tangential_speed
-        tangent_y = math.cos(self._desired_phase) * tangential_speed
-
-        # Add person's velocity to follow the moving center
-        person_speed = self.person_velocity[:2]
-        radial_direction = np.zeros(2)
-        radial_speed_cmd = 0.0
-        if current_distance > 1e-3:
-            radial_direction = relative_pos[:2] / current_distance
-            radial_speed_cmd = -self.config.RADIAL_VELOCITY_GAIN * distance_error
-            radial_speed_cmd = float(np.clip(
-                radial_speed_cmd,
-                -self.config.MAX_RADIAL_VELOCITY,
-                self.config.MAX_RADIAL_VELOCITY,
-            ))
-            if allow_phase_change:
-                radial_speed_cmd += self.config.RADIAL_INTEGRAL_GAIN * self._distance_error_integral
-                radial_speed_cmd = float(np.clip(
-                    radial_speed_cmd,
-                    -self.config.MAX_RADIAL_VELOCITY,
-                    self.config.MAX_RADIAL_VELOCITY,
-                ))
-
-        new_velocity = np.zeros(3)
-        new_velocity[0] = tangent_x + radial_direction[0] * radial_speed_cmd + person_speed[0]
-        new_velocity[1] = tangent_y + radial_direction[1] * radial_speed_cmd + person_speed[1]
-        new_velocity[2] = 0.0  # No vertical tracking velocity
-
-        if self._last_target_velocity is not None and allow_phase_change:
-            # Increase responsiveness when radius error is large
-            if abs(distance_error) > 0.5:
-                alpha_vel = 0.85
-            else:
-                alpha_vel = 0.7
-            new_velocity = alpha_vel * new_velocity + (1.0 - alpha_vel) * self._last_target_velocity
-        self.target_velocity = new_velocity
-        if allow_phase_change:
-            self._last_target_velocity = new_velocity.copy()
-
         # Ensure drone always faces the person (yaw control)
         to_person = person_pos - np.array([target_x, target_y, target_z])
-        desired_yaw = math.atan2(to_person[1], to_person[0]) + math.pi  # 加上pi确保面向人
+        desired_yaw = math.atan2(to_person[1], to_person[0])
+        desired_yaw = self._wrap_angle(desired_yaw)
 
         # Store desired yaw for use in cost function
         self._desired_yaw = desired_yaw
@@ -304,15 +257,16 @@ class DroneNMPCController:
         self._phase_initialized = True
         self._last_target_update_time = None
         self._distance_error_integral = 0.0
+        self._last_target_attitude = None
 
     def clear_detection(self):
         self.person_detected = False
         self._last_target_position = None
-        self._last_target_velocity = None
         self.person_velocity = np.zeros(3)
         self._phase_initialized = False
         self._last_target_update_time = None
         self._distance_error_integral = 0.0
+        self._last_target_attitude = None
 
     def set_tracking_height_offset(self, offset: float):
         self.tracking_height_offset = offset
@@ -445,25 +399,9 @@ class DroneNMPCController:
         pos_error = state.data[self.config.STATE_X:self.config.STATE_Z+1] - self.target_position
         cost += np.sum(self.config.W_POSITION * pos_error**2)
         
-        # Velocity tracking cost
-        vel_error = state.data[self.config.STATE_VX:self.config.STATE_VZ+1] - self.target_velocity
-        cost += np.sum(self.config.W_VELOCITY * vel_error**2)
-        
         # Attitude cost (maintain level flight except for yaw)
         att_error = state.data[self.config.STATE_ROLL:self.config.STATE_YAW]  # 不包括yaw
         cost += np.sum(self.config.W_ATTITUDE[:2] * att_error**2)
-        
-        # Yaw tracking cost
-        if hasattr(self, '_desired_yaw'):
-            yaw_error = self._wrap_angle(state[self.config.STATE_YAW] - self._desired_yaw)
-            cost += self.config.W_ATTITUDE[2] * yaw_error**2
-        
-        # Angular rate cost
-        omega_error = state.data[self.config.STATE_WX:self.config.STATE_WZ+1]
-        cost += np.sum(self.config.W_ANGULAR_RATE * omega_error**2)
-        
-        # Control effort cost
-        cost += np.sum(self.config.W_CONTROL * control**2)
         
         # Person tracking specific costs
         if self.person_detected:
@@ -485,21 +423,6 @@ class DroneNMPCController:
                 adaptive_weight = base_weight
 
             cost += adaptive_weight * distance_error**2
-
-            # Camera angle cost (keep person in view)
-            to_person = self.person_position - drone_pos
-            if np.linalg.norm(to_person) > 0.1:
-                # 计算无人机朝向
-                yaw = state[self.config.STATE_YAW]
-                drone_facing = np.array([math.cos(yaw), math.sin(yaw)])
-
-                # 计算到人的方向
-                to_person_dir = to_person[:2] / np.linalg.norm(to_person[:2])
-
-                # 计算夹角
-                dot_product = np.dot(drone_facing, to_person_dir)
-                angle_error = math.acos(np.clip(dot_product, -1.0, 1.0))
-                cost += self.config.W_CAMERA_ANGLE * angle_error**2
 
             # Smooth tracking cost - penalize large changes in target position
             # But reduce weight when distance error is large (prioritize catching up)
@@ -528,6 +451,11 @@ class DroneNMPCController:
         for i in range(len(controls)):
             stage_cost = self.compute_stage_cost(trajectory[i], controls[i], i)
             total_cost += stage_cost
+            if i + 1 < len(trajectory):
+                att_curr = trajectory[i].data[self.config.STATE_ROLL:self.config.STATE_PITCH+1]
+                att_next = trajectory[i + 1].data[self.config.STATE_ROLL:self.config.STATE_PITCH+1]
+                delta_att = att_next - att_curr
+                total_cost += np.sum(self.config.W_ATTITUDE_STABILITY * delta_att**2)
         
         return total_cost
     
@@ -602,6 +530,18 @@ class DroneNMPCController:
             'optimization_time': self.optimization_time,
             'cost': self.cost_value
         }
+
+        # Extract desired attitude from predicted trajectory
+        if len(trajectory) > 1:
+            desired_attitude = trajectory[1].data[self.config.STATE_ROLL:self.config.STATE_YAW+1].copy()
+        else:
+            desired_attitude = trajectory[0].data[self.config.STATE_ROLL:self.config.STATE_YAW+1].copy()
+        desired_attitude[2] = self._wrap_angle(desired_attitude[2])
+        smoothing = float(np.clip(self.config.TARGET_ATTITUDE_SMOOTHING, 0.0, 1.0))
+        if self._last_target_attitude is not None:
+            desired_attitude[:2] = smoothing * self._last_target_attitude[:2] + (1.0 - smoothing) * desired_attitude[:2]
+        self.target_attitude = desired_attitude
+        self._last_target_attitude = desired_attitude.copy()
         
         return optimal_control, info
     

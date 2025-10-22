@@ -54,16 +54,17 @@ class NMPCConfig:
         # ========== Cost Function Weights ==========
         # Position tracking weights - optimized for aggressive distance maintenance
         self.W_POSITION = np.array([15.0, 15.0, 10.0])  # [x, y, z] - high for fast position tracking
-        self.W_VELOCITY = np.array([2.0, 2.0, 2.0])    # [vx, vy, vz] - low to allow fast movement
-        self.W_ATTITUDE = np.array([1.0, 1.0, 6.0])    # [roll, pitch, yaw] - very high yaw weight for facing person
-        self.W_ANGULAR_RATE = np.array([1.5, 1.5, 0.8]) # [wx, wy, wz] - low yaw rate penalty for fast turning
+        self.W_ATTITUDE = np.array([1.0, 1.0, 0.0])    # [roll, pitch, yaw] - yaw handled by downstream controller
+        self.W_ANGULAR_RATE = np.array([0.0, 0.0, 0.0]) # No angular-rate penalty; handled by low-level controller
 
-        # Control effort weights - minimal to allow aggressive control
-        self.W_CONTROL = np.array([0.2, 0.5, 0.5, 0.3])  # [thrust, roll, pitch, yaw_rate] - very low for maximum agility
+        # Control effort weights - turn off (delegated to low-level controllers)
+        self.W_CONTROL = np.array([0.0, 0.0, 0.0, 0.0])
+        self.W_ATTITUDE_STABILITY = np.array([4.0, 4.0])  # Stabilise roll/pitch changes between steps
+        self.TARGET_ATTITUDE_SMOOTHING = 0.6              # 0=use raw attitude, 1=keep previous attitude
 
         # Person tracking specific weights - prioritize distance over everything
         self.W_TRACKING_DISTANCE = 30.0  # Weight for maintaining optimal tracking distance - VERY HIGH priority
-        self.W_CAMERA_ANGLE = 10.0       # Weight for keeping person in camera view - very high to prevent escape
+        self.W_CAMERA_ANGLE = 0.0        # Camera alignment enforced via yaw command, no additional penalty
         self.W_SMOOTH_TRACKING = 0.8     # Slightly lower smoothing penalty to react quicker
         
         # ========== Constraints ==========
