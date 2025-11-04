@@ -23,6 +23,7 @@ public:
         drone_vz_(0.0),
         drone_speed_xy_(0.0),
         drone_speed_(0.0),
+        drone_heading_rad_(0.0),
         nmpc_status_received_(false),
         odometry_received_(false)
     {
@@ -103,6 +104,12 @@ private:
         drone_vx_ = msg->twist.twist.linear.x;
         drone_vy_ = msg->twist.twist.linear.y;
         drone_vz_ = msg->twist.twist.linear.z;
+
+        // Extract yaw heading (radians) from orientation quaternion
+        const auto& q = msg->pose.pose.orientation;
+        const double siny_cosp = 2.0 * (q.w * q.z + q.x * q.y);
+        const double cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z);
+        drone_heading_rad_ = std::atan2(siny_cosp, cosy_cosp);
 
         // Calculate horizontal (XY) speed and total 3D speed
         drone_speed_xy_ = std::sqrt(drone_vx_*drone_vx_ + drone_vy_*drone_vy_);
@@ -197,6 +204,13 @@ private:
                     "Drone Speed Z: %.2f m/s", drone_vz_);
                 cv::putText(cv_ptr->image, speed_z_text,
                     cv::Point(10, 180), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 255), 2);
+
+                const double heading_deg = drone_heading_rad_ * 57.29577951308232;
+                char heading_text[64];
+                snprintf(heading_text, sizeof(heading_text),
+                    "Drone Heading: %.1f deg", heading_deg);
+                cv::putText(cv_ptr->image, heading_text,
+                    cv::Point(10, 210), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 255), 2);
             }
             
             // Always publish the image (with or without detections)
@@ -237,6 +251,7 @@ private:
     double drone_vz_;
     double drone_speed_xy_;
     double drone_speed_;
+    double drone_heading_rad_;
     bool odometry_received_;
 };
 
