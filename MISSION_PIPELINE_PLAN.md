@@ -1,18 +1,18 @@
 # Mission Planning & Execution Pipeline
 
-This document captures the proposed end-to-end architecture for integrating the upstream semantic SLAM stack (scene graph, YAML missions, Octomap, safety services) with our downstream mission planner, RRT* global planner, mission executor, and action modules.
+This document captures the proposed end-to-end architecture for integrating the upstream semantic SLAM stack (scene graph, YAML missions, Octomap, safety services) with our downstream mission planner, hierarchical (A* + RRT*) path planner, mission executor, and action modules.
 
 ## 1. Pipeline Overview
 - **Mission Input**: Ground station text → upstream NLP → YAML mission specification.
 - **Knowledge Base**: Scene Graph (semantic objects, relationships, motion predictions) + Octomap (3D occupancy).
-- **Mission Planner**: Our node that parses YAML, queries the scene graph, generates ordered sub-goals, and calls RRT* for each navigation segment.
-- **RRT***: Global planner producing feasible waypoint trajectories (including desired attitude) evaluated against safety services.
+- **Mission Planner**: Our node that parses YAML, queries the scene graph, generates ordered sub-goals, and invokes the hierarchical planner (global A* + local RRT*) for each navigation segment.
+- **Hierarchical Planner (A* + RRT*)**: Produces feasible waypoint trajectories (including desired attitude) evaluated against safety services.
 - **Mission Executor (Behavior Tree)**: Consumes the planner output, handles safety overrides, and dispatches action modules.
 - **Action Modules**: Atomic behaviors interfacing with existing controllers (waypoint/attitude layers, NMPC tracker, search/track routines, etc.).
 
 ```
 YAML Mission → Mission Planner ─┬─ Scene Graph Queries
-                                ├─ Octomap (collision checking for RRT*)
+                                ├─ Octomap (2D projection for A*, 3D corridor for RRT*)
                                 └─ Safety Services (validation)
                ↓
         A* + RRT* Paths + Action Queue
@@ -95,9 +95,10 @@ We will provide upstream with a JSON Schema or YAML schema file formalizing thes
 3. **Derive Navigation Sub-goals**:
    - Compute offsets using object geometry and relationships (e.g., 3 m in front of door).
    - Determine altitude/heading rules.
-4. **Invoke RRT\*** for each navigation segment:
-   - Input: start pose, goal pose (position + desired yaw), environment constraints (octomap), dynamic exclusions (moving objects).
-   - Output: ordered list of waypoints `{position, yaw}`, optional timing.
+4. **Invoke the Hierarchical Planner** for each navigation segment:
+   - **Global A***: project environment to 2D, plan coarse path, annotate segments with semantic tags and altitude hints.
+   - **Local RRT***: for each segment, refine in 3D corridor using Octomap slices and safety constraints.
+   - Outputs combined into ordered waypoint list `{position, yaw}`, plus timing or hold suggestions where needed.
 5. **Call Safety Services**:
    - Validate candidate landing zones via `/safety/check_landing`.
    - Validate planned path via `/safety/check_path`.
@@ -154,7 +155,7 @@ Each module implements a standard interface (`configure`, `start`, `cancel`, `up
 | Module | Purpose | Interfaces |
 |--------|---------|------------|
 | `TakeoffModule` | Command initial climb | Publishes to waypoint controller (takeoff profile). |
-| `FlyToTargetModule` | Execute RRT* waypoint list | Streams waypoints to `/drone/control/waypoint_command`, sets desired yaw. |
+| `FlyToTargetModule` | Execute A*/RRT* waypoint list | Streams waypoints to `/drone/control/waypoint_command`, sets desired yaw. |
 | `HoverModule` | Hold position | Sends position hold waypoint, monitors drift. |
 | `SearchAreaModule` | Pattern scan | Generates pattern waypoints, toggles camera modes. |
 | `TrackTargetModule` | Engage NMPC tracking | Signals NMPC node with target class/ID, monitors detection. |
@@ -184,6 +185,6 @@ Each module implements a standard interface (`configure`, `start`, `cancel`, `up
 - Preferred transport for scene graph queries (service vs. action vs. direct Python API).
 - Expected update rate for dynamic objects and motion predictions.
 - How upstream envisions mission abort / replanning being signaled in YAML.
-- Hard limits on computational budget for RRT* (time per plan).
+- Hard limits on computational budget for A*/RRT* planning (time per update).
 - Synchronization of mission clock / timestamps between stacks.
 - Testing strategy: use of `mock_scene_publisher` to simulate scenarios before field deployment.
