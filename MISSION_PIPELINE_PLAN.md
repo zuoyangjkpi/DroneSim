@@ -32,50 +32,85 @@ YAML Mission → Mission Planner ─┬─ Scene Graph Queries
    - Cached object registry for quick lookups during planning.
 
 ## 3. YAML Mission Specification
-### 3.1 Baseline Schema
+
+The upstream repository now ships a reference schema (`semantic_slam_ws/src/drone_safety/config/YAML_STRUCTURE_REFERENCE.md`) that mirrors the structure we proposed. We should adopt the exact field names and enumerations to stay compatible.
+
+### 3.1 Baseline Schema (Updated)
 ```yaml
 mission:
-  name: "string"
+  name: "search_and_land"
   metadata:
-    priority: int
-    time_budget: float   # seconds
-    required_capabilities: [takeoff, fly_to, inspect, track, deliver]
-  stages:
-    - id: "stage_name"
-      type: enum          # e.g., QUERY, NAVIGATE, SEARCH, TRACK, INTERACT, LAND, HOLD
-      params: {}          # stage-specific options
+    priority: 1
+    time_budget: 300        # seconds
+    required_capabilities: [takeoff, fly_to, inspect, track, land]
+    version: "1.0.0"
+    author: "avians"
+
+parameters:
+  target:
+    class: "trashcan"
+    color: "yellow"
+    max_distance: 120.0
+  safety:
+    clearance: 5.0
+    speed: 3.0
+    moving_object_radius: 2.0
+
+stages:
+  initial: "query_target"
+  stage_list:
+    - id: "query_target"
+      type: "QUERY_OBJECT"
+      params:
+        sql_template: "find_objects"
+        arguments:
+          class: "${parameters.target.class}"
+          color: "${parameters.target.color}"
+          max_distance: "${parameters.target.max_distance}"
+      outputs:
+        object_list: "candidates"
       transitions:
-        success: "next_stage_id"
-        failure: "fallback_stage_id"
+        success: "compute_offset"
+        no_results: "expand_search"
+        failure: "mission_failed"
+      timeout: 15
 ```
-### 3.2 Required Stage Types & Parameters
+Subsequent stages follow the same structure; the reference file also demonstrates `mission_sequence` wrappers for master plans. We will keep using the `stages.stage_list` container and prefer UPPERCASE `type` values.
+
+### 3.2 Required Stage Types & Parameters (Aligned with Upstream)
 1. **QUERY_OBJECT**
-   - `sql_template`: string (e.g., `find_blue_building`)
-   - `arguments`: dict (key/value for SQL placeholders)
-   - Expected outputs: object list (IDs, poses, attributes) stored on mission blackboard.
+   - `params.sql_template`, `params.arguments`.
+   - `outputs.object_list` to name the variables written to the blackboard.
+   - Transitions should cover `success`, `no_results`, and `failure`.
 2. **COMPUTE_OFFSET_TARGET**
-   - Uses relationship info to derive a new waypoint.
-   - Params: `reference_id`, `relation` (`in_front`, `left_of`, `right_of`, `top_of`), `distance`, `height_bias`.
+   - `params`: `reference_id`, `relation` (`IN_FRONT`, `LEFT_OF`, etc.), `distance`, `height_bias`.
+   - `result_variable`: Name for the generated approach pose.
 3. **VALIDATE_SAFETY**
-   - Calls upstream `SafetyChecker` (landing/path) with provided geometry.
-   - Params: `check_type` (`landing`, `path`, `zone`), `clearance_radius`, `moving_object_radius`.
+   - `params`: `check_type` (`landing`, `path`, `zone`), `target_pose`, `clearance_radius`, `moving_object_radius`.
+   - `result_variable`: e.g., `safety_assessment`.
+   - Additional transitions such as `unsafe` or `timeout` should map to fallback stages.
 4. **NAVIGATE_TO_TARGET**
-   - Declares target pose list (either direct waypoint or object-derived).
-   - Params: `target_source` (`object_centroid`, `computed_offset`, `explicit_pose`), `altitude_mode` (`constant`, `terrain_follow`, `object_top_plus`), `speed_hint`.
-5. **SEARCH_AREA**
-   - Params: `area_polygon`, `pattern` (`lawnmower`, `spiral`, `orbital`), `dwell_time`, optional `focus_class`.
-6. **TRACK_TARGET**
-   - Params: `target_class`, `target_id`, `stand_off_distance`, `lose_timeout`.
-7. **INSPECT_OBJECT**
-   - Params: `object_id`, `approach_offset`, `camera_mode`, `yaw_alignment`.
-8. **DELIVER_PAYLOAD**
-   - Params: `drop_pose`, `release_height`, `confirm_sensor`.
-9. **WAIT_OR_HOLD**
-   - Params: `duration`, `reason`, `loiter_radius`.
-10. **LAND_AT_POINT**
-    - Params: `touchdown_pose`, `approach_vector`, `descent_profile`.
-11. **ABORT_MISSION / RETURN_HOME**
-    - Params: `home_pose`, `reason`.
+   - `params`: `target_source`, `target_pose`, `altitude_mode`, `speed_hint`.
+   - Should support `path_blocked` or `replan_required` transitions.
+5. **COMPUTE_OFFSET_TARGET + NAVIGATE_TO_TARGET** combo is recommended for approach corridors.
+6. **SEARCH_AREA**
+   - `params`: `area_polygon`, `pattern` (`lawnmower`, `spiral`, `orbital`), `dwell_time`, `focus_class`.
+   - `transitions`: `target_found`, `timeout`, `failure`.
+7. **TRACK_TARGET**
+   - `params`: `target_class`, `target_id`, `stand_off_distance`, `lose_timeout`, `min_duration`, `max_duration`.
+   - Transitions: `success`, `target_lost`, `failure`.
+8. **INSPECT_OBJECT**
+   - `params`: `object_id`, `approach_offset`, `camera_mode`, `yaw_alignment`, `timeout`.
+9. **DELIVER_PAYLOAD**
+   - `params`: `drop_pose`, `release_height`, `confirm_sensor`.
+10. **WAIT_OR_HOLD**
+    - `params`: `duration`, `reason`, `loiter_radius`.
+11. **LAND_AT_POINT**
+    - `params`: `touchdown_pose`, `approach_vector`, `descent_profile`, `descent_rate`.
+12. **ABORT_MISSION / RETURN_HOME**
+    - `params`: `home_pose`, `reason`, `notify_gcs` as needed.
+
+The upstream YAML examples also distinguish `TERMINAL` and `EMERGENCY` states—ensure our definitions for `mission_complete`, `mission_failed`, and emergency fallbacks match those terminologies.
 
 ### 3.3 Edge Scenarios To Cover
 - Multiple candidate objects (choose nearest, highest confidence, or fallback order).
