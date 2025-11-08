@@ -11,7 +11,7 @@ from rclpy.duration import Duration
 from rclpy.time import Time
 import numpy as np
 import math
-from typing import Optional
+from typing import Optional, List
 import tf2_ros
 import tf2_geometry_msgs
 from tf2_ros import TransformException
@@ -58,6 +58,11 @@ class NMPCTrackerNode(Node):
         self.state_enter_time: float = 0.0
         self.takeoff_alt_reached_time: Optional[float] = None
         self.search_reference_position: Optional[np.ndarray] = None
+        self._planned_waypoint_sequence: List[np.ndarray] = []
+        self._current_waypoint_index = 0
+        self._last_plan_sequence_id = -1
+        self._waypoint_reached_tolerance = 0.3
+        self._plan_reset_threshold = 0.5
         
         # TF2 buffer and listener
         self.tf_buffer = tf2_ros.Buffer()
@@ -787,6 +792,7 @@ class NMPCTrackerNode(Node):
             self._enter_lost_hold()
             return
 
+        self._refresh_waypoint_queue()
         self._send_tracking_commands(control)
 
         if self.enable_visualization and info:
@@ -812,11 +818,55 @@ class NMPCTrackerNode(Node):
         self._publish_waypoint(hold_position, source='LOST_HOLD', yaw=yaw)
         self._publish_attitude(yaw)
 
+    def _refresh_waypoint_queue(self):
+        plan_id = self.controller.get_plan_sequence_id()
+        if plan_id == self._last_plan_sequence_id:
+            return
+
+        sequence = self.controller.get_planned_waypoints()
+        if not sequence:
+            return
+
+        reset_index = True
+        if self._planned_waypoint_sequence:
+            first_diff = np.linalg.norm(sequence[0] - self._planned_waypoint_sequence[0])
+            last_diff = np.linalg.norm(sequence[-1] - self._planned_waypoint_sequence[-1])
+            length_changed = len(sequence) != len(self._planned_waypoint_sequence)
+            reset_index = (
+                first_diff > self._plan_reset_threshold or
+                last_diff > self._plan_reset_threshold or
+                length_changed
+            )
+
+        self._planned_waypoint_sequence = [wp.copy() for wp in sequence]
+        self._last_plan_sequence_id = plan_id
+        if reset_index:
+            self._current_waypoint_index = 0
+
+    def _current_tracking_waypoint(self) -> np.ndarray:
+        if self._planned_waypoint_sequence and self._current_waypoint_index < len(self._planned_waypoint_sequence):
+            return self._planned_waypoint_sequence[self._current_waypoint_index]
+        return self.controller.target_position.copy()
+
+    def _advance_waypoint_progress(self):
+        if not self._planned_waypoint_sequence:
+            return
+
+        current_position = self._get_current_position()
+        waypoint = self._current_tracking_waypoint()
+        distance = np.linalg.norm(current_position - waypoint)
+
+        if distance <= self._waypoint_reached_tolerance:
+            if self._current_waypoint_index < len(self._planned_waypoint_sequence) - 1:
+                self._current_waypoint_index += 1
     def _send_tracking_commands(self, control: np.ndarray):
         """Send tracking commands to low-level controllers"""
-        # Extract target position from controller
-        target_position = self.controller.target_position
-        
+        # Advance waypoint progress based on current position
+        self._advance_waypoint_progress()
+
+        # Current target waypoint
+        target_position = self._current_tracking_waypoint()
+
         # Create and publish waypoint command
         waypoint_msg = PoseStamped()
         waypoint_msg.header.stamp = self.get_clock().now().to_msg()
@@ -860,7 +910,7 @@ class NMPCTrackerNode(Node):
 
         self.last_tracking_yaw = yaw_cmd
         self._log_waypoint_command(
-            source="NMPC",
+            source="NMPC_WAYPOINT",
             position=target_position,
             velocity=None,
             yaw=yaw_cmd,
@@ -1089,6 +1139,11 @@ class NMPCTrackerNode(Node):
             self.last_known_position = self._get_current_position().copy()
         if new_state != 'LOST_HOLD':
             self.last_known_position = None
+
+        if new_state != 'TRACK':
+            self._planned_waypoint_sequence = []
+            self._current_waypoint_index = 0
+            self._last_plan_sequence_id = -1
 
         self.get_logger().info(f"状态切换: {previous} -> {new_state}")
     

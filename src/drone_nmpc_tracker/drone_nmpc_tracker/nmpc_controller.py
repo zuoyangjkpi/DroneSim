@@ -54,8 +54,6 @@ class State:
 
 class DroneNMPCController:
     """Nonlinear Model Predictive Controller for drone person tracking"""
-
-    _DISABLED_ATTITUDE_CONTROL_IDX = (1, 2)  # roll / pitch commands handled by low-level PID
     
     def __init__(self):
         self.config = nmpc_config
@@ -89,6 +87,9 @@ class DroneNMPCController:
 
         # Internal smoothing state
         self._last_target_position = None
+        self._planned_waypoints: list[np.ndarray] = []
+        self._plan_sequence_id = 0
+        self._last_plan_signature = None
 
         # Initialize solver parameters
         self._init_solver_parameters()
@@ -400,6 +401,10 @@ class DroneNMPCController:
         # Position tracking cost
         pos_error = state.data[self.config.STATE_X:self.config.STATE_Z+1] - self.target_position
         cost += np.sum(self.config.W_POSITION * pos_error**2)
+
+        # Velocity moderation (penalise aggressive motion)
+        vel = state.data[self.config.STATE_VX:self.config.STATE_VZ+1]
+        cost += np.sum(self.config.W_VELOCITY * vel**2)
         
         # Person tracking specific costs
         if self.person_detected:
@@ -449,6 +454,16 @@ class DroneNMPCController:
         for i in range(len(controls)):
             stage_cost = self.compute_stage_cost(trajectory[i], controls[i], i)
             total_cost += stage_cost
+
+            if i + 1 < len(trajectory):
+                vel_curr = trajectory[i].data[self.config.STATE_VX:self.config.STATE_VZ+1]
+                vel_next = trajectory[i + 1].data[self.config.STATE_VX:self.config.STATE_VZ+1]
+                accel = (vel_next - vel_curr) / self.dt
+                total_cost += np.sum(self.config.W_ACCELERATION * accel**2)
+
+                lateral_acc = np.linalg.norm(accel[:2])
+                tilt = math.atan2(lateral_acc, self.config.GRAVITY)
+                total_cost += self.config.W_CAMERA_TILT * tilt**2
         
         return total_cost
     
@@ -465,8 +480,6 @@ class DroneNMPCController:
             control_grad = np.zeros_like(controls[i])
             
             for j in range(len(controls[i])):
-                if j in self._DISABLED_ATTITUDE_CONTROL_IDX:
-                    continue
                 # Perturb control
                 perturbed_controls = [ctrl.copy() for ctrl in controls]
                 perturbed_controls[i][j] += self.regularization
@@ -498,9 +511,6 @@ class DroneNMPCController:
             for i in range(len(controls)):
                 controls[i] -= self.alpha * gradient[i]
                 controls[i] = self.config.clip_control(controls[i])
-                # Roll / pitch commands are owned by low-level PID, keep them zero
-                controls[i][1] = 0.0
-                controls[i][2] = 0.0
             
             # Check for convergence
             grad_norm = np.linalg.norm(np.concatenate(gradient))
@@ -512,8 +522,6 @@ class DroneNMPCController:
         
         # Extract first control input as optimal control
         optimal_control = controls[0] if controls else self.config.get_hover_control()
-        optimal_control[1] = 0.0
-        optimal_control[2] = 0.0
         
         # Predict trajectory for visualization
         trajectory = self.predict_trajectory(self.current_state, controls)
@@ -530,17 +538,63 @@ class DroneNMPCController:
             'cost': self.cost_value
         }
 
+        self._update_planned_waypoints_from_trajectory(trajectory)
+
         # Extract desired attitude from predicted trajectory
         if len(trajectory) > 1:
-            yaw_reference = trajectory[1].data[self.config.STATE_YAW]
+            desired_attitude = trajectory[1].data[self.config.STATE_ROLL:self.config.STATE_YAW+1].copy()
         else:
-            yaw_reference = trajectory[0].data[self.config.STATE_YAW]
-        desired_attitude = np.zeros(3)
-        desired_attitude[2] = self._wrap_angle(yaw_reference)
+            desired_attitude = trajectory[0].data[self.config.STATE_ROLL:self.config.STATE_YAW+1].copy()
+
+        desired_attitude[2] = self._wrap_angle(desired_attitude[2])
+        smoothing = float(np.clip(self.config.TARGET_ATTITUDE_SMOOTHING, 0.0, 1.0))
+        if self._last_target_attitude is not None:
+            desired_attitude[:2] = smoothing * self._last_target_attitude[:2] + (1.0 - smoothing) * desired_attitude[:2]
+
         self.target_attitude = desired_attitude
         self._last_target_attitude = desired_attitude.copy()
         
         return optimal_control, info
+
+    def get_planned_waypoints(self) -> List[np.ndarray]:
+        return [wp.copy() for wp in self._planned_waypoints]
+
+    def get_plan_sequence_id(self) -> int:
+        return self._plan_sequence_id
+
+    def _update_planned_waypoints_from_trajectory(self, trajectory: List[State]) -> None:
+        if len(trajectory) < 2:
+            return
+        waypoints: List[np.ndarray] = []
+        last_point = None
+        for state in trajectory[1:]:
+            waypoint = state.data[self.config.STATE_X:self.config.STATE_Z+1].copy()
+            if last_point is not None:
+                if np.linalg.norm(waypoint - last_point) < self.config.MIN_WAYPOINT_SPACING:
+                    continue
+            waypoints.append(waypoint)
+            last_point = waypoint
+
+        if not waypoints:
+            return
+
+        signature = (
+            tuple(np.round(waypoints[0], 3)),
+            tuple(np.round(waypoints[-1], 3)),
+            len(waypoints),
+        )
+
+        changed = (
+            self._last_plan_signature is None or
+            np.linalg.norm(np.array(signature[0]) - np.array(self._last_plan_signature[0])) > self.config.WAYPOINT_PLAN_CHANGE_THRESHOLD or
+            np.linalg.norm(np.array(signature[1]) - np.array(self._last_plan_signature[1])) > self.config.WAYPOINT_PLAN_CHANGE_THRESHOLD or
+            signature[2] != self._last_plan_signature[2]
+        )
+
+        self._planned_waypoints = waypoints
+        if changed:
+            self._plan_sequence_id += 1
+            self._last_plan_signature = signature
     
     def get_status(self) -> dict:
         """Get controller status"""
