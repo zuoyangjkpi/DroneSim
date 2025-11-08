@@ -21,7 +21,7 @@ NMPC跟踪系统
 └── 执行层
     ├── 低级位置控制器 (waypoint_controller.py)
     ├── 低级姿态控制器 (attitude_controller.py)
-    └── 低级速度控制器 (velocity_controller.py)
+    └── Gazebo MulticopterVelocityControl 适配器 (multicopter_velocity_control_adapter.py)
 ```
 
 ### 2. 核心文件说明

@@ -43,7 +43,7 @@ source install/setup.bash
 8. `projection_model`：将 YOLO 像素框投影成世界坐标。
 9. `pose_cov_ops_interface`：给无协方差的 Pose 加协方差矩阵。
 10. `drone_nmpc_tracker/nmpc_tracker_node`：NMPC 跟踪控制 + 高层状态机。
-11. `drone_low_level_controllers`（waypoint/attitude/velocity）三级 PID。
+11. `drone_low_level_controllers`（waypoint/attitude/MulticopterVelocityControl adapter）三级 PID。
 12. `ros2 topic pub /X3/enable` & `/nmpc/enable`：解锁无人机控制与 NMPC。
 
 ### 2.3 关键节点与话题
@@ -55,7 +55,7 @@ source install/setup.bash
 | 投影 | `projection_model_node` (`projection_model/src/Projector.cpp`) | `/person_detections`, `/X3/pose_with_covariance`, `/machine_1/camera/pose(_optical)` | `/person_detections/world_frame`, `/neural_network_feedback` | 估计行人三维位置及协方差 |
 | 状态桥 | `pose_cov_ops_interface_node` | `/X3/odometry` | `/X3/pose_with_covariance` | 添加协方差，供投影模型与 NMPC 使用 |
 | NMPC | `nmpc_tracker_node` (`drone_nmpc_tracker/nmpc_node.py`) | `/person_detections/world_frame`, `/X3/odometry`, `/nmpc/enable` 等 | `/drone/control/waypoint_command`, `/drone/control/attitude_command`, `/nmpc/person_estimate`, `/drone/controller/status` | 状态机 + NMPC 优化（`nmpc_controller.py`） |
-| 低层控制 | `waypoint_controller.py` / `attitude_controller.py` / `velocity_controller.py` | 上层控制话题 | `/drone/control/velocity_setpoint`, `/drone/control/angular_velocity_setpoint`, `/X3/cmd_vel` | 纯 Python PID，与 Gazebo 插件 `MulticopterVelocityControl` 对接 |
+| 低层控制 | `waypoint_controller.py` / `attitude_controller.py` / `multicopter_velocity_control_adapter.py` | 上层控制话题 | `/drone/control/velocity_setpoint`, `/drone/control/angular_velocity_setpoint`, `/X3/cmd_vel` | 纯 Python PID + Gazebo `MulticopterVelocityControl` 插件适配 |
 | 辅助 | `visualization_node.py`, `drone_tf_publisher.py` | 多话题 | Marker、TF | RViz 可视化 |
 
 ### 2.4 主要包与算法内容
@@ -87,7 +87,7 @@ source install/setup.bash
 
 - `waypoint_controller.py`：位置 → 速度 (NED)；含积分死区、限制 (`controllers.yaml` Lines 5-22)。
 - `attitude_controller.py`：姿态 → 角速度；融合积分防飘 (`attitude_controller.py:143-215`)。
-- `velocity_controller.py`：速度/角速度 → `/X3/cmd_vel` 体轴指令；QT quaternion 转换 (`velocity_controller.py:66-131`)。
+- `multicopter_velocity_control_adapter.py`：速度/角速度 → `/X3/cmd_vel` 体轴指令，负责世界系→机体系转换及限幅 (`multicopter_velocity_control_adapter.py:33-159`)。
 
 仿真时，通过 Gazebo `multicopter_velocity_control` 接口执行；真实场景由 PX4 接手。
 
@@ -115,7 +115,7 @@ graph TD
     Projector -->|/person_detections/world_frame| NMPC[nmpc_tracker_node]
     NMPC -->|/drone/control/waypoint_command| WP[waypoint_controller]
     NMPC -->|/drone/control/attitude_command| AT[attitude_controller]
-    WP -->|/drone/control/velocity_setpoint| Vel[velocity_controller]
+    WP -->|/drone/control/velocity_setpoint| Vel[MulticopterVelocityControl adapter]
     Vel -->|/X3/cmd_vel| Gazebo
     NMPC -->|/nmpc/person_estimate| Viz[visualization_node]
     Gazebo -->|TF & poses| TFpub[tf_from_uav_pose]
@@ -233,4 +233,3 @@ graph LR
 - 请在需要图形的页面使用图形或示意图（Mermaid 节点图可转化为流程示意）
 - 色彩搭配建议：深蓝/灰白科技风，重点信息使用高亮（橙色或绿色）
 ```
-

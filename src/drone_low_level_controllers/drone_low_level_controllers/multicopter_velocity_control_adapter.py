@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Velocity command mux for Gazebo MulticopterVelocityControl plugin."""
+"""Gazebo MulticopterVelocityControl plugin adapter."""
 
 import logging
 from logging.handlers import RotatingFileHandler
@@ -26,11 +26,11 @@ def _init_file_logger(name: str) -> logging.Logger:
     return logger
 
 
-class VelocityController(Node):
-    """Pass-through velocity/attitude mixer for Gazebo cmd_vel."""
+class MulticopterVelocityControlAdapter(Node):
+    """Pass-through adapter that remaps ROS2 setpoints to Gazebo cmd_vel."""
 
     def __init__(self) -> None:
-        super().__init__('velocity_controller')
+        super().__init__('multicopter_velocity_control_adapter')
 
         # Parameters
         self.declare_parameter('control_frequency', 50.0)
@@ -79,14 +79,14 @@ class VelocityController(Node):
         self.rotation_world_from_body = None  # 3x3 matrix
         self.controller_active = False
 
-        self.file_logger = _init_file_logger('velocity_controller')
+        self.file_logger = _init_file_logger('multicopter_velocity_control_adapter')
 
         self.control_timer = self.create_timer(
             1.0 / self.control_frequency,
             self.control_loop,
         )
 
-        self.get_logger().info('Velocity mux initialised (pass-through mode)')
+        self.get_logger().info('Gazebo MulticopterVelocityControl adapter initialised')
 
     # ------------------------------------------------------------------
     def velocity_setpoint_callback(self, msg: TwistStamped) -> None:
@@ -117,10 +117,10 @@ class VelocityController(Node):
     def enable_callback(self, msg: Bool) -> None:
         self.controller_active = bool(msg.data)
         if self.controller_active:
-            self.get_logger().info('Velocity mux ENABLED')
+            self.get_logger().info('MulticopterVelocityControl adapter ENABLED')
             self.file_logger.info('mux_enabled')
         else:
-            self.get_logger().info('Velocity mux DISABLED -> zero cmd_vel')
+            self.get_logger().info('MulticopterVelocityControl adapter DISABLED -> zero cmd_vel')
             self.file_logger.info('mux_disabled_zero')
             self.desired_linear_world = np.zeros(3)
             self.desired_angular_body = np.zeros(3)
@@ -189,7 +189,7 @@ class VelocityController(Node):
 
 def main(args=None) -> None:
     rclpy.init(args=args)
-    node = VelocityController()
+    node = MulticopterVelocityControlAdapter()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

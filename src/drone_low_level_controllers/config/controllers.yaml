@@ -9,12 +9,12 @@ waypoint_controller:
     waypoint_timeout: 1.5         # seconds before fail-safe hover engages
 
     # PID gains for position control (optimized for stable tracking)
-    kp_xy: 1.45
-    ki_xy: 0.03
-    kd_xy: 1.05
-    kp_z: 0.90
-    ki_z: 0.03
-    kd_z: 2.40
+    kp_xy: 1.20
+    ki_xy: 0.02
+    kd_xy: 1.30
+    kp_z: 0.75
+    ki_z: 0.02
+    kd_z: 3.00
 
     # Velocity limits - increased for faster tracking response
     max_velocity_xy: 8.5
@@ -27,21 +27,21 @@ attitude_controller:
     attitude_tolerance: 0.035     # radians (约2.0°容差)
 
     # PID gains for attitude control (optimized for stable tracking)
-    kp_roll: 1.35
-    ki_roll: 0.03
-    kd_roll: 1.05
-    kp_pitch: 1.35
-    ki_pitch: 0.03
-    kd_pitch: 1.05
-    kp_yaw: 1.2
-    ki_yaw: 0.025
-    kd_yaw: 0.75
+    kp_roll: 1.10
+    ki_roll: 0.02
+    kd_roll: 1.40
+    kp_pitch: 1.10
+    ki_pitch: 0.02
+    kd_pitch: 1.40
+    kp_yaw: 1.70
+    ki_yaw: 0.03
+    kd_yaw: 0.90
 
     # Angular velocity limits
     max_angular_velocity_roll: 3.0
     max_angular_velocity_pitch: 3.0
     max_angular_velocity_yaw: 2.3
-velocity_controller:
+multicopter_velocity_control_adapter:
   ros__parameters:
     control_frequency: 140.0
     max_linear_velocity_xy: 8.5

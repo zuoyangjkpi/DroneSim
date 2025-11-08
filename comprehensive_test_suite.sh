@@ -578,17 +578,17 @@ full_integration_test() {
         return 1
     fi
 
-    print_status $YELLOW "Step 11/12: Starting velocity controller..."
-    ros2 run drone_low_level_controllers velocity_controller.py \
+    print_status $YELLOW "Step 11/12: Starting MulticopterVelocityControl adapter..."
+    ros2 run drone_low_level_controllers multicopter_velocity_control_adapter.py \
         --ros-args --params-file "$controller_params" \
-        > /tmp/velocity_controller.log 2>&1 &
-    local velocity_pid=$!
+        > /tmp/multicopter_velocity_control_adapter.log 2>&1 &
+    local mc_adapter_pid=$!
     sleep 2
 
-    if check_process "velocity_controller.py"; then
-        print_status $GREEN "✅ Velocity controller started successfully"
+    if check_process "multicopter_velocity_control_adapter.py"; then
+        print_status $GREEN "✅ MulticopterVelocityControl adapter started successfully"
     else
-        print_status $RED "❌ Velocity controller failed to start"
+        print_status $RED "❌ MulticopterVelocityControl adapter failed to start"
         return 1
     fi
 
@@ -1010,7 +1010,7 @@ kill_all_processes() {
     pkill -f "tf_from_uav_pose_node" 2>/dev/null
     pkill -f "pose_cov_ops_interface_node" 2>/dev/null
     pkill -f "drone_state_publisher_node" 2>/dev/null
-    pkill -f "velocity_controller.py" 2>/dev/null
+    pkill -f "multicopter_velocity_control_adapter.py" 2>/dev/null
     pkill -f "waypoint_controller.py" 2>/dev/null
     pkill -f "attitude_controller.py" 2>/dev/null
     

@@ -8,7 +8,7 @@ find_package(ament_cmake REQUIRED)
 install(PROGRAMS
   drone_low_level_controllers/waypoint_controller.py
   drone_low_level_controllers/attitude_controller.py
-  drone_low_level_controllers/velocity_controller.py
+  drone_low_level_controllers/multicopter_velocity_control_adapter.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
