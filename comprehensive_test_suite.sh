@@ -119,21 +119,13 @@ wait_for_service() {
 # Main menu function
 show_menu() {
     echo ""
-    print_status $BLUE "📋 Test Options:"
-    echo "1) 🔍 System Status Check"
-    echo "2) 🎮 Launch Gazebo Simulation"
-    echo "3) 🧠 Test YOLO Detector (Fixed Topics)"
-    echo "4) 📡 Monitor All Topics"
-    echo "5) 🎯 Full Integration Test (Fixed System)"
-    echo "6) 🚁 NMPC Person Tracking Test"
-    echo "7) 🎮 NMPC + Gazebo Visual Tracking"
-    echo "8) 🧹 Kill All ROS Processes"
-    echo "9) 🔧 Rebuild Project"
-    echo "10) 📊 Performance Monitor"
-    echo "11) 🔧 System Diagnostics and Testing"
-    echo "0) 🚪 Exit"
+    print_status $BLUE "📋 测试选项:"
+    echo "1) 🤖 自动测试（完整链路）"
+    echo "2) 🧪 手动测试（占位）"
+    echo "3) 🧹 终止所有 ROS 进程"
+    echo "0) 🚪 退出"
     echo ""
-    read -p "Enter your choice (0-11): " choice
+    read -p "请选择 (0-3): " choice
 }
 
 # System status check
@@ -1038,6 +1030,11 @@ kill_all_processes() {
     print_status $GREEN "🧹 Cleanup complete"
 }
 
+manual_test() {
+    print_status $BLUE "🧪 手动测试占位"
+    echo "该选项预留给自定义调试流程，目前请根据需要自行启动相关节点。"
+}
+
 # Rebuild project
 rebuild_project() {
     print_status $BLUE "🔧 Rebuilding Project"
@@ -1112,17 +1109,15 @@ main() {
         show_menu
         
         case $choice in
-            1) system_status_check ;;
-            2) launch_gazebo ;;
-            3) test_yolo_detector ;;
-            4) monitor_topics ;;
-            5) full_integration_test ;;
-            6) nmpc_person_tracking_test ;;
-            7) nmpc_gazebo_visual_tracking ;;
-            8) kill_all_processes ;;
-            9) rebuild_project ;;
-            10) performance_monitor ;;
-            11) system_diagnostics_test ;;
+            1)
+                full_integration_test
+                ;;
+            2)
+                manual_test
+                ;;
+            3)
+                kill_all_processes
+                ;;
             0) 
                 print_status $GREEN "👋 Goodbye!"
                 exit 0
