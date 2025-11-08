@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Callable, Dict, Optional, Any, List
 
+import math
 import numpy as np
 from builtin_interfaces.msg import Time as TimeMsg
 from geometry_msgs.msg import PoseStamped, Vector3Stamped
@@ -176,12 +177,15 @@ class ActionContext:
         pitch: float,
         yaw: float,
     ) -> None:
+        roll = float(math.atan2(math.sin(roll), math.cos(roll)))
+        pitch = float(math.atan2(math.sin(pitch), math.cos(pitch)))
+        yaw = float(math.atan2(math.sin(yaw), math.cos(yaw)))
         msg = Vector3Stamped()
         msg.header.stamp = self.node.get_clock().now().to_msg()
         msg.header.frame_id = "world"
-        msg.vector.x = float(roll)
-        msg.vector.y = float(pitch)
-        msg.vector.z = float(yaw)
+        msg.vector.x = roll
+        msg.vector.y = pitch
+        msg.vector.z = yaw
         self._attitude_pub.publish(msg)
         self._last_yaw_cmd = yaw
 
@@ -279,4 +283,3 @@ class ActionModule:
         self.stop_timers()
         self._active = False
         self._goal = None
-
