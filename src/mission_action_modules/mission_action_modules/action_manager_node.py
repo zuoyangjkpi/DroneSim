@@ -37,18 +37,18 @@ class ActionManagerNode(Node):
 
     def __init__(self) -> None:
         super().__init__("mission_action_manager")
-        self.context = ActionContext(self)
+        self._context = ActionContext(self)
         self.modules = {
-            "takeoff": TakeoffModule(self.context),
-            "hover": HoverModule(self.context),
-            "fly_to": FlyToTargetModule(self.context),
-            "track_target": TrackTargetModule(self.context),
-            "search": SearchModule(self.context),
-            "inspect": InspectModule(self.context),
-            "land": LandModule(self.context),
-            "delivery": DeliveryModule(self.context),
-            "search_area": SearchAreaModule(self.context),
-            "avoidance": AvoidanceModule(self.context),
+            "takeoff": TakeoffModule(self._context),
+            "hover": HoverModule(self._context),
+            "fly_to": FlyToTargetModule(self._context),
+            "track_target": TrackTargetModule(self._context),
+            "search": SearchModule(self._context),
+            "inspect": InspectModule(self._context),
+            "land": LandModule(self._context),
+            "delivery": DeliveryModule(self._context),
+            "search_area": SearchAreaModule(self._context),
+            "avoidance": AvoidanceModule(self._context),
         }
         self._active_handles: Dict[str, ActionHandle] = {}
 
@@ -62,6 +62,7 @@ class ActionManagerNode(Node):
         self.create_service(Trigger, "mission_actions/hover", self._srv_hover)
         self.create_service(Trigger, "mission_actions/search", self._srv_search)
         self.create_service(Trigger, "mission_actions/land", self._srv_land)
+        self.create_service(Trigger, "mission_actions/track_target", self._srv_track_target)
 
         self.get_logger().info("Mission action manager ready")
 
@@ -91,12 +92,18 @@ class ActionManagerNode(Node):
         res.success = started
         res.message = "Landing command started" if started else "Landing already running"
         return res
+    
+    def _srv_track_target(self, _req, res):
+        started = self._start_action("track_target", TrackTargetGoal())
+        res.success = started
+        res.message = "TrackTarget command started" if started else "TrackTarget already running"
+        return res
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
     def _odometry_callback(self, msg: Odometry) -> None:
-        self.context.update_odometry(msg)
+        self._context.update_odometry(msg)
 
     def _start_action(self, name: str, goal) -> bool:
         module = self.modules[name]

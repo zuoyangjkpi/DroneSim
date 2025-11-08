@@ -82,6 +82,40 @@ check_topic_rate() {
     fi
 }
 
+wait_for_node() {
+    local node_name=$1
+    local timeout=${2:-10}
+    local count=0
+    print_status $YELLOW "⏳ Waiting for ROS node: $node_name"
+    while [ $count -lt $timeout ]; do
+        if ros2 node list 2>/dev/null | grep -q "$node_name"; then
+            print_status $GREEN "✅ Node $node_name is active"
+            return 0
+        fi
+        sleep 1
+        count=$((count + 1))
+    done
+    print_status $RED "❌ Node $node_name not detected within timeout"
+    return 1
+}
+
+wait_for_service() {
+    local service_name=$1
+    local timeout=${2:-10}
+    local count=0
+    print_status $YELLOW "⏳ Waiting for ROS service: $service_name"
+    while [ $count -lt $timeout ]; do
+        if ros2 service list 2>/dev/null | grep -q "$service_name"; then
+            print_status $GREEN "✅ Service $service_name is available"
+            return 0
+        fi
+        sleep 1
+        count=$((count + 1))
+    done
+    print_status $RED "❌ Service $service_name not available within timeout"
+    return 1
+}
+
 # Main menu function
 show_menu() {
     echo ""
@@ -364,7 +398,7 @@ full_integration_test() {
     print_status $YELLOW "   9. pose_cov_ops_interface node"
     print_status $YELLOW "   10. NMPC tracker (tracking real Gazebo walking_person)"
     print_status $YELLOW "   11. Low-level controllers (waypoint, attitude, velocity)"
-    print_status $YELLOW "   12. Enable tracking"
+    print_status $YELLOW "   12. Mission action manager + TrackTarget module"
     
     # Clean up existing processes
     print_status $YELLOW "🧹 Cleaning up existing processes..."
@@ -565,20 +599,34 @@ full_integration_test() {
         print_status $RED "❌ Velocity controller failed to start"
         return 1
     fi
+
+    # Step 11b: Start mission action manager
+    print_status $YELLOW "Step 11/12: Starting mission action manager..."
+    ros2 run mission_action_modules action_manager > /tmp/mission_action_manager.log 2>&1 &
+    local action_manager_pid=$!
+    if ! wait_for_node "/mission_action_manager" 10; then
+        print_status $RED "❌ Mission action manager failed to reach running state"
+        return 1
+    fi
+    if ! wait_for_service "/mission_actions/track_target" 10; then
+        print_status $RED "❌ TrackTarget service not available"
+        return 1
+    fi
     
-    # Step 12: Enable drone and tracking
-    print_status $YELLOW "Step 12/12: Enabling drone control and tracking..."
+    # Step 12: Enable control and trigger tracking via action module
+    print_status $YELLOW "Step 12/12: Enabling drone control and invoking TrackTarget module..."
     
-    # 启用无人机控制
-    print_status $YELLOW "  - 启用无人机控制..."
-    ros2 topic pub -r 1 /X3/enable std_msgs/msg/Bool "data: true" > /dev/null 2>&1 &
-    local enable_drone_pid=$!
+    print_status $YELLOW "  - Publishing enable command to /X3/enable (single message)"
+    ros2 topic pub --once /X3/enable std_msgs/msg/Bool "{data: true}" > /tmp/x3_enable.log 2>&1
     
-    # 启用NMPC跟踪
-    print_status $YELLOW "  - 启用NMPC跟踪..."
-    ros2 topic pub -r 1 /nmpc/enable std_msgs/msg/Bool "data: true" > /dev/null 2>&1 &
-    local enable_nmpc_pid=$!
-    
+    print_status $YELLOW "  - Calling mission_actions/track_target (TrackTargetModule)"
+    if ros2 service call mission_actions/track_target std_srvs/srv/Trigger "{}" > /tmp/track_target_call.log 2>&1; then
+        print_status $GREEN "✅ TrackTargetModule request accepted"
+    else
+        print_status $RED "❌ Failed to start TrackTargetModule"
+        return 1
+    fi
+
     sleep 5
     
     # System status verification
