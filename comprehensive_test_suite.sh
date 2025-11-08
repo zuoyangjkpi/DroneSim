@@ -564,17 +564,17 @@ full_integration_test() {
         return 1
     fi
 
-    print_status $YELLOW "Step 11/12: Starting attitude controller..."
-    ros2 run drone_low_level_controllers attitude_controller.py \
+    print_status $YELLOW "Step 11/12: Starting yaw controller..."
+    ros2 run drone_low_level_controllers yaw_controller.py \
         --ros-args --params-file "$controller_params" \
-        > /tmp/attitude_controller.log 2>&1 &
-    local attitude_pid=$!
+        > /tmp/yaw_controller.log 2>&1 &
+    local yaw_pid=$!
     sleep 2
 
-    if check_process "attitude_controller.py"; then
-        print_status $GREEN "✅ Attitude controller started successfully"
+    if check_process "yaw_controller.py"; then
+        print_status $GREEN "✅ Yaw controller started successfully"
     else
-        print_status $RED "❌ Attitude controller failed to start"
+        print_status $RED "❌ Yaw controller failed to start"
         return 1
     fi
 
@@ -1012,7 +1012,7 @@ kill_all_processes() {
     pkill -f "drone_state_publisher_node" 2>/dev/null
     pkill -f "multicopter_velocity_control_adapter.py" 2>/dev/null
     pkill -f "waypoint_controller.py" 2>/dev/null
-    pkill -f "attitude_controller.py" 2>/dev/null
+    pkill -f "yaw_controller.py" 2>/dev/null
     
     sleep 2
     

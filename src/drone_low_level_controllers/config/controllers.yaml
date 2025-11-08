@@ -20,26 +20,13 @@ waypoint_controller:
     max_velocity_xy: 8.5
     max_velocity_z: 3.8
 
-attitude_controller:
+yaw_controller:
   ros__parameters:
-    # Control parameters
-    control_frequency: 150.0     # Higher frequency for attitude loop
-    attitude_tolerance: 0.035     # radians (约2.0°容差)
-
-    # PID gains for attitude control (optimized for stable tracking)
-    kp_roll: 1.10
-    ki_roll: 0.02
-    kd_roll: 1.40
-    kp_pitch: 1.10
-    ki_pitch: 0.02
-    kd_pitch: 1.40
+    control_frequency: 150.0
+    yaw_tolerance: 0.035
     kp_yaw: 1.70
     ki_yaw: 0.03
     kd_yaw: 0.90
-
-    # Angular velocity limits
-    max_angular_velocity_roll: 3.0
-    max_angular_velocity_pitch: 3.0
     max_angular_velocity_yaw: 2.3
 multicopter_velocity_control_adapter:
   ros__parameters:

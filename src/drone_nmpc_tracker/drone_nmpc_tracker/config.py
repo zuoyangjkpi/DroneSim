@@ -54,12 +54,12 @@ class NMPCConfig:
         # ========== Cost Function Weights ==========
         # Position tracking weights - optimized for aggressive distance maintenance
         self.W_POSITION = np.array([15.0, 15.0, 10.0])  # [x, y, z] - high for fast position tracking
-        self.W_ATTITUDE = np.array([1.0, 1.0, 0.0])    # [roll, pitch, yaw] - yaw handled by downstream controller
+        self.W_ATTITUDE = np.array([0.0, 0.0, 0.0])    # roll/pitch handled by PID; yaw command handled downstream
         self.W_ANGULAR_RATE = np.array([0.0, 0.0, 0.0]) # No angular-rate penalty; handled by low-level controller
 
         # Control effort weights - turn off (delegated to low-level controllers)
         self.W_CONTROL = np.array([0.0, 0.0, 0.0, 0.0])
-        self.W_ATTITUDE_STABILITY = np.array([4.0, 4.0])  # Stabilise roll/pitch changes between steps
+        self.W_ATTITUDE_STABILITY = np.array([0.0, 0.0])  # roll/pitch smoothing handled by PID layer
         self.TARGET_ATTITUDE_SMOOTHING = 0.6              # 0=use raw attitude, 1=keep previous attitude
 
         # Person tracking specific weights - prioritize distance over everything

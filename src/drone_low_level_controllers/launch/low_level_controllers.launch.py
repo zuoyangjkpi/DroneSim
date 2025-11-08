@@ -36,11 +36,11 @@ def generate_launch_description():
         output='screen'
     )
 
-    # Attitude controller node
-    attitude_controller_node = Node(
+    # Yaw controller node
+    yaw_controller_node = Node(
         package='drone_low_level_controllers',
-        executable='attitude_controller.py',
-        name='attitude_controller',
+        executable='yaw_controller.py',
+        name='yaw_controller',
         parameters=[
             config_file,
             {'use_sim_time': LaunchConfiguration('use_sim_time')}
@@ -63,6 +63,6 @@ def generate_launch_description():
     return LaunchDescription([
         use_sim_time_arg,
         waypoint_controller_node,
-        attitude_controller_node,
+        yaw_controller_node,
         multicopter_velocity_control_adapter_node,
     ])

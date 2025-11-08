@@ -54,6 +54,8 @@ class State:
 
 class DroneNMPCController:
     """Nonlinear Model Predictive Controller for drone person tracking"""
+
+    _DISABLED_ATTITUDE_CONTROL_IDX = (1, 2)  # roll / pitch commands handled by low-level PID
     
     def __init__(self):
         self.config = nmpc_config
@@ -399,10 +401,6 @@ class DroneNMPCController:
         pos_error = state.data[self.config.STATE_X:self.config.STATE_Z+1] - self.target_position
         cost += np.sum(self.config.W_POSITION * pos_error**2)
         
-        # Attitude cost (maintain level flight except for yaw)
-        att_error = state.data[self.config.STATE_ROLL:self.config.STATE_YAW]  # 不包括yaw
-        cost += np.sum(self.config.W_ATTITUDE[:2] * att_error**2)
-        
         # Person tracking specific costs
         if self.person_detected:
             # Distance to person cost - with adaptive weight based on error magnitude
@@ -451,11 +449,6 @@ class DroneNMPCController:
         for i in range(len(controls)):
             stage_cost = self.compute_stage_cost(trajectory[i], controls[i], i)
             total_cost += stage_cost
-            if i + 1 < len(trajectory):
-                att_curr = trajectory[i].data[self.config.STATE_ROLL:self.config.STATE_PITCH+1]
-                att_next = trajectory[i + 1].data[self.config.STATE_ROLL:self.config.STATE_PITCH+1]
-                delta_att = att_next - att_curr
-                total_cost += np.sum(self.config.W_ATTITUDE_STABILITY * delta_att**2)
         
         return total_cost
     
@@ -472,6 +465,8 @@ class DroneNMPCController:
             control_grad = np.zeros_like(controls[i])
             
             for j in range(len(controls[i])):
+                if j in self._DISABLED_ATTITUDE_CONTROL_IDX:
+                    continue
                 # Perturb control
                 perturbed_controls = [ctrl.copy() for ctrl in controls]
                 perturbed_controls[i][j] += self.regularization
@@ -502,8 +497,10 @@ class DroneNMPCController:
             # Update controls
             for i in range(len(controls)):
                 controls[i] -= self.alpha * gradient[i]
-                # Clip to constraints
                 controls[i] = self.config.clip_control(controls[i])
+                # Roll / pitch commands are owned by low-level PID, keep them zero
+                controls[i][1] = 0.0
+                controls[i][2] = 0.0
             
             # Check for convergence
             grad_norm = np.linalg.norm(np.concatenate(gradient))
@@ -515,6 +512,8 @@ class DroneNMPCController:
         
         # Extract first control input as optimal control
         optimal_control = controls[0] if controls else self.config.get_hover_control()
+        optimal_control[1] = 0.0
+        optimal_control[2] = 0.0
         
         # Predict trajectory for visualization
         trajectory = self.predict_trajectory(self.current_state, controls)
@@ -533,13 +532,11 @@ class DroneNMPCController:
 
         # Extract desired attitude from predicted trajectory
         if len(trajectory) > 1:
-            desired_attitude = trajectory[1].data[self.config.STATE_ROLL:self.config.STATE_YAW+1].copy()
+            yaw_reference = trajectory[1].data[self.config.STATE_YAW]
         else:
-            desired_attitude = trajectory[0].data[self.config.STATE_ROLL:self.config.STATE_YAW+1].copy()
-        desired_attitude[2] = self._wrap_angle(desired_attitude[2])
-        smoothing = float(np.clip(self.config.TARGET_ATTITUDE_SMOOTHING, 0.0, 1.0))
-        if self._last_target_attitude is not None:
-            desired_attitude[:2] = smoothing * self._last_target_attitude[:2] + (1.0 - smoothing) * desired_attitude[:2]
+            yaw_reference = trajectory[0].data[self.config.STATE_YAW]
+        desired_attitude = np.zeros(3)
+        desired_attitude[2] = self._wrap_angle(yaw_reference)
         self.target_attitude = desired_attitude
         self._last_target_attitude = desired_attitude.copy()
         

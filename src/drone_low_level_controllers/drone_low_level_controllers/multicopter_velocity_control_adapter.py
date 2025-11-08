@@ -4,7 +4,6 @@
 import logging
 from logging.handlers import RotatingFileHandler
 
-import math
 import numpy as np
 import rclpy
 from geometry_msgs.msg import Twist, TwistStamped, Vector3Stamped
@@ -75,7 +74,7 @@ class MulticopterVelocityControlAdapter(Node):
 
         # State
         self.desired_linear_world = np.zeros(3)
-        self.desired_angular_body = np.zeros(3)
+        self.desired_yaw_rate = 0.0
         self.rotation_world_from_body = None  # 3x3 matrix
         self.controller_active = False
 
@@ -97,11 +96,7 @@ class MulticopterVelocityControlAdapter(Node):
         ])
 
     def angular_velocity_setpoint_callback(self, msg: Vector3Stamped) -> None:
-        self.desired_angular_body = np.array([
-            msg.vector.x,
-            msg.vector.y,
-            msg.vector.z,
-        ])
+        self.desired_yaw_rate = float(msg.vector.z)
 
     def odometry_callback(self, msg: Odometry) -> None:
         quat = (
@@ -123,7 +118,7 @@ class MulticopterVelocityControlAdapter(Node):
             self.get_logger().info('MulticopterVelocityControl adapter DISABLED -> zero cmd_vel')
             self.file_logger.info('mux_disabled_zero')
             self.desired_linear_world = np.zeros(3)
-            self.desired_angular_body = np.zeros(3)
+            self.desired_yaw_rate = 0.0
             self._publish_cmd()
 
     # ------------------------------------------------------------------
@@ -140,9 +135,9 @@ class MulticopterVelocityControlAdapter(Node):
         cmd.linear.y = float(v_body[1])
         cmd.linear.z = float(v_body[2])
 
-        cmd.angular.x = float(self.desired_angular_body[0])
-        cmd.angular.y = float(self.desired_angular_body[1])
-        cmd.angular.z = float(self.desired_angular_body[2])
+        cmd.angular.x = 0.0
+        cmd.angular.y = 0.0
+        cmd.angular.z = float(self.desired_yaw_rate)
 
         # Apply limits
         xy_norm = np.linalg.norm([cmd.linear.x, cmd.linear.y])
@@ -152,8 +147,6 @@ class MulticopterVelocityControlAdapter(Node):
             cmd.linear.y *= scale
 
         cmd.linear.z = float(np.clip(cmd.linear.z, -self.max_linear_velocity_z, self.max_linear_velocity_z))
-        cmd.angular.x = float(np.clip(cmd.angular.x, -self.max_angular_velocity_xy, self.max_angular_velocity_xy))
-        cmd.angular.y = float(np.clip(cmd.angular.y, -self.max_angular_velocity_xy, self.max_angular_velocity_xy))
         cmd.angular.z = float(np.clip(cmd.angular.z, -self.max_angular_velocity_z, self.max_angular_velocity_z))
 
         self.cmd_vel_pub.publish(cmd)

@@ -20,7 +20,7 @@ NMPC跟踪系统
 │   └── 成本函数计算器 (评估控制质量)
 └── 执行层
     ├── 低级位置控制器 (waypoint_controller.py)
-    ├── 低级姿态控制器 (attitude_controller.py)
+    ├── 低级偏航控制器 (yaw_controller.py)
     └── Gazebo MulticopterVelocityControl 适配器 (multicopter_velocity_control_adapter.py)
 ```
 
