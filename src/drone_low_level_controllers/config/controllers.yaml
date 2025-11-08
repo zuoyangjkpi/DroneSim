@@ -12,9 +12,9 @@ waypoint_controller:
     kp_xy: 1.45
     ki_xy: 0.03
     kd_xy: 1.05
-    kp_z: 1.25
-    ki_z: 0.05
-    kd_z: 1.0
+    kp_z: 0.90
+    ki_z: 0.03
+    kd_z: 2.40
 
     # Velocity limits - increased for faster tracking response
     max_velocity_xy: 8.5

@@ -7,21 +7,21 @@
       <pose frame=''>0 0 0 0 -0 0</pose>
       <inertial>
         <pose frame=''>0 0 0 0 -0 0</pose>
-        <mass>1.5</mass>
+        <mass>4.6</mass>
         <inertia>
-          <ixx>0.0347563</ixx>
+          <ixx>0.423</ixx>
           <ixy>0</ixy>
           <ixz>0</ixz>
-          <iyy>0.07</iyy>
+          <iyy>0.423</iyy>
           <iyz>0</iyz>
-          <izz>0.0977</izz>
+          <izz>0.828</izz>
         </inertia>
       </inertial>
       <collision name='X3/base_link_inertia_collision'>
         <pose frame=''>0 0 0 0 -0 0</pose>
         <geometry>
           <box>
-            <size>0.47 0.47 0.11</size>
+            <size>1.2 1.2 0.15</size>
           </box>
         </geometry>
       </collision>
@@ -33,6 +33,104 @@
             <uri>model://x3/meshes/x3.dae</uri>
           </mesh>
         </geometry>
+      </visual>
+
+      <!-- Octocopter carbon arms for visual reference -->
+      <visual name='arm_0'>
+        <pose>0.3 0.0 0 0 1.5708 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.6</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <diffuse>0.1 0.1 0.1 1</diffuse>
+        </material>
+      </visual>
+      <visual name='arm_1'>
+        <pose>0.2121 0.2121 0 0 1.5708 0.7854</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.6</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <diffuse>0.1 0.1 0.1 1</diffuse>
+        </material>
+      </visual>
+      <visual name='arm_2'>
+        <pose>0.0 0.3 0 0 1.5708 1.5708</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.6</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <diffuse>0.1 0.1 0.1 1</diffuse>
+        </material>
+      </visual>
+      <visual name='arm_3'>
+        <pose>-0.2121 0.2121 0 0 1.5708 2.35619</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.6</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <diffuse>0.1 0.1 0.1 1</diffuse>
+        </material>
+      </visual>
+      <visual name='arm_4'>
+        <pose>-0.3 0.0 0 0 1.5708 3.14159</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.6</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <diffuse>0.1 0.1 0.1 1</diffuse>
+        </material>
+      </visual>
+      <visual name='arm_5'>
+        <pose>-0.2121 -0.2121 0 0 1.5708 -2.35619</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.6</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <diffuse>0.1 0.1 0.1 1</diffuse>
+        </material>
+      </visual>
+      <visual name='arm_6'>
+        <pose>0.0 -0.3 0 0 1.5708 -1.5708</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.6</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <diffuse>0.1 0.1 0.1 1</diffuse>
+        </material>
+      </visual>
+      <visual name='arm_7'>
+        <pose>0.2121 -0.2121 0 0 1.5708 -0.7854</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.6</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <diffuse>0.1 0.1 0.1 1</diffuse>
+        </material>
       </visual>
 
      
@@ -130,42 +228,36 @@
       <pose>0 0 0 -1.5708 0 -1.5708</pose>
     </joint>
 
+    <!-- Octocopter rotor layout (radius 1.2 m) -->
+    <!-- rotor_index, pose(x y z), propeller direction alternates CCW/CW -->
     <link name='X3/rotor_0'>
-      <pose frame=''>0.13 -0.22 0.023 0 -0 0</pose>
+      <pose frame=''>0.6 0.0 0.03 0 -0 0</pose>
       <inertial>
         <pose frame=''>0 0 0 0 -0 0</pose>
-        <mass>0.005</mass>
+        <mass>0.05</mass>
         <inertia>
-          <ixx>9.75e-07</ixx>
+          <ixx>9.75e-06</ixx>
           <ixy>0</ixy>
           <ixz>0</ixz>
-          <iyy>4.17041e-05</iyy>
+          <iyy>4.17041e-04</iyy>
           <iyz>0</iyz>
-          <izz>4.26041e-05</izz>
+          <izz>4.26041e-04</izz>
         </inertia>
       </inertial>
       <collision name='X3/rotor_0_collision'>
         <pose frame=''>0 0 0 0 -0 0</pose>
         <geometry>
           <cylinder>
-            <length>0.005</length>
-            <radius>0.1</radius>
+            <length>0.01</length>
+            <radius>0.12</radius>
           </cylinder>
         </geometry>
-        <surface>
-          <contact>
-            <ode/>
-          </contact>
-          <friction>
-            <ode/>
-          </friction>
-        </surface>
       </collision>
       <visual name='X3/rotor_0_visual'>
         <pose frame=''>0 0 0 0 -0 0</pose>
         <geometry>
           <mesh>
-            <scale>0.1 0.1 0.1</scale>
+            <scale>0.12 0.12 0.12</scale>
             <uri>model://x3/meshes/propeller_ccw.dae</uri>
           </mesh>
         </geometry>
@@ -176,8 +268,6 @@
           </script>
         </material>
       </visual>
-      <gravity>1</gravity>
-      <velocity_decay/>
     </link>
     <joint name='X3/rotor_0_joint' type='revolute'>
       <child>X3/rotor_0</child>
@@ -188,50 +278,39 @@
           <lower>-1e+16</lower>
           <upper>1e+16</upper>
         </limit>
-        <dynamics>
-          <spring_reference>0</spring_reference>
-          <spring_stiffness>0</spring_stiffness>
-        </dynamics>
         <use_parent_model_frame>1</use_parent_model_frame>
       </axis>
     </joint>
+
     <link name='X3/rotor_1'>
-      <pose frame=''>-0.13 0.2 0.023 0 -0 0</pose>
+      <pose frame=''>0.4243 0.4243 0.03 0 -0 0</pose>
       <inertial>
         <pose frame=''>0 0 0 0 -0 0</pose>
-        <mass>0.005</mass>
+        <mass>0.05</mass>
         <inertia>
-          <ixx>9.75e-07</ixx>
+          <ixx>9.75e-06</ixx>
           <ixy>0</ixy>
           <ixz>0</ixz>
-          <iyy>4.17041e-05</iyy>
+          <iyy>4.17041e-04</iyy>
           <iyz>0</iyz>
-          <izz>4.26041e-05</izz>
+          <izz>4.26041e-04</izz>
         </inertia>
       </inertial>
       <collision name='X3/rotor_1_collision'>
         <pose frame=''>0 0 0 0 -0 0</pose>
         <geometry>
           <cylinder>
-            <length>0.005</length>
-            <radius>0.1</radius>
+            <length>0.01</length>
+            <radius>0.12</radius>
           </cylinder>
         </geometry>
-        <surface>
-          <contact>
-            <ode/>
-          </contact>
-          <friction>
-            <ode/>
-          </friction>
-        </surface>
       </collision>
       <visual name='X3/rotor_1_visual'>
         <pose frame=''>0 0 0 0 -0 0</pose>
         <geometry>
           <mesh>
-            <scale>0.1 0.1 0.1</scale>
-            <uri>model://x3/meshes/propeller_ccw.dae</uri>
+            <scale>0.12 0.12 0.12</scale>
+            <uri>model://x3/meshes/propeller_cw.dae</uri>
           </mesh>
         </geometry>
         <material>
@@ -241,8 +320,6 @@
           </script>
         </material>
       </visual>
-      <gravity>1</gravity>
-      <velocity_decay/>
     </link>
     <joint name='X3/rotor_1_joint' type='revolute'>
       <child>X3/rotor_1</child>
@@ -253,50 +330,39 @@
           <lower>-1e+16</lower>
           <upper>1e+16</upper>
         </limit>
-        <dynamics>
-          <spring_reference>0</spring_reference>
-          <spring_stiffness>0</spring_stiffness>
-        </dynamics>
         <use_parent_model_frame>1</use_parent_model_frame>
       </axis>
     </joint>
+
     <link name='X3/rotor_2'>
-      <pose frame=''>0.13 0.22 0.023 0 -0 0</pose>
+      <pose frame=''>0.0 0.6 0.03 0 -0 0</pose>
       <inertial>
         <pose frame=''>0 0 0 0 -0 0</pose>
-        <mass>0.005</mass>
+        <mass>0.05</mass>
         <inertia>
-          <ixx>9.75e-07</ixx>
+          <ixx>9.75e-06</ixx>
           <ixy>0</ixy>
           <ixz>0</ixz>
-          <iyy>4.17041e-05</iyy>
+          <iyy>4.17041e-04</iyy>
           <iyz>0</iyz>
-          <izz>4.26041e-05</izz>
+          <izz>4.26041e-04</izz>
         </inertia>
       </inertial>
       <collision name='X3/rotor_2_collision'>
         <pose frame=''>0 0 0 0 -0 0</pose>
         <geometry>
           <cylinder>
-            <length>0.005</length>
-            <radius>0.1</radius>
+            <length>0.01</length>
+            <radius>0.12</radius>
           </cylinder>
         </geometry>
-        <surface>
-          <contact>
-            <ode/>
-          </contact>
-          <friction>
-            <ode/>
-          </friction>
-        </surface>
       </collision>
       <visual name='X3/rotor_2_visual'>
         <pose frame=''>0 0 0 0 -0 0</pose>
         <geometry>
           <mesh>
-            <scale>0.1 0.1 0.1</scale>
-            <uri>model://x3/meshes/propeller_cw.dae</uri>
+            <scale>0.12 0.12 0.12</scale>
+            <uri>model://x3/meshes/propeller_ccw.dae</uri>
           </mesh>
         </geometry>
         <material>
@@ -306,8 +372,6 @@
           </script>
         </material>
       </visual>
-      <gravity>1</gravity>
-      <velocity_decay/>
     </link>
     <joint name='X3/rotor_2_joint' type='revolute'>
       <child>X3/rotor_2</child>
@@ -318,49 +382,38 @@
           <lower>-1e+16</lower>
           <upper>1e+16</upper>
         </limit>
-        <dynamics>
-          <spring_reference>0</spring_reference>
-          <spring_stiffness>0</spring_stiffness>
-        </dynamics>
         <use_parent_model_frame>1</use_parent_model_frame>
       </axis>
     </joint>
+
     <link name='X3/rotor_3'>
-      <pose frame=''>-0.13 -0.2 0.023 0 -0 0</pose>
+      <pose frame=''>-0.4243 0.4243 0.03 0 -0 0</pose>
       <inertial>
         <pose frame=''>0 0 0 0 -0 0</pose>
-        <mass>0.005</mass>
+        <mass>0.05</mass>
         <inertia>
-          <ixx>9.75e-07</ixx>
+          <ixx>9.75e-06</ixx>
           <ixy>0</ixy>
           <ixz>0</ixz>
-          <iyy>4.17041e-05</iyy>
+          <iyy>4.17041e-04</iyy>
           <iyz>0</iyz>
-          <izz>4.26041e-05</izz>
+          <izz>4.26041e-04</izz>
         </inertia>
       </inertial>
       <collision name='X3/rotor_3_collision'>
         <pose frame=''>0 0 0 0 -0 0</pose>
         <geometry>
           <cylinder>
-            <length>0.005</length>
-            <radius>0.1</radius>
+            <length>0.01</length>
+            <radius>0.12</radius>
           </cylinder>
         </geometry>
-        <surface>
-          <contact>
-            <ode/>
-          </contact>
-          <friction>
-            <ode/>
-          </friction>
-        </surface>
       </collision>
       <visual name='X3/rotor_3_visual'>
         <pose frame=''>0 0 0 0 -0 0</pose>
         <geometry>
           <mesh>
-            <scale>0.1 0.1 0.1</scale>
+            <scale>0.12 0.12 0.12</scale>
             <uri>model://x3/meshes/propeller_cw.dae</uri>
           </mesh>
         </geometry>
@@ -371,8 +424,6 @@
           </script>
         </material>
       </visual>
-      <gravity>1</gravity>
-      <velocity_decay/>
     </link>
     <joint name='X3/rotor_3_joint' type='revolute'>
       <child>X3/rotor_3</child>
@@ -383,10 +434,214 @@
           <lower>-1e+16</lower>
           <upper>1e+16</upper>
         </limit>
-        <dynamics>
-          <spring_reference>0</spring_reference>
-          <spring_stiffness>0</spring_stiffness>
-        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
+      </axis>
+    </joint>
+
+    <link name='X3/rotor_4'>
+      <pose frame=''>-0.6 0.0 0.03 0 -0 0</pose>
+      <inertial>
+        <pose frame=''>0 0 0 0 -0 0</pose>
+        <mass>0.05</mass>
+        <inertia>
+          <ixx>9.75e-06</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>4.17041e-04</iyy>
+          <iyz>0</iyz>
+          <izz>4.26041e-04</izz>
+        </inertia>
+      </inertial>
+      <collision name='X3/rotor_4_collision'>
+        <pose frame=''>0 0 0 0 -0 0</pose>
+        <geometry>
+          <cylinder>
+            <length>0.01</length>
+            <radius>0.12</radius>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name='X3/rotor_4_visual'>
+        <pose frame=''>0 0 0 0 -0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>0.12 0.12 0.12</scale>
+            <uri>model://x3/meshes/propeller_ccw.dae</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <script>
+            <name>Gazebo/Blue</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <joint name='X3/rotor_4_joint' type='revolute'>
+      <child>X3/rotor_4</child>
+      <parent>X3/base_link</parent>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e+16</lower>
+          <upper>1e+16</upper>
+        </limit>
+        <use_parent_model_frame>1</use_parent_model_frame>
+      </axis>
+    </joint>
+
+    <link name='X3/rotor_5'>
+      <pose frame=''>-0.4243 -0.4243 0.03 0 -0 0</pose>
+      <inertial>
+        <pose frame=''>0 0 0 0 -0 0</pose>
+        <mass>0.05</mass>
+        <inertia>
+          <ixx>9.75e-06</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>4.17041e-04</iyy>
+          <iyz>0</iyz>
+          <izz>4.26041e-04</izz>
+        </inertia>
+      </inertial>
+      <collision name='X3/rotor_5_collision'>
+        <pose frame=''>0 0 0 0 -0 0</pose>
+        <geometry>
+          <cylinder>
+            <length>0.01</length>
+            <radius>0.12</radius>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name='X3/rotor_5_visual'>
+        <pose frame=''>0 0 0 0 -0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>0.12 0.12 0.12</scale>
+            <uri>model://x3/meshes/propeller_cw.dae</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <script>
+            <name>Gazebo/Red</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <joint name='X3/rotor_5_joint' type='revolute'>
+      <child>X3/rotor_5</child>
+      <parent>X3/base_link</parent>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e+16</lower>
+          <upper>1e+16</upper>
+        </limit>
+        <use_parent_model_frame>1</use_parent_model_frame>
+      </axis>
+    </joint>
+
+    <link name='X3/rotor_6'>
+      <pose frame=''>0.0 -0.6 0.03 0 -0 0</pose>
+      <inertial>
+        <pose frame=''>0 0 0 0 -0 0</pose>
+        <mass>0.05</mass>
+        <inertia>
+          <ixx>9.75e-06</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>4.17041e-04</iyy>
+          <iyz>0</iyz>
+          <izz>4.26041e-04</izz>
+        </inertia>
+      </inertial>
+      <collision name='X3/rotor_6_collision'>
+        <pose frame=''>0 0 0 0 -0 0</pose>
+        <geometry>
+          <cylinder>
+            <length>0.01</length>
+            <radius>0.12</radius>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name='X3/rotor_6_visual'>
+        <pose frame=''>0 0 0 0 -0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>0.12 0.12 0.12</scale>
+            <uri>model://x3/meshes/propeller_ccw.dae</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <script>
+            <name>Gazebo/Blue</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <joint name='X3/rotor_6_joint' type='revolute'>
+      <child>X3/rotor_6</child>
+      <parent>X3/base_link</parent>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e+16</lower>
+          <upper>1e+16</upper>
+        </limit>
+        <use_parent_model_frame>1</use_parent_model_frame>
+      </axis>
+    </joint>
+
+    <link name='X3/rotor_7'>
+      <pose frame=''>0.4243 -0.4243 0.03 0 -0 0</pose>
+      <inertial>
+        <pose frame=''>0 0 0 0 -0 0</pose>
+        <mass>0.05</mass>
+        <inertia>
+          <ixx>9.75e-06</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>4.17041e-04</iyy>
+          <iyz>0</iyz>
+          <izz>4.26041e-04</izz>
+        </inertia>
+      </inertial>
+      <collision name='X3/rotor_7_collision'>
+        <pose frame=''>0 0 0 0 -0 0</pose>
+        <geometry>
+          <cylinder>
+            <length>0.01</length>
+            <radius>0.12</radius>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name='X3/rotor_7_visual'>
+        <pose frame=''>0 0 0 0 -0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>0.12 0.12 0.12</scale>
+            <uri>model://x3/meshes/propeller_cw.dae</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <script>
+            <name>Gazebo/Red</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <joint name='X3/rotor_7_joint' type='revolute'>
+      <child>X3/rotor_7</child>
+      <parent>X3/base_link</parent>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e+16</lower>
+          <upper>1e+16</upper>
+        </limit>
         <use_parent_model_frame>1</use_parent_model_frame>
       </axis>
     </joint>

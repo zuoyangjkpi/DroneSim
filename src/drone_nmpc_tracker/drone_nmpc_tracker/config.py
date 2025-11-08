@@ -22,15 +22,15 @@ class NMPCConfig:
         self.OBSTACLES = 0  # Number of static obstacles
         
         # Drone physical parameters
-        self.DRONE_MASS = 1.5  # kg
+        self.DRONE_MASS = 5.0  # kg (octocopter)
         self.DRONE_MAX_VELOCITY = 3.0  # m/s
         self.DRONE_MAX_ACCELERATION = 2.0  # m/s^2
         self.DRONE_MAX_ANGULAR_VELOCITY = 1.5  # rad/s
-        
+
         # Drone moment of inertia
-        self.DRONE_INERTIA_XX = 0.02  # kg*m^2
-        self.DRONE_INERTIA_YY = 0.02  # kg*m^2
-        self.DRONE_INERTIA_ZZ = 0.04  # kg*m^2
+        self.DRONE_INERTIA_XX = 0.45  # kg*m^2
+        self.DRONE_INERTIA_YY = 0.45  # kg*m^2
+        self.DRONE_INERTIA_ZZ = 0.9   # kg*m^2
         
         # ========== State Vector Definition ==========
         # State: [x, y, z, vx, vy, vz, roll, pitch, yaw, wx, wy, wz]
@@ -85,14 +85,14 @@ class NMPCConfig:
         
         # Control constraints
         self.CONTROL_MIN = np.array([
-            0.0,          # Minimum thrust (hover thrust)
+            0.0,          # Minimum thrust
             -math.pi/6,   # Minimum roll command
             -math.pi/6,   # Minimum pitch command
             -1.0          # Minimum yaw rate command
         ])
-        
+
         self.CONTROL_MAX = np.array([
-            20.0,         # Maximum thrust
+            80.0,         # Maximum thrust (N) for heavier platform
             math.pi/6,    # Maximum roll command
             math.pi/6,    # Maximum pitch command
             1.0           # Maximum yaw rate command
