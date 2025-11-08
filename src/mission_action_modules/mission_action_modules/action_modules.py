@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional, Sequence
 
+import math
 import numpy as np
 
 from std_msgs.msg import Bool, Float64MultiArray
@@ -429,6 +430,7 @@ class SearchModule(ActionModule):
             return
         elapsed = self.context.now() - self._start_time
         yaw_cmd = self._base_yaw + self._yaw_rate * elapsed
+        yaw_cmd = math.atan2(math.sin(yaw_cmd), math.cos(yaw_cmd))  # wrap to [-pi, pi]
         self.context.send_attitude(0.0, 0.0, yaw_cmd)
 
         if self._duration is not None and elapsed >= self._duration:
