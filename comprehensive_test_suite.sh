@@ -389,7 +389,7 @@ full_integration_test() {
     print_status $YELLOW "   8. projection_model node"
     print_status $YELLOW "   9. pose_cov_ops_interface node"
     print_status $YELLOW "   10. NMPC tracker (tracking real Gazebo walking_person)"
-    print_status $YELLOW "   11. Low-level controllers (waypoint, attitude, velocity)"
+    print_status $YELLOW "   11. Low-level controllers (waypoint, yaw, velocity)"
     print_status $YELLOW "   12. Mission action manager + TrackTarget module"
     
     # Clean up existing processes

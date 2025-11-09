@@ -130,7 +130,7 @@ class TakeoffModule(ActionModule):
 
         # Enable controllers
         self.context.enable_waypoint_control(True)
-        self.context.enable_attitude_control(True)
+        self.context.enable_yaw_control(True)
         self.context.enable_velocity_control(True)
 
         self.context.send_waypoint(self._target)
@@ -254,7 +254,7 @@ class FlyToTargetModule(ActionModule):
 
         self.context.enable_waypoint_control(True)
         self.context.enable_velocity_control(True)
-        self.context.enable_attitude_control(True)
+        self.context.enable_yaw_control(True)
 
         self._command_current_waypoint()
         self.create_timer(0.2, self._monitor_progress)
@@ -266,7 +266,7 @@ class FlyToTargetModule(ActionModule):
         if self._yaw_targets:
             yaw = self._yaw_targets[self._current_idx]
             if yaw is not None:
-                self.context.send_attitude(0.0, 0.0, float(yaw))
+                self.context.send_yaw(0.0, 0.0, float(yaw))
 
     def _monitor_progress(self) -> None:
         if not self._waypoints:
@@ -420,7 +420,7 @@ class SearchModule(ActionModule):
             return
 
         self.context.enable_waypoint_control(True)
-        self.context.enable_attitude_control(True)
+        self.context.enable_yaw_control(True)
         self.context.send_waypoint(self._center)
 
         self.create_timer(0.1, self._rotate_step)
@@ -431,7 +431,7 @@ class SearchModule(ActionModule):
         elapsed = self.context.now() - self._start_time
         yaw_cmd = self._base_yaw + self._yaw_rate * elapsed
         yaw_cmd = math.atan2(math.sin(yaw_cmd), math.cos(yaw_cmd))  # wrap to [-pi, pi]
-        self.context.send_attitude(0.0, 0.0, yaw_cmd)
+        self.context.send_yaw(0.0, 0.0, yaw_cmd)
 
         if self._duration is not None and elapsed >= self._duration:
             self.succeed(f"Search completed after {elapsed:.1f}s")
@@ -474,7 +474,7 @@ class InspectModule(ActionModule):
         self._start_time = self.context.now()
 
         self.context.enable_waypoint_control(True)
-        self.context.enable_attitude_control(True)
+        self.context.enable_yaw_control(True)
         self.context.send_waypoint(self._hold_position)
 
         self.create_timer(0.1, self._inspect_step)
@@ -496,7 +496,7 @@ class InspectModule(ActionModule):
         else:
             desired_yaw = current_yaw
 
-        self.context.send_attitude(0.0, 0.0, desired_yaw)
+        self.context.send_yaw(0.0, 0.0, desired_yaw)
 
         elapsed = self.context.now() - self._start_time
         if elapsed >= self._timeout:

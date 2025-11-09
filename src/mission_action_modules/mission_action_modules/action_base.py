@@ -90,10 +90,10 @@ class ActionContext:
         self._waypoint_enable_pub = node.create_publisher(
             Bool, "/drone/control/waypoint_enable", 10
         )
-        self._attitude_pub = node.create_publisher(
+        self._yaw_pub = node.create_publisher(
             Vector3Stamped, "/drone/control/attitude_command", 10
         )
-        self._attitude_enable_pub = node.create_publisher(
+        self._yaw_enable_pub = node.create_publisher(
             Bool, "/drone/control/attitude_enable", 10
         )
         self._velocity_enable_pub = node.create_publisher(
@@ -144,10 +144,10 @@ class ActionContext:
         msg.data = bool(enabled)
         self._waypoint_enable_pub.publish(msg)
 
-    def enable_attitude_control(self, enabled: bool) -> None:
+    def enable_yaw_control(self, enabled: bool) -> None:
         msg = Bool()
         msg.data = bool(enabled)
-        self._attitude_enable_pub.publish(msg)
+        self._yaw_enable_pub.publish(msg)
 
     def enable_velocity_control(self, enabled: bool) -> None:
         msg = Bool()
@@ -171,7 +171,7 @@ class ActionContext:
         self._waypoint_pub.publish(pose)
         self._last_waypoint = position.copy()
 
-    def send_attitude(
+    def send_yaw(
         self,
         roll: float,
         pitch: float,
@@ -186,7 +186,7 @@ class ActionContext:
         msg.vector.x = roll
         msg.vector.y = pitch
         msg.vector.z = yaw
-        self._attitude_pub.publish(msg)
+        self._yaw_pub.publish(msg)
         self._last_yaw_cmd = yaw
 
     # ------------------------------------------------------------------

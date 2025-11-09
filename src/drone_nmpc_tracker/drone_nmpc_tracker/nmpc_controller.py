@@ -182,18 +182,9 @@ class DroneNMPCController:
         # Calculate current distance to person
         current_distance = np.linalg.norm(relative_pos)
 
-        if not self._phase_initialized:
-            # Initialize phase to current position (no unnecessary movement)
-            self._desired_phase = current_phase
-            self._phase_initialized = True
-        elif allow_phase_change:
-            # Slow clockwise rotation using configured angular velocity
-            angular_speed = min(
-                self.config.MAX_TRACKING_ANGULAR_VELOCITY,
-                self.config.BASE_TRACKING_ANGULAR_VELOCITY,
-            )
-            # Clockwise means decreasing phase angle
-            self._desired_phase = self._wrap_angle(self._desired_phase - angular_speed * dt)
+        # Always align desired phase with current relative bearing
+        self._desired_phase = current_phase
+        self._phase_initialized = True
 
         # Adaptive radius based on current distance
         # When person is too close (< MIN), allow drone to move outward beyond optimal
@@ -426,6 +417,13 @@ class DroneNMPCController:
                 adaptive_weight = base_weight
 
             cost += adaptive_weight * distance_error**2
+
+            # Yaw alignment: penalise deviation between predicted yaw and desired yaw
+            desired_yaw = getattr(self, '_desired_yaw', None)
+            if desired_yaw is not None:
+                yaw = state.data[self.config.STATE_YAW]
+                yaw_error = self._wrap_angle(yaw - desired_yaw)
+                cost += self.config.W_YAW_ALIGNMENT * yaw_error * yaw_error
 
             # Smooth tracking cost - penalize large changes in target position
             # But reduce weight when distance error is large (prioritize catching up)

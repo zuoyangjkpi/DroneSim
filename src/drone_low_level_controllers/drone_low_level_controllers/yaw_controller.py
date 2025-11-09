@@ -102,6 +102,7 @@ class YawController(Node):
         yaw_cmd = float(msg.vector.z)
         if not math.isfinite(yaw_cmd):
             return
+        yaw_cmd = self._wrap_angle(yaw_cmd)
         if self.target_yaw is None:
             self.target_yaw = yaw_cmd
         else:
@@ -134,7 +135,11 @@ class YawController(Node):
             dt = max(1e-3, (now - self.last_control_time).nanoseconds / 1e9)
         self.last_control_time = now
 
-        yaw_error = self._wrap_angle(self.target_yaw - self.current_yaw)
+        delta = self.target_yaw - self.current_yaw
+        if abs(delta) <= math.pi:
+            yaw_error = delta
+        else:
+            yaw_error = self.target_yaw + self.current_yaw
 
         # Integral with clamp
         self.yaw_integral = float(np.clip(self.yaw_integral + yaw_error * dt, -1.5, 1.5))

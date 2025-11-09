@@ -53,15 +53,16 @@ class NMPCConfig:
         
         # ========== Cost Function Weights ==========
         # Position / dynamics tracking weights
-        self.W_POSITION = np.array([15.0, 15.0, 10.0])  # [x, y, z]
+        self.W_POSITION = np.array([15.0, 15.0, 50.0])  # [x, y, z]
         self.W_VELOCITY = np.array([1.2, 1.2, 0.8])     # penalise high velocities (SOFT)
         self.W_ACCELERATION = np.array([1.8, 1.8, 1.2]) # penalise aggressive accelerations (HARD)
         self.W_CAMERA_TILT = 6.0                        # penalise roll/pitch induced by accel
-        self.TARGET_ATTITUDE_SMOOTHING = 0.6            # 0=use raw attitude, 1=keep previous attitude
+        self.TARGET_ATTITUDE_SMOOTHING = 0.2            # 0=use raw attitude, 1=keep previous attitude
 
         # Person tracking specific weights - prioritize distance over everything
         self.W_TRACKING_DISTANCE = 30.0  # Weight for maintaining optimal tracking distance - VERY HIGH priority
         self.W_SMOOTH_TRACKING = 0.8     # Slightly lower smoothing penalty to react quicker
+        self.W_YAW_ALIGNMENT = 20.0       # Force drone to face the target
         
         # ========== Constraints ==========
         # State constraints
@@ -101,9 +102,6 @@ class NMPCConfig:
         self.MAX_TRACKING_DISTANCE = 4.5     # Extended max distance due to better visibility with tilt
         self.TRACKING_HEIGHT_OFFSET = 1.5     # Increased height offset for better downward view
         self.TRACKING_FIXED_ALTITUDE = 3.0    # Consistent with takeoff altitude for unified flight height (m)
-        self.BASE_TRACKING_ANGULAR_VELOCITY = 0.01  # Base orbit rate (rad/s) - very slow for stable tracking
-        self.TRACKING_SPEED_GAIN = 0.0       # No speed-dependent orbit adjustment
-        self.MAX_TRACKING_ANGULAR_VELOCITY = 0.01    # Cap orbit rate to 0.01 rad/s
         self.TARGET_POSITION_SMOOTHING = 0.2       # 0=no smoothing, 1=full smoothing - further reduced for faster response
         self.PERSON_POSITION_FILTER_ALPHA = 0.35    # Less filtering for quicker person updates
         self.RADIAL_VELOCITY_GAIN = 1.9            # Gain for radial correction toward desired orbit radius

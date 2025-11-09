@@ -3,22 +3,22 @@
 waypoint_controller:
   ros__parameters:
     # Control parameters
-    control_frequency: 75.0
+    control_frequency: 60.0
     position_tolerance: 0.035     # meters
-    velocity_tolerance: 0.07      # m/s
-    waypoint_timeout: 1.5         # seconds before fail-safe hover engages
+    velocity_tolerance: 0.06      # m/s
+    waypoint_timeout: 1.8         # seconds before fail-safe hover engages
 
     # PID gains for position control (optimized for stable tracking)
-    kp_xy: 1.20
+    kp_xy: 1.40
     ki_xy: 0.02
-    kd_xy: 1.30
-    kp_z: 0.75
+    kd_xy: 0.40
+    kp_z: 1.00
     ki_z: 0.02
-    kd_z: 3.00
+    kd_z: 0.50
 
-    # Velocity limits - increased for faster tracking response
-    max_velocity_xy: 8.5
-    max_velocity_z: 3.8
+    # Velocity limits - aggressive but still stable
+    max_velocity_xy: 4.5
+    max_velocity_z: 2.0
 
 yaw_controller:
   ros__parameters:
@@ -27,7 +27,7 @@ yaw_controller:
     kp_yaw: 1.70
     ki_yaw: 0.03
     kd_yaw: 0.90
-    max_angular_velocity_yaw: 2.3
+    max_angular_velocity_yaw: 2.0
 multicopter_velocity_control_adapter:
   ros__parameters:
     control_frequency: 140.0

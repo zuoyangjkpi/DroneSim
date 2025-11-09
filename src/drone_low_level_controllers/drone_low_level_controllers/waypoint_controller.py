@@ -33,9 +33,9 @@ class WaypointController(Node):
         self.declare_parameter('control_frequency', 50.0)
         self.declare_parameter('position_tolerance', 0.2)  # meters
         self.declare_parameter('velocity_tolerance', 0.1)  # m/s
-        self.declare_parameter('waypoint_timeout', 2.0)    # seconds - increased for stability
+        self.declare_parameter('waypoint_timeout', 2.0)
 
-        # PID gains for position control (similar to PX4 v1.16.0)
+        # PID gains
         self.declare_parameter('kp_xy', 1.0)
         self.declare_parameter('ki_xy', 0.05)
         self.declare_parameter('kd_xy', 0.01)
@@ -43,7 +43,7 @@ class WaypointController(Node):
         self.declare_parameter('ki_z', 0.05)
         self.declare_parameter('kd_z', 0.01)
 
-        # Max velocities (similar to PX4 constraints)
+        # Max velocities
         self.declare_parameter('max_velocity_xy', 3.0)
         self.declare_parameter('max_velocity_z', 1.5)
 
