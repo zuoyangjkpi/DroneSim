@@ -13,11 +13,10 @@ import numpy as np
 import math
 from typing import Optional, List
 import tf2_ros
-import tf2_geometry_msgs
 from tf2_ros import TransformException
 
 # ROS2 message types
-from geometry_msgs.msg import Twist, PoseStamped, Vector3Stamped, TwistStamped, PoseWithCovarianceStamped
+from geometry_msgs.msg import PoseStamped, Vector3Stamped, PoseWithCovarianceStamped
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Header, Float64MultiArray, Bool
 from visualization_msgs.msg import Marker, MarkerArray
@@ -40,24 +39,7 @@ class NMPCTrackerNode(Node):
         self.person_detected = False
         self.last_person_detection_time = 0.0
         self.control_enabled = True
-
-        # Lost target handling - adaptive strategy based on loss history
-        self.lost_count = 0  # Track how many times target was lost
-        self.successful_track_duration = 0.0  # Track how long we successfully tracked
-        self.last_successful_track_start = 0.0  # When did successful tracking start
-
-        # Vehicle references
-        self.home_position: Optional[np.ndarray] = None
-        self.home_yaw: float = 0.0
         self.last_tracking_yaw: float = 0.0
-        self.last_known_position: Optional[np.ndarray] = None
-        self.takeoff_target_altitude: Optional[float] = None
-
-        # State machine management
-        self.state: Optional[str] = None
-        self.state_enter_time: float = 0.0
-        self.takeoff_alt_reached_time: Optional[float] = None
-        self.search_reference_position: Optional[np.ndarray] = None
         self._planned_waypoint_sequence: List[np.ndarray] = []
         self._current_waypoint_index = 0
         self._last_plan_sequence_id = -1
@@ -73,7 +55,6 @@ class NMPCTrackerNode(Node):
         self._init_publishers()
         self._init_subscribers()
         self._init_timers()
-        self._switch_state('TAKEOFF')
         
         self.get_logger().info("NMPC Tracker Node initialized")
     
@@ -96,13 +77,6 @@ class NMPCTrackerNode(Node):
         self.declare_parameter('camera_fov_horizontal', math.radians(80.0))
         self.declare_parameter('camera_fov_vertical', math.radians(60.0))
         self.declare_parameter('person_anchor_height', 1.7)
-        self.declare_parameter('takeoff_altitude', 3.0)
-        self.declare_parameter('takeoff_ascent_rate', 4.0)
-        self.declare_parameter('takeoff_hold_duration', 10.0)
-        self.declare_parameter('takeoff_min_stable_time', 1.2)
-        self.declare_parameter('lost_target_hold_duration', 10.0)
-        self.declare_parameter('altitude_tolerance', 0.05)
-        self.declare_parameter('search_yaw_rate', 0.05)
         self.declare_parameter('tracking_phase_offset', 0.0)
         self.declare_parameter('tracking_height_offset', nmpc_config.TRACKING_HEIGHT_OFFSET)
         self.declare_parameter('person_position_filter_alpha', nmpc_config.PERSON_POSITION_FILTER_ALPHA)
@@ -123,13 +97,6 @@ class NMPCTrackerNode(Node):
         self.camera_fov_horizontal = float(self.get_parameter('camera_fov_horizontal').value)
         self.camera_fov_vertical = float(self.get_parameter('camera_fov_vertical').value)
         self.person_anchor_height = float(self.get_parameter('person_anchor_height').value)
-        self.takeoff_altitude = self.get_parameter('takeoff_altitude').value
-        self.takeoff_ascent_rate = float(self.get_parameter('takeoff_ascent_rate').value)
-        self.takeoff_hold_duration = self.get_parameter('takeoff_hold_duration').value
-        self.takeoff_min_stable_time = float(self.get_parameter('takeoff_min_stable_time').value)
-        self.lost_target_hold_duration = self.get_parameter('lost_target_hold_duration').value
-        self.altitude_tolerance = max(0.01, self.get_parameter('altitude_tolerance').value)
-        self.search_yaw_rate = self.get_parameter('search_yaw_rate').value
         self.tracking_phase_offset = self.get_parameter('tracking_phase_offset').value
         self.tracking_height_offset = self.get_parameter('tracking_height_offset').value
         self.person_position_filter_alpha = float(self.get_parameter('person_position_filter_alpha').value)
@@ -140,7 +107,6 @@ class NMPCTrackerNode(Node):
 
         self._filtered_person_position = None
         self._detection_streak = 0
-        self._pending_phase_init = None
 
         # 光学坐标系（REP 103）到相机机体系（x 前、y 左、z 上）的转换矩阵及逆矩阵
         self._rot_optical_to_camera = np.array([
@@ -324,12 +290,7 @@ class NMPCTrackerNode(Node):
             # Update controller state
             self.controller.set_drone_state(position, velocity, orientation, angular_velocity)
             self.drone_state_received = True
-            if self.home_position is None:
-                self.home_position = position.copy()
-                self.home_yaw = orientation[2]
-                # Only climb if current altitude is below the desired takeoff altitude
-                self.takeoff_target_altitude = max(self.takeoff_altitude, self.home_position[2])
-                self.last_tracking_yaw = self.home_yaw
+            self.last_tracking_yaw = orientation[2]
             
             # ✅ 添加调试信息 - 降低频率
             if hasattr(self, '_debug_counter'):
@@ -364,7 +325,7 @@ class NMPCTrackerNode(Node):
                 filtered_position,
                 person_velocity,
                 detection_time=current_time,
-                allow_phase_change=(self.state == 'TRACK'),
+                allow_phase_change=True,
             )
             self._detection_streak += 1
             self._handle_person_detection(filtered_position, person_velocity)
@@ -399,7 +360,7 @@ class NMPCTrackerNode(Node):
             filtered_position,
             person_velocity,
             detection_time=timestamp,
-            allow_phase_change=(self.state == 'TRACK'),
+            allow_phase_change=True,
         )
         self._detection_streak += 1
         self._handle_person_detection(filtered_position, person_velocity)
@@ -638,37 +599,19 @@ class NMPCTrackerNode(Node):
         """Common logic when a person detection is received"""
         current_time = self._now()
         first_detection = not self.person_detected
+
+        if self._detection_streak < self.required_detection_confirmations:
+            # Still waiting for confirmation streak
+            self.person_detected = False
+            self._publish_person_estimate(person_position)
+            return
+
         self.person_detected = True
         self.last_person_detection_time = current_time
         if first_detection:
             self.get_logger().info(f"✅ Person detected at {person_position}")
-        # 计算并存储用于初始化的期望相位角
-        if self.state != 'TRACK':
-            current_pos = self._get_current_position()
-            rel = person_position[:2] - current_pos[:2]
-            if np.linalg.norm(rel) > 1e-3:
-                self._pending_phase_init = math.atan2(rel[1], rel[0])
-            else:
-                self._pending_phase_init = self._get_current_yaw()
-        # 检查是否已确认足够次数的检测
-        if self._detection_streak < self.required_detection_confirmations:
-            self._publish_person_estimate(person_position)
-            self.person_detected = False
-            return
 
-        self.person_detected = True
         self._publish_person_estimate(person_position)
-
-        # ⚠️ 关键安全检查：只有在完成起飞阶段后才能切换到TRACK状态
-        # 避免起飞过程中因检测到人而导致的不稳定跟踪行为
-        if self.state != 'TRACK' and self.state != 'TAKEOFF':
-            # 只有当不在起飞状态时才允许立即切换到TRACK
-            self.get_logger().info("🎯 非起飞状态下检测到人员，立即切换到TRACK模式")
-            self._switch_state('TRACK')
-        elif self.state == 'TAKEOFF':
-            # 如果在TAKEOFF状态，检测到的人员信息会被保存，
-            # 等待起飞完成后在_step_takeoff()中安全切换到TRACK
-            self.get_logger().info(f"🚁 起飞阶段检测到人员 (连续检测: {self._detection_streak}次)，等待起飞完成后切换到跟踪模式")
 
     def _publish_person_estimate(self, position: np.ndarray) -> None:
         """Publish NMPC-estimated person position for downstream consumers."""
@@ -687,11 +630,10 @@ class NMPCTrackerNode(Node):
     def enable_callback(self, msg: Bool):
         """Handle control enable/disable commands"""
         self.control_enabled = msg.data
-        current_mode = self.state if self.state is not None else "UNKNOWN"
         if self.control_enabled:
-            self.get_logger().info(f"Control enabled, mode: {current_mode}")
+            self.get_logger().info("Control enabled")
         else:
-            self.get_logger().info(f"Control disabled, mode: {current_mode}")
+            self.get_logger().info("Control disabled")
         
         # Enable/disable low-level controllers
         enable_msg = Bool()
@@ -704,11 +646,10 @@ class NMPCTrackerNode(Node):
             return
     
     def control_loop_callback(self):
-        """Main control loop"""
+        """Main control loop: only run NMPC tracking when enabled and detections confirmed."""
         current_time = self._now()
 
         if not self.control_enabled:
-            self.get_logger().warn("Control not enabled")
             return
 
         if not self.drone_state_received:
@@ -720,57 +661,12 @@ class NMPCTrackerNode(Node):
             self.controller.clear_detection()
             self._filtered_person_position = None
             self._detection_streak = 0
-            self.get_logger().warn("Person detection timeout - entering hold state")
-            if self.state == 'TRACK':
-                self._enter_lost_hold()
+            self.get_logger().warn("Person detection timeout - tracking paused")
 
-        if self.state == 'TAKEOFF':
-            self._step_takeoff(current_time)
+        if not self.person_detected:
             return
 
-        if self.state == 'SEARCH':
-            # In SEARCH mode, be more aggressive about switching to TRACK
-            # Check for both confirmed detection OR recent detection streak
-            if self.person_detected or (self._detection_streak >= 2 and
-                                       current_time - self.last_person_detection_time < 1.0):
-                self.get_logger().info(f"🎯 SEARCH模式检测到人员，切换到TRACK模式 (连续检测: {self._detection_streak}次)")
-                self._switch_state('TRACK')
-            else:
-                self._send_search_commands(current_time)
-                return
-
-        if self.state == 'LOST_HOLD':
-            if self.person_detected:
-                # Reset loss count on successful re-acquisition
-                self.get_logger().info(f"✅ 在HOLD期间重新找到目标，重置丢失计数")
-                self.lost_count = max(0, self.lost_count - 1)  # Reward quick recovery
-                self._switch_state('TRACK')
-            else:
-                self._send_lost_hold_command()
-                # Use adaptive hold duration instead of fixed duration
-                hold_duration = getattr(self, 'current_hold_duration', self.lost_target_hold_duration)
-                if current_time - self.state_enter_time >= hold_duration:
-                    self.get_logger().info(f"⏰ HOLD超时 ({hold_duration}秒)，切换到搜索模式")
-                    self._switch_state('SEARCH')
-                return
-
-        if self.state == 'TRACK':
-            if not self.person_detected:
-                self._enter_lost_hold()
-                return
-
-            # Reset lost count after successful tracking for some time (reward stability)
-            if self.last_successful_track_start > 0:
-                successful_duration = current_time - self.last_successful_track_start
-                if successful_duration > 30.0 and self.lost_count > 0:  # 30 seconds of successful tracking
-                    self.get_logger().info(f"🎯 成功跟踪{successful_duration:.1f}秒，重置丢失计数 ({self.lost_count} → 0)")
-                    self.lost_count = 0
-
-            self._perform_tracking()
-            return
-
-        # Fallback: ensure we always have a valid control mode
-        self._switch_state('SEARCH')
+        self._perform_tracking()
 
     def _perform_tracking(self):
         """Run NMPC optimization and push the resulting commands downstream."""
@@ -789,7 +685,6 @@ class NMPCTrackerNode(Node):
             control, info = self.controller.optimize()
         except Exception as exc:  # 捕捉优化失败，避免节点崩溃
             self.get_logger().error(f'NMPC优化失败: {exc}')
-            self._enter_lost_hold()
             return
 
         self._refresh_waypoint_queue()
@@ -797,26 +692,6 @@ class NMPCTrackerNode(Node):
 
         if self.enable_visualization and info:
             self._publish_visualization(info)
-
-    def _send_lost_hold_command(self):
-        """在目标丢失时保持当前位置并维持最后的航向。"""
-        if self.last_known_position is None:
-            hold_position = self._get_current_position().copy()
-        else:
-            hold_position = self.last_known_position.copy()
-
-        if np.isnan(hold_position).any():
-            hold_position = self._get_current_position().copy()
-
-        # 确保高度至少保持在起飞高度附近，防止意外下降
-        target_altitude = self.takeoff_target_altitude or self.takeoff_altitude
-        if target_altitude is not None:
-            hold_position[2] = float(target_altitude)
-
-        yaw = self.last_tracking_yaw if self.last_tracking_yaw is not None else self._get_current_yaw()
-
-        self._publish_waypoint(hold_position, source='LOST_HOLD', yaw=yaw)
-        self._publish_attitude(yaw)
 
     def _refresh_waypoint_queue(self):
         plan_id = self.controller.get_plan_sequence_id()
@@ -917,28 +792,6 @@ class NMPCTrackerNode(Node):
             control=control
         )
 
-    def _send_search_commands(self, current_time: float):
-        if self.search_reference_position is None:
-            self.search_reference_position = self._get_current_position().copy()
-
-        if self.takeoff_target_altitude is not None:
-            target_altitude = self.takeoff_target_altitude
-        else:
-            target_altitude = self.takeoff_altitude
-
-        base_yaw = self.home_yaw if self.home_position is not None else 0.0
-        elapsed = max(0.0, current_time - self.state_enter_time)
-        yaw_command = base_yaw + self.search_yaw_rate * elapsed
-
-        waypoint = np.array([
-            self.search_reference_position[0],
-            self.search_reference_position[1],
-            target_altitude
-        ])
-        self._publish_waypoint(waypoint, source="SEARCH", yaw=yaw_command)
-
-        self._publish_attitude(yaw_command)
-
     def _get_current_position(self) -> np.ndarray:
         """获取当前无人机位置"""
         return self.controller.current_state.data[nmpc_config.STATE_X:nmpc_config.STATE_Z+1]
@@ -983,11 +836,10 @@ class NMPCTrackerNode(Node):
         attitude_msg.vector.y = float(pitch)
         attitude_msg.vector.z = float(yaw)
         self.attitude_pub.publish(attitude_msg)
-        if self.state is not None:
-            att_vector = [round(float(roll), 3), round(float(pitch), 3), round(float(yaw), 3)]
-            self.get_logger().info(
-                f"Attitude command [{self.state}]: rpy={att_vector}"
-            )
+        att_vector = [round(float(roll), 3), round(float(pitch), 3), round(float(yaw), 3)]
+        self.get_logger().info(
+            f"Attitude command rpy={att_vector}"
+        )
 
     def _log_waypoint_command(
         self,
@@ -1013,140 +865,6 @@ class NMPCTrackerNode(Node):
 
         self.get_logger().info(f"Waypoint command [{source}]: " + "; ".join(details))
 
-    def _step_takeoff(self, current_time: float):
-        if self.home_position is None or self.takeoff_target_altitude is None:
-            return
-
-        elapsed = max(0.0, current_time - self.state_enter_time)
-        ramp_altitude = self.home_position[2] + self.takeoff_ascent_rate * elapsed
-        target_altitude = min(self.takeoff_target_altitude, ramp_altitude)
-        target_altitude = max(target_altitude, self.home_position[2])
-
-        waypoint = np.array([
-            self.home_position[0],
-            self.home_position[1],
-            target_altitude
-        ])
-        self._publish_waypoint(waypoint, source="TAKEOFF")
-        self._publish_attitude(self.home_yaw)
-
-        current_altitude = self._get_current_position()[2]
-
-        # 🚁 关键改进：确保起飞高度达到后才能切换到TRACK
-        if abs(current_altitude - self.takeoff_target_altitude) < self.altitude_tolerance:
-            if self.takeoff_alt_reached_time is None:
-                self.takeoff_alt_reached_time = current_time
-                self.get_logger().info(f"✅ 起飞高度已达到: {current_altitude:.2f}m (目标: {self.takeoff_target_altitude:.2f}m)")
-
-            # 只有在高度稳定达到后才允许切换到跟踪模式
-            altitude_stable_duration = current_time - self.takeoff_alt_reached_time
-            min_stable_time = max(0.5, self.takeoff_min_stable_time)
-
-            if altitude_stable_duration >= min_stable_time:
-                if self.person_detected and self._detection_streak >= self.required_detection_confirmations:
-                    self.get_logger().info(f"🎯 起飞完成且检测到人员，切换到TRACK模式 (稳定时间: {altitude_stable_duration:.1f}s)")
-                    self._switch_state('TRACK')
-                    return
-                elif not self.person_detected and altitude_stable_duration >= self.takeoff_hold_duration:
-                    self.get_logger().info("🔍 起飞完成但未检测到人员，切换到SEARCH模式")
-                    self._switch_state('SEARCH')
-            else:
-                # 高度刚达到，还在稳定中
-                if self._detection_streak >= self.required_detection_confirmations:
-                    remaining_time = min_stable_time - altitude_stable_duration
-                    self.get_logger().info(f"⏳ 高度稳定中，{remaining_time:.1f}秒后可切换到跟踪模式")
-        else:
-            # 高度未达到，重置稳定时间
-            self.takeoff_alt_reached_time = None
-
-    def _enter_lost_hold(self):
-        current_time = self.get_clock().now().nanoseconds / 1e9
-
-        # Update loss statistics
-        self.lost_count += 1
-        if self.last_successful_track_start > 0:
-            self.successful_track_duration = current_time - self.last_successful_track_start
-
-        self.last_known_position = self._get_current_position().copy()
-        self.last_tracking_yaw = self._get_current_yaw()
-        self._detection_streak = 0
-        self.controller.clear_detection()
-        self._filtered_person_position = None
-
-        # Adaptive lost hold strategy based on loss history
-        if self.lost_count == 1:
-            self.get_logger().info(f"🔍 第1次丢失目标，HOLD {self.lost_target_hold_duration}秒")
-        elif self.lost_count <= 3:
-            # Reduce hold time for frequent losses - maybe tracking is unstable
-            reduced_hold_time = max(5.0, self.lost_target_hold_duration * 0.5)
-            self.get_logger().info(f"⚠️ 第{self.lost_count}次丢失目标，缩短HOLD时间到{reduced_hold_time}秒 (跟踪可能不稳定)")
-            # Temporarily reduce hold duration for this instance
-            self.current_hold_duration = reduced_hold_time
-        else:
-            # After many losses, use shorter hold time and suggest more aggressive search
-            very_short_hold_time = 3.0
-            self.get_logger().warn(f"🚨 第{self.lost_count}次丢失目标，极短HOLD {very_short_hold_time}秒后立即搜索 (频繁丢失)")
-            self.current_hold_duration = very_short_hold_time
-
-        self._switch_state('LOST_HOLD')
-
-    def _switch_state(self, new_state: str):
-        previous = self.state
-        if previous == new_state:
-            return
-        self.state = new_state
-        self.state_enter_time = self._now()
-
-        if new_state == 'TAKEOFF':
-            self.takeoff_alt_reached_time = None
-        if new_state == 'SEARCH':
-            current_position = self._get_current_position()
-            self.search_reference_position = current_position.copy()
-            self.person_detected = False
-            self.controller.clear_detection()
-            self._filtered_person_position = None
-        else:
-            self.search_reference_position = None
-        if new_state == 'TRACK':
-            # Start tracking successful tracking duration
-            current_time = self.get_clock().now().nanoseconds / 1e9
-            self.last_successful_track_start = current_time
-
-            # Log loss statistics for debugging
-            if self.lost_count > 0:
-                self.get_logger().info(f"📊 开始跟踪 (历史丢失次数: {self.lost_count})")
-
-            # 初始相位使用当前位置，避免不必要的移动
-            person_pos = self.controller.person_position
-            current_pos = self._get_current_position()
-            rel = current_pos[:2] - person_pos[:2]  # 从人指向无人机
-            if np.linalg.norm(rel) > 1e-3:
-                # 设置为当前位置的相位角度，保持在原地不动
-                phase = math.atan2(rel[1], rel[0])
-            else:
-                # 如果距离很近，则使用当前航向
-                phase = self._get_current_yaw()
-            # 重置控制器的相位
-            self.controller.reset_phase(phase)
-            self.get_logger().info(f"✅ 初始化跟踪相位: {phase:.2f} rad ({math.degrees(phase):.1f}°)")
-            # 应用高度偏移和固定高度设置
-            self.controller.set_tracking_height_offset(self.tracking_height_offset)
-            self.fixed_tracking_altitude = nmpc_config.TRACKING_FIXED_ALTITUDE
-            self.controller.set_fixed_altitude(self.fixed_tracking_altitude)
-            # 更新最后的跟踪航向
-            self.last_tracking_yaw = phase
-        if new_state == 'LOST_HOLD' and self.last_known_position is None:
-            self.last_known_position = self._get_current_position().copy()
-        if new_state != 'LOST_HOLD':
-            self.last_known_position = None
-
-        if new_state != 'TRACK':
-            self._planned_waypoint_sequence = []
-            self._current_waypoint_index = 0
-            self._last_plan_sequence_id = -1
-
-        self.get_logger().info(f"状态切换: {previous} -> {new_state}")
-    
     def _publish_visualization(self, info: dict):
         """Publish visualization markers"""
         try:

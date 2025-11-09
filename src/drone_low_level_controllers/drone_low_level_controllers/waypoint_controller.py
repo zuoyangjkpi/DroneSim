@@ -46,6 +46,9 @@ class WaypointController(Node):
         # Max velocities
         self.declare_parameter('max_velocity_xy', 3.0)
         self.declare_parameter('max_velocity_z', 1.5)
+        self.declare_parameter('max_vertical_error', 1.5)
+        self.declare_parameter('integral_limit_xy', 4.0)
+        self.declare_parameter('integral_limit_z', 1.5)
 
         # Get parameters
         self.control_frequency = self.get_parameter('control_frequency').value
@@ -63,6 +66,9 @@ class WaypointController(Node):
 
         self.max_velocity_xy = self.get_parameter('max_velocity_xy').value
         self.max_velocity_z = self.get_parameter('max_velocity_z').value
+        self.max_vertical_error = abs(float(self.get_parameter('max_vertical_error').value))
+        self.integral_limit_xy = abs(float(self.get_parameter('integral_limit_xy').value))
+        self.integral_limit_z = abs(float(self.get_parameter('integral_limit_z').value))
 
         # State variables
         self.current_pose = None
@@ -201,6 +207,12 @@ class WaypointController(Node):
 
         # Position error
         position_error = self.target_waypoint - self.current_pose
+        if self.max_vertical_error > 0.0:
+            position_error[2] = float(np.clip(
+                position_error[2],
+                -self.max_vertical_error,
+                self.max_vertical_error,
+            ))
 
         # Check if waypoint is reached
         position_magnitude = np.linalg.norm(position_error)
@@ -226,6 +238,7 @@ class WaypointController(Node):
 
         # PID control
         # Integral term (with windup prevention)
+        previous_integral = self.position_error_integral.copy()
         self.position_error_integral += position_error * dt
 
         # Different integral management for XY vs Z
@@ -251,7 +264,11 @@ class WaypointController(Node):
                 # Only reset for significant error changes (>5cm) to avoid hover instability
                 if position_error[i] * self.position_error_previous[i] <= 0.0 and abs(position_error[i]) > 0.05:
                     self.position_error_integral[i] *= decay_factor_z
-        max_integral = np.array([5.0, 5.0, 2.0])  # Prevent windup
+        max_integral = np.array([
+            self.integral_limit_xy,
+            self.integral_limit_xy,
+            self.integral_limit_z
+        ])  # Prevent windup
         self.position_error_integral = np.clip(
             self.position_error_integral, -max_integral, max_integral)
 
@@ -266,13 +283,27 @@ class WaypointController(Node):
         kd = np.array([self.kd_xy, self.kd_xy, self.kd_z])
 
         # Calculate velocity command
-        velocity_command = (kp * position_error +
-                           ki * self.position_error_integral +
-                           kd * error_derivative)
+        velocity_command_raw = (kp * position_error +
+                                ki * self.position_error_integral +
+                                kd * error_derivative)
 
         # Apply velocity limits
         max_vel = np.array([self.max_velocity_xy, self.max_velocity_xy, self.max_velocity_z])
-        velocity_command = np.clip(velocity_command, -max_vel, max_vel)
+        velocity_command = np.clip(velocity_command_raw, -max_vel, max_vel)
+
+        # Basic integral anti-windup tied to saturation
+        saturation = np.greater(np.abs(velocity_command_raw), max_vel - 1e-6)
+        integral_adjusted = False
+        for i in range(3):
+            if (saturation[i] and
+                position_error[i] * velocity_command_raw[i] > 0.0):
+                self.position_error_integral[i] = previous_integral[i]
+                integral_adjusted = True
+        if integral_adjusted:
+            velocity_command_raw = (kp * position_error +
+                                    ki * self.position_error_integral +
+                                    kd * error_derivative)
+            velocity_command = np.clip(velocity_command_raw, -max_vel, max_vel)
 
         # Publish velocity setpoint
         velocity_cmd = TwistStamped()

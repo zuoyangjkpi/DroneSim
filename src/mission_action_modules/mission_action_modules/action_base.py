@@ -177,9 +177,9 @@ class ActionContext:
         pitch: float,
         yaw: float,
     ) -> None:
-        roll = float(math.atan2(math.sin(roll), math.cos(roll)))
-        pitch = float(math.atan2(math.sin(pitch), math.cos(pitch)))
-        yaw = float(math.atan2(math.sin(yaw), math.cos(yaw)))
+        roll = self._wrap_angle(roll)
+        pitch = self._wrap_angle(pitch)
+        yaw = self._wrap_angle(yaw)
         msg = Vector3Stamped()
         msg.header.stamp = self.node.get_clock().now().to_msg()
         msg.header.frame_id = "world"
@@ -209,6 +209,14 @@ class ActionContext:
         if position is None:
             return None
         return float(np.linalg.norm(position - target))
+
+    @staticmethod
+    def _wrap_angle(angle: float) -> float:
+        while angle > math.pi:
+            angle -= 2 * math.pi
+        while angle < -math.pi:
+            angle += 2 * math.pi
+        return angle
 
 
 class ActionModule:

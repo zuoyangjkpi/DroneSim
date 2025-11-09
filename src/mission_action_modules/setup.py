@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'action_manager = mission_action_modules.action_manager_node:main',
+            'mission_sequence_controller = mission_action_modules.mission_sequence_controller:main',
         ],
     },
 )

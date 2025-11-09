@@ -40,6 +40,9 @@ class YawController(Node):
         self.declare_parameter('ki_yaw', 0.03)
         self.declare_parameter('kd_yaw', 0.9)
         self.declare_parameter('max_angular_velocity_yaw', 2.3)
+        self.declare_parameter('max_yaw_step', 0.2)
+        self.declare_parameter('derivative_filter_alpha', 0.4)
+        self.declare_parameter('yaw_integral_limit', 1.2)
 
         self.control_frequency = float(self.get_parameter('control_frequency').value)
         self.yaw_tolerance = float(self.get_parameter('yaw_tolerance').value)
@@ -47,6 +50,10 @@ class YawController(Node):
         self.ki_yaw = float(self.get_parameter('ki_yaw').value)
         self.kd_yaw = float(self.get_parameter('kd_yaw').value)
         self.max_yaw_rate = float(self.get_parameter('max_angular_velocity_yaw').value)
+        self.max_yaw_step = abs(float(self.get_parameter('max_yaw_step').value))
+        self.derivative_filter_alpha = float(np.clip(
+            self.get_parameter('derivative_filter_alpha').value, 0.0, 1.0))
+        self.yaw_integral_limit = abs(float(self.get_parameter('yaw_integral_limit').value))
 
         # State
         self.current_yaw = None
@@ -57,6 +64,7 @@ class YawController(Node):
         self.yaw_integral = 0.0
         self.prev_error = 0.0
         self.last_control_time = None
+        self.filtered_derivative = 0.0
 
         self.file_logger = _init_file_logger('yaw_controller')
         self._log_counter = 0
@@ -107,7 +115,9 @@ class YawController(Node):
             self.target_yaw = yaw_cmd
         else:
             delta = self._wrap_angle(yaw_cmd - self.target_yaw)
-            self.target_yaw += delta
+            if self.max_yaw_step > 0.0:
+                delta = float(np.clip(delta, -self.max_yaw_step, self.max_yaw_step))
+            self.target_yaw = self._wrap_angle(self.target_yaw + delta)
         self.last_command_time = self.get_clock().now()
         self.yaw_integral = 0.0
         self.prev_error = 0.0
@@ -136,16 +146,27 @@ class YawController(Node):
         self.last_control_time = now
 
         delta = self.target_yaw - self.current_yaw
-        if abs(delta) <= math.pi:
+        pi = math.pi
+        if abs(delta) <= pi:
             yaw_error = delta
         else:
-            yaw_error = self.target_yaw + self.current_yaw
+            yaw_error = self._wrap_angle(self.target_yaw + self.current_yaw)
 
         # Integral with clamp
-        self.yaw_integral = float(np.clip(self.yaw_integral + yaw_error * dt, -1.5, 1.5))
+        limit = self.yaw_integral_limit if self.yaw_integral_limit > 0.0 else 1.5
+        self.yaw_integral = float(np.clip(self.yaw_integral + yaw_error * dt, -limit, limit))
 
         # Derivative
-        yaw_derivative = (yaw_error - self.prev_error) / dt if dt > 0.0 else 0.0
+        yaw_derivative_raw = (yaw_error - self.prev_error) / dt if dt > 0.0 else 0.0
+        if 0.0 < self.derivative_filter_alpha < 1.0:
+            self.filtered_derivative = (
+                (1.0 - self.derivative_filter_alpha) * self.filtered_derivative +
+                self.derivative_filter_alpha * yaw_derivative_raw
+            )
+            yaw_derivative = self.filtered_derivative
+        else:
+            self.filtered_derivative = yaw_derivative_raw
+            yaw_derivative = yaw_derivative_raw
         self.prev_error = yaw_error
 
         yaw_rate_cmd = (

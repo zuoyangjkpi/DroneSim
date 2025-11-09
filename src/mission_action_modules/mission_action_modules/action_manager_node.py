@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from typing import Dict, Optional
+import json
 
 import rclpy
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from std_srvs.srv import Trigger
+from std_msgs.msg import String
 
 from .action_base import ActionContext, ActionHandle, ActionResult
 from .action_modules import (
@@ -19,6 +21,8 @@ from .action_modules import (
     HoverModule,
     InspectGoal,
     InspectModule,
+    LostHoldGoal,
+    LostHoldModule,
     LandGoal,
     LandModule,
     SearchAreaGoal,
@@ -44,6 +48,7 @@ class ActionManagerNode(Node):
             "fly_to": FlyToTargetModule(self._context),
             "track_target": TrackTargetModule(self._context),
             "search": SearchModule(self._context),
+            "lost_hold": LostHoldModule(self._context),
             "inspect": InspectModule(self._context),
             "land": LandModule(self._context),
             "delivery": DeliveryModule(self._context),
@@ -63,6 +68,9 @@ class ActionManagerNode(Node):
         self.create_service(Trigger, "mission_actions/search", self._srv_search)
         self.create_service(Trigger, "mission_actions/land", self._srv_land)
         self.create_service(Trigger, "mission_actions/track_target", self._srv_track_target)
+        self.create_service(Trigger, "mission_actions/lost_hold", self._srv_lost_hold)
+
+        self.event_pub = self.create_publisher(String, "/mission_actions/events", 10)
 
         self.get_logger().info("Mission action manager ready")
 
@@ -82,7 +90,7 @@ class ActionManagerNode(Node):
         return res
 
     def _srv_search(self, _req, res):
-        started = self._start_action("search", SearchGoal(duration=15.0))
+        started = self._start_action("search", SearchGoal())
         res.success = started
         res.message = "Search command started" if started else "Search already running"
         return res
@@ -97,6 +105,12 @@ class ActionManagerNode(Node):
         started = self._start_action("track_target", TrackTargetGoal())
         res.success = started
         res.message = "TrackTarget command started" if started else "TrackTarget already running"
+        return res
+
+    def _srv_lost_hold(self, _req, res):
+        started = self._start_action("lost_hold", LostHoldGoal())
+        res.success = started
+        res.message = "LostHold command started" if started else "LostHold already running"
         return res
 
     # ------------------------------------------------------------------
@@ -116,12 +130,14 @@ class ActionManagerNode(Node):
             handle = module.start(goal)
         except RuntimeError as exc:
             self.get_logger().error("Failed to start %s: %s", name, exc)
+            self._publish_event(name, "failed_to_start", str(exc))
             return False
 
         self._active_handles[name] = handle
         handle.future.add_done_callback(
             lambda fut, action_name=name: self._on_action_done(action_name, fut)
         )
+        self._publish_event(name, "started", "action started")
         return True
 
     def _on_action_done(self, name: str, future) -> None:
@@ -133,10 +149,21 @@ class ActionManagerNode(Node):
                 result.outcome.value,
                 result.message,
             )
+            self._publish_event(name, result.outcome.value, result.message)
         except Exception as exc:  # pylint: disable=broad-except
             self.get_logger().error("Action '%s' raised exception: %s", name, exc)
+            self._publish_event(name, "exception", str(exc))
         finally:
             self._active_handles.pop(name, None)
+
+    def _publish_event(self, action: str, outcome: str, message: str) -> None:
+        msg = String()
+        msg.data = json.dumps({
+            "action": action,
+            "outcome": outcome,
+            "message": message,
+        })
+        self.event_pub.publish(msg)
 
 
 def main(args: Optional[list[str]] = None) -> None:

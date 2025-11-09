@@ -606,16 +606,19 @@ full_integration_test() {
     fi
     
     # Step 12: Enable control and trigger tracking via action module
-    print_status $YELLOW "Step 12/12: Enabling drone control and invoking TrackTarget module..."
+    print_status $YELLOW "Step 12/12: Enabling drone control and starting mission sequence controller..."
     
     print_status $YELLOW "  - Publishing enable command to /X3/enable (single message)"
     ros2 topic pub --once /X3/enable std_msgs/msg/Bool "{data: true}" > /tmp/x3_enable.log 2>&1
     
-    print_status $YELLOW "  - Calling mission_actions/track_target (TrackTargetModule)"
-    if ros2 service call mission_actions/track_target std_srvs/srv/Trigger "{}" > /tmp/track_target_call.log 2>&1; then
-        print_status $GREEN "✅ TrackTargetModule request accepted"
+    print_status $YELLOW "  - Launching mission_sequence_controller (handles takeoff→search→track workflow)"
+    ros2 run mission_action_modules mission_sequence_controller > /tmp/mission_sequence_controller.log 2>&1 &
+    local sequence_pid=$!
+    sleep 3
+    if check_process "mission_sequence_controller"; then
+        print_status $GREEN "✅ Mission sequence controller running"
     else
-        print_status $RED "❌ Failed to start TrackTargetModule"
+        print_status $RED "❌ mission_sequence_controller failed to start"
         return 1
     fi
 

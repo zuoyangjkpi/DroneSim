@@ -37,12 +37,18 @@ class MulticopterVelocityControlAdapter(Node):
         self.declare_parameter('max_linear_velocity_z', 2.0)
         self.declare_parameter('max_angular_velocity_xy', 3.0)
         self.declare_parameter('max_angular_velocity_z', 2.0)
+        self.declare_parameter('linear_cmd_filter_alpha', 0.3)
+        self.declare_parameter('yaw_rate_filter_alpha', 0.4)
 
         self.control_frequency = self.get_parameter('control_frequency').value
         self.max_linear_velocity_xy = self.get_parameter('max_linear_velocity_xy').value
         self.max_linear_velocity_z = self.get_parameter('max_linear_velocity_z').value
         self.max_angular_velocity_xy = self.get_parameter('max_angular_velocity_xy').value
         self.max_angular_velocity_z = self.get_parameter('max_angular_velocity_z').value
+        self.linear_cmd_filter_alpha = float(np.clip(
+            self.get_parameter('linear_cmd_filter_alpha').value, 0.0, 1.0))
+        self.yaw_rate_filter_alpha = float(np.clip(
+            self.get_parameter('yaw_rate_filter_alpha').value, 0.0, 1.0))
 
         # Publishers / subscribers
         self.cmd_vel_pub = self.create_publisher(Twist, '/X3/cmd_vel', 10)
@@ -75,6 +81,8 @@ class MulticopterVelocityControlAdapter(Node):
         # State
         self.desired_linear_world = np.zeros(3)
         self.desired_yaw_rate = 0.0
+        self.filtered_linear_world = np.zeros(3)
+        self.filtered_yaw_rate = 0.0
         self.rotation_world_from_body = None  # 3x3 matrix
         self.controller_active = False
 
@@ -114,11 +122,15 @@ class MulticopterVelocityControlAdapter(Node):
         if self.controller_active:
             self.get_logger().info('MulticopterVelocityControl adapter ENABLED')
             self.file_logger.info('mux_enabled')
+            self.filtered_linear_world = self.desired_linear_world.copy()
+            self.filtered_yaw_rate = float(self.desired_yaw_rate)
         else:
             self.get_logger().info('MulticopterVelocityControl adapter DISABLED -> zero cmd_vel')
             self.file_logger.info('mux_disabled_zero')
             self.desired_linear_world = np.zeros(3)
             self.desired_yaw_rate = 0.0
+            self.filtered_linear_world = np.zeros(3)
+            self.filtered_yaw_rate = 0.0
             self._publish_cmd()
 
     # ------------------------------------------------------------------
@@ -127,9 +139,9 @@ class MulticopterVelocityControlAdapter(Node):
 
         # Convert world linear velocity into body frame if attitude info is available
         if self.rotation_world_from_body is not None:
-            v_body = self.rotation_world_from_body.T @ self.desired_linear_world
+            v_body = self.rotation_world_from_body.T @ self.filtered_linear_world
         else:
-            v_body = self.desired_linear_world
+            v_body = self.filtered_linear_world
 
         cmd.linear.x = float(v_body[0])
         cmd.linear.y = float(v_body[1])
@@ -137,7 +149,7 @@ class MulticopterVelocityControlAdapter(Node):
 
         cmd.angular.x = 0.0
         cmd.angular.y = 0.0
-        cmd.angular.z = float(self.desired_yaw_rate)
+        cmd.angular.z = float(self.filtered_yaw_rate)
 
         # Apply limits
         xy_norm = np.linalg.norm([cmd.linear.x, cmd.linear.y])
@@ -154,6 +166,22 @@ class MulticopterVelocityControlAdapter(Node):
     def control_loop(self) -> None:
         if not self.controller_active:
             return
+
+        if 0.0 < self.linear_cmd_filter_alpha < 1.0:
+            self.filtered_linear_world = (
+                (1.0 - self.linear_cmd_filter_alpha) * self.filtered_linear_world +
+                self.linear_cmd_filter_alpha * self.desired_linear_world
+            )
+        else:
+            self.filtered_linear_world = self.desired_linear_world.copy()
+
+        if 0.0 < self.yaw_rate_filter_alpha < 1.0:
+            self.filtered_yaw_rate = (
+                (1.0 - self.yaw_rate_filter_alpha) * self.filtered_yaw_rate +
+                self.yaw_rate_filter_alpha * self.desired_yaw_rate
+            )
+        else:
+            self.filtered_yaw_rate = float(self.desired_yaw_rate)
 
         self._publish_cmd()
 

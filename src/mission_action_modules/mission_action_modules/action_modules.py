@@ -57,6 +57,15 @@ class SearchGoal:
     altitude: Optional[float] = None  # meters
     duration: Optional[float] = None  # seconds
     center: Optional[Sequence[float]] = None  # xyz
+    confirmations: int = 3
+
+
+@dataclass
+class LostHoldGoal:
+    duration: float = 10.0  # seconds
+    hold_position: Optional[Sequence[float]] = None  # xyz
+    yaw: Optional[float] = None  # radians
+    detection_confirmations: int = 3
 
 
 @dataclass
@@ -386,6 +395,14 @@ class SearchModule(ActionModule):
         self._base_yaw = 0.0
         self._start_time = 0.0
         self._duration: Optional[float] = None
+        self._detection_streak = 0
+        self._confirmations_required = 3
+        self._status_sub = context.node.create_subscription(
+            Float64MultiArray,
+            "/drone/controller/status",
+            self._status_callback,
+            10,
+        )
 
     def on_start(self, goal: SearchGoal) -> None:
         position = self.context.get_position()
@@ -414,6 +431,8 @@ class SearchModule(ActionModule):
         self._duration = goal.duration
         self._base_yaw = yaw
         self._start_time = self.context.now()
+        self._detection_streak = 0
+        self._confirmations_required = max(1, goal.confirmations)
 
         if goal.pattern.lower() not in ("rotate", "orbit"):
             self.fail(f"Search pattern '{goal.pattern}' not implemented yet")
@@ -430,11 +449,22 @@ class SearchModule(ActionModule):
             return
         elapsed = self.context.now() - self._start_time
         yaw_cmd = self._base_yaw + self._yaw_rate * elapsed
-        yaw_cmd = math.atan2(math.sin(yaw_cmd), math.cos(yaw_cmd))  # wrap to [-pi, pi]
+        yaw_cmd = self.context._wrap_angle(yaw_cmd)
         self.context.send_yaw(0.0, 0.0, yaw_cmd)
+
+        if self._detection_streak >= self._confirmations_required:
+            self.succeed("Target detected during search")
+            return
 
         if self._duration is not None and elapsed >= self._duration:
             self.succeed(f"Search completed after {elapsed:.1f}s")
+
+    def _status_callback(self, msg: Float64MultiArray) -> None:
+        detected = bool(int(msg.data[0])) if msg.data else False
+        if detected:
+            self._detection_streak = min(self._detection_streak + 1, self._confirmations_required)
+        else:
+            self._detection_streak = 0
 
 
 class InspectModule(ActionModule):
@@ -478,6 +508,73 @@ class InspectModule(ActionModule):
         self.context.send_waypoint(self._hold_position)
 
         self.create_timer(0.1, self._inspect_step)
+
+
+class LostHoldModule(ActionModule):
+    """Hold last known pose while waiting for detections to resume."""
+
+    def __init__(self, context: ActionContext) -> None:
+        super().__init__(context, "LostHoldModule")
+        self._goal: Optional[LostHoldGoal] = None
+        self._start_time = 0.0
+        self._hold_position: Optional[np.ndarray] = None
+        self._hold_yaw = 0.0
+        self._confirmations_required = 3
+        self._detection_streak = 0
+        self._status_sub = context.node.create_subscription(
+            Float64MultiArray,
+            "/drone/controller/status",
+            self._status_callback,
+            10,
+        )
+
+    def on_start(self, goal: LostHoldGoal) -> None:
+        position = self.context.get_position()
+        yaw = self.context.get_yaw() or 0.0
+        if position is None:
+            self.fail("No odometry available for lost-hold")
+            return
+
+        self._goal = goal
+        self._start_time = self.context.now()
+        self._confirmations_required = max(1, goal.detection_confirmations)
+        self._detection_streak = 0
+        self._hold_position = (
+            np.array(goal.hold_position, dtype=float)
+            if goal.hold_position is not None
+            else position.copy()
+        )
+        self._hold_yaw = goal.yaw if goal.yaw is not None else yaw
+
+        self.context.enable_waypoint_control(True)
+        self.context.enable_yaw_control(True)
+        self.context.send_waypoint(self._hold_position)
+        self.context.send_yaw(0.0, 0.0, self._hold_yaw)
+
+        self.create_timer(0.1, self._hold_step)
+
+    def _hold_step(self) -> None:
+        if self._goal is None:
+            return
+
+        elapsed = self.context.now() - self._start_time
+        if self._detection_streak >= self._confirmations_required:
+            self.succeed("Target reacquired during hold")
+            return
+
+        if elapsed >= self._goal.duration:
+            self.fail(f"Lost-hold timeout after {elapsed:.1f}s")
+            return
+
+        if self._hold_position is not None and elapsed % 2.0 < 0.1:
+            self.context.send_waypoint(self._hold_position)
+
+    def _status_callback(self, msg: Float64MultiArray) -> None:
+        detected = bool(int(msg.data[0])) if msg.data else False
+        if detected:
+            self._detection_streak = min(self._detection_streak + 1, self._confirmations_required)
+        else:
+            self._detection_streak = 0
 
     def _inspect_step(self) -> None:
         current_yaw = self.context.get_yaw() or 0.0
