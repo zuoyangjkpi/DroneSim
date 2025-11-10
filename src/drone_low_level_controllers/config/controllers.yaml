@@ -3,45 +3,49 @@
 waypoint_controller:
   ros__parameters:
     # Control parameters
-    control_frequency: 70.0
+    control_frequency: 90.0
     position_tolerance: 0.035     # meters
     velocity_tolerance: 0.05      # m/s
-    waypoint_timeout: 2.2         # seconds before fail-safe hover engages
+    waypoint_timeout: 4.0         # seconds before fail-safe hover engages
 
-    # PID gains for position control (optimized for stable tracking)
-    kp_xy: 1.25
-    ki_xy: 0.015
-    kd_xy: 0.55
-    kp_z: 0.78
-    ki_z: 0.015
-    kd_z: 0.95
+    # PID gains for position control
+    kp_xy: 1.9
+    ki_xy: 0.008
+    kd_xy: 0.85
+    kp_z: 1.05
+    ki_z: 0.005
+    kd_z: 0.85
 
-    # Velocity limits - aggressive but still stable
-    max_velocity_xy: 3.6
-    max_velocity_z: 1.3
+    # Velocity limits - fast but bounded
+    max_velocity_xy: 3.0
+    max_velocity_z: 1.0
 
     # Additional protections
-    max_vertical_error: 1.6
-    integral_limit_xy: 4.0
-    integral_limit_z: 1.2
+    max_vertical_error: 0.4
+    integral_limit_xy: 3.0
+    integral_limit_z: 0.3
 
 yaw_controller:
   ros__parameters:
-    control_frequency: 180.0
+    control_frequency: 150.0
     yaw_tolerance: 0.030
-    kp_yaw: 1.15
-    ki_yaw: 0.02
-    kd_yaw: 0.45
-    max_angular_velocity_yaw: 1.0
-    max_yaw_step: 0.12
-    derivative_filter_alpha: 0.35
+    kp_yaw: 2.6
+    ki_yaw: 0.008
+    kd_yaw: 0.0
+    max_angular_velocity_yaw: 3.0
+    max_yaw_step: 0.55
+    derivative_filter_alpha: 0.25
     yaw_integral_limit: 1.0
+    attitude_command_timeout: 3.0
+
 multicopter_velocity_control_adapter:
   ros__parameters:
-    control_frequency: 140.0
-    max_linear_velocity_xy: 5.0
-    max_linear_velocity_z: 2.5
+    control_frequency: 160.0
+    max_linear_velocity_xy: 3.2
+    max_linear_velocity_z: 1.0
     max_angular_velocity_xy: 2.5
-    max_angular_velocity_z: 1.2
-    linear_cmd_filter_alpha: 0.35
-    yaw_rate_filter_alpha: 0.40
+    max_angular_velocity_z: 1.5
+    linear_cmd_filter_alpha: 0.95
+    yaw_rate_filter_alpha: 0.90
+    velocity_setpoint_timeout: 0.8
+    angular_setpoint_timeout: 0.8

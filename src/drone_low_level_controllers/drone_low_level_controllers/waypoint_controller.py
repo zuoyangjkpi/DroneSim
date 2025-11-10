@@ -77,6 +77,7 @@ class WaypointController(Node):
         self.controller_active = False
         self._last_waypoint_command = None
         self._waypoint_reached = False
+        self._stale_waypoint_warned = False
 
         # PID state
         self.position_error_integral = np.zeros(3)
@@ -132,6 +133,7 @@ class WaypointController(Node):
             self.position_error_previous = np.zeros(3)
             self.get_logger().info(f'New waypoint received: {self.target_waypoint}')
             self._waypoint_reached = False
+            self._stale_waypoint_warned = False
         else:
             self.get_logger().debug('Waypoint refreshed (no change)')
 
@@ -182,18 +184,15 @@ class WaypointController(Node):
 
         if (self.last_waypoint_time is not None and
             (current_time - self.last_waypoint_time).nanoseconds / 1e9 > self.waypoint_timeout):
-            zero_cmd = TwistStamped()
-            zero_cmd.header.stamp = current_time.to_msg()
-            zero_cmd.header.frame_id = 'world'
-            self.velocity_setpoint_pub.publish(zero_cmd)
-            self.target_waypoint = None
-            self.last_waypoint_time = None
-            self.position_error_integral = np.zeros(3)
-            self.position_error_previous = np.zeros(3)
-            self.last_control_time = None
-            self.file_logger.info('fail_safe_hover -> no waypoint refresh for %.2fs', self.waypoint_timeout)
-            self._waypoint_reached = False
-            return
+            if not self._stale_waypoint_warned:
+                stale_duration = (current_time - self.last_waypoint_time).nanoseconds / 1e9
+                self.get_logger().warn(
+                    f'Waypoint command stale for {stale_duration:.2f} s – holding last target'
+                )
+                self.file_logger.info('holding_last_waypoint_due_to_timeout')
+                self._stale_waypoint_warned = True
+        else:
+            self._stale_waypoint_warned = False
 
         if self.current_velocity is None:
             self.current_velocity = np.zeros(3)

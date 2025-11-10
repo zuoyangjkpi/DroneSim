@@ -121,11 +121,12 @@ show_menu() {
     echo ""
     print_status $BLUE "📋 测试选项:"
     echo "1) 🤖 自动测试（完整链路）"
-    echo "2) 🧪 手动测试（占位）"
-    echo "3) 🧹 终止所有 ROS 进程"
+    echo "2) 🧭 路径点控制测试（Takeoff→Fly→Hold）"
+    echo "3) 🎮 手动速度控制测试（绕过PID，直接测试Gazebo插件）"
+    echo "4) 🧹 终止所有 ROS 进程"
     echo "0) 🚪 退出"
     echo ""
-    read -p "请选择 (0-3): " choice
+    read -p "请选择 (0-4): " choice
 }
 
 # System status check
@@ -916,6 +917,167 @@ system_diagnostics_test() {
     print_status $YELLOW "💡 Run option 5 to start full integration test"
 }
 
+# Waypoint controller regression test
+waypoint_controller_test() {
+    print_status $BLUE "🧭 Waypoint Controller Test (Takeoff → Fly 10m @45° → Hold)"
+    echo "============================================================"
+
+    print_status $YELLOW "🧹 Cleaning up existing processes..."
+    kill_all_processes
+    sleep 2
+
+    print_status $YELLOW "Step 1/4: Launching Gazebo simulation..."
+    if ! launch_gazebo; then
+        print_status $RED "❌ Gazebo startup failed, cannot continue"
+        return 1
+    fi
+
+    local controller_params="$PWD/src/drone_low_level_controllers/config/controllers.yaml"
+    if [ ! -f "$controller_params" ]; then
+        print_status $RED "❌ Controller parameter file not found at $controller_params"
+        return 1
+    fi
+
+    print_status $YELLOW "Step 2/4: Starting low-level controllers for waypoint testing..."
+
+    print_status $YELLOW "  • Waypoint controller"
+    ros2 run drone_low_level_controllers waypoint_controller.py \
+        --ros-args --params-file "$controller_params" \
+        > /tmp/waypoint_controller.log 2>&1 &
+    sleep 2
+    if check_process "waypoint_controller.py"; then
+        print_status $GREEN "    ✅ Waypoint controller running"
+    else
+        print_status $RED "    ❌ Waypoint controller failed to start"
+        return 1
+    fi
+
+    print_status $YELLOW "  • Yaw controller"
+    ros2 run drone_low_level_controllers yaw_controller.py \
+        --ros-args --params-file "$controller_params" \
+        > /tmp/yaw_controller.log 2>&1 &
+    sleep 2
+    if check_process "yaw_controller.py"; then
+        print_status $GREEN "    ✅ Yaw controller running"
+    else
+        print_status $RED "    ❌ Yaw controller failed to start"
+        return 1
+    fi
+
+    print_status $YELLOW "  • Multicopter velocity adapter"
+    ros2 run drone_low_level_controllers multicopter_velocity_control_adapter.py \
+        --ros-args --params-file "$controller_params" \
+        > /tmp/multicopter_velocity_control_adapter.log 2>&1 &
+    sleep 2
+    if check_process "multicopter_velocity_control_adapter.py"; then
+        print_status $GREEN "    ✅ Velocity adapter running"
+    else
+        print_status $RED "    ❌ Multicopter velocity adapter failed to start"
+        return 1
+    fi
+
+    print_status $YELLOW "Step 3/4: Enabling PX4 bridge interface (/X3/enable)"
+    ros2 topic pub --once /X3/enable std_msgs/msg/Bool "{data: true}" > /tmp/x3_enable.log 2>&1
+
+    print_status $YELLOW "Step 4/4: Executing waypoint test sequence..."
+    ros2 run mission_action_modules waypoint_test_runner \
+        --ros-args \
+        -p takeoff_altitude:=3.0 \
+        -p offset_distance:=10.0 \
+        -p offset_heading_deg:=45.0 \
+        -p hover_duration:=8.0 \
+        > /tmp/waypoint_test_runner.log 2>&1 &
+
+    local runner_pid=$!
+    if wait_for_node "/waypoint_test_orchestrator" 10; then
+        print_status $GREEN "✅ Waypoint test orchestrator is running (PID $runner_pid)"
+        print_status $YELLOW "📄 Monitor progress: tail -f /tmp/waypoint_test_runner.log"
+        print_status $YELLOW "🛎️ 完成后无人机会在目标点悬停，如需停止请选择菜单 3) 杀掉进程"
+    else
+        print_status $RED "❌ Failed to detect waypoint test orchestrator node"
+        return 1
+    fi
+}
+
+# Manual Velocity Control Test (bypassing PID controllers)
+manual_velocity_test() {
+    print_status $BLUE "🎮 Manual Velocity Control Test (Direct Gazebo Plugin Test)"
+    echo "================================================================"
+    print_status $YELLOW "⚠️  此测试完全绕过所有PID控制器和Action模块"
+    print_status $YELLOW "使用最简单的比例控制（v=k*error）直接发送速度指令"
+    print_status $YELLOW "用于诊断Gazebo MulticopterVelocityControl插件和坐标转换是否正常"
+    echo ""
+
+    print_status $YELLOW "🧹 Cleaning up existing processes..."
+    kill_all_processes
+    sleep 2
+
+    print_status $YELLOW "Step 1/4: Launching Gazebo simulation..."
+    if ! launch_gazebo; then
+        print_status $RED "❌ Gazebo startup failed, cannot continue"
+        return 1
+    fi
+
+    local controller_params="$PWD/src/drone_low_level_controllers/config/controllers.yaml"
+    if [ ! -f "$controller_params" ]; then
+        print_status $RED "❌ Controller parameter file not found at $controller_params"
+        return 1
+    fi
+
+    print_status $YELLOW "Step 2/4: Starting ONLY velocity adapter (NO PID controllers)..."
+    ros2 run drone_low_level_controllers multicopter_velocity_control_adapter.py \
+        --ros-args --params-file "$controller_params" \
+        > /tmp/multicopter_velocity_control_adapter.log 2>&1 &
+    sleep 2
+    if check_process "multicopter_velocity_control_adapter.py"; then
+        print_status $GREEN "    ✅ Velocity adapter running"
+    else
+        print_status $RED "    ❌ Multicopter velocity adapter failed to start"
+        return 1
+    fi
+
+    print_status $YELLOW "Step 3/4: Enabling PX4 bridge interface (/X3/enable)"
+    ros2 topic pub --once /X3/enable std_msgs/msg/Bool "{data: true}" > /tmp/x3_enable.log 2>&1
+    sleep 1
+
+    print_status $YELLOW "Step 4/4: Starting manual velocity test script..."
+    print_status $BLUE "📋 Test parameters:"
+    echo "   • Takeoff height: 3.0m"
+    echo "   • Target distance: 10.0m"
+    echo "   • Target angle: 45°"
+    echo "   • Position gain (k): 0.5"
+    echo "   • Yaw gain (k2): 1.0"
+    echo ""
+
+    python3 manual_velocity_test.py \
+        --ros-args \
+        -p takeoff_height:=3.0 \
+        -p target_distance:=10.0 \
+        -p target_angle_deg:=45.0 \
+        -p position_gain:=0.5 \
+        -p yaw_gain:=1.0 \
+        > /tmp/manual_velocity_test.log 2>&1 &
+
+    local test_pid=$!
+    sleep 2
+
+    if wait_for_node "/manual_velocity_tester" 10; then
+        print_status $GREEN "✅ Manual velocity tester is running (PID $test_pid)"
+        print_status $YELLOW "📄 Monitor progress: tail -f /tmp/manual_velocity_test.log"
+        print_status $YELLOW "📊 Watch adapter: tail -f /tmp/multicopter_velocity_control_adapter.log"
+        print_status $BLUE "🔍 测试流程（完全手动控制）："
+        echo "   1. 手动起飞：发送 vz=dz*0.5 直到到达3m高度"
+        echo "   2. 水平飞行：发送 vx=dx*0.5, vy=dy*0.5, yaw_rate=dyaw*1.0"
+        echo "   3. 飞向相对位置 (10m @ 45°)"
+        echo "   4. 到达后HOLD（发送零速度）"
+        echo ""
+        print_status $YELLOW "🛎️ 完成后按任意键返回菜单，选择选项4) 终止所有进程"
+    else
+        print_status $RED "❌ Failed to detect manual velocity tester node"
+        return 1
+    fi
+}
+
 # NMPC + Gazebo Visual Tracking
 nmpc_gazebo_visual_tracking() {
     print_status $BLUE "🎮 NMPC + Gazebo Visual Tracking"
@@ -1002,10 +1164,21 @@ kill_all_processes() {
     pkill -f "yolo12_detector_node" 2>/dev/null
     pkill -f "nmpc_tracker_node" 2>/dev/null
     pkill -f "nmpc_test_node" 2>/dev/null
+    pkill -f "mission_action_manager" 2>/dev/null
+    pkill -9 -f "mission_action_manager" 2>/dev/null
+    pkill -f "mission_action_modules/.*/action_manager" 2>/dev/null
+    pkill -9 -f "mission_action_modules/.*/action_manager" 2>/dev/null
+    pkill -f "mission_action_modules.*action_manager" 2>/dev/null
+    pkill -9 -f "mission_action_modules.*action_manager" 2>/dev/null
+    pkill -f "mission_sequence_controller" 2>/dev/null
+    pkill -9 -f "mission_sequence_controller" 2>/dev/null
+    pkill -f "mission_action_modules/.*/mission_sequence_controller" 2>/dev/null
+    pkill -9 -f "mission_action_modules/.*/mission_sequence_controller" 2>/dev/null
     pkill -f "detection_visualizer_node" 2>/dev/null
     pkill -f "visualization_node.py" 2>/dev/null
     pkill -f "drone_tf_publisher.py" 2>/dev/null
     pkill -f "ros2 launch" 2>/dev/null
+    pkill -f "ros2 run" 2>/dev/null
     pkill -f "parameter_bridge" 2>/dev/null
     pkill -f "rviz2" 2>/dev/null
     pkill -f "ros2 topic pub" 2>/dev/null
@@ -1016,9 +1189,21 @@ kill_all_processes() {
     pkill -f "multicopter_velocity_control_adapter.py" 2>/dev/null
     pkill -f "waypoint_controller.py" 2>/dev/null
     pkill -f "yaw_controller.py" 2>/dev/null
+    pkill -f "px4_bridge" 2>/dev/null
+    pkill -f "robot_state_publisher" 2>/dev/null
+    pkill -f "static_transform_publisher" 2>/dev/null
     
     sleep 2
     
+    # Kill any remaining ROS nodes gracefully
+    if command -v ros2 >/dev/null 2>&1; then
+        ros2 daemon stop >/dev/null 2>&1
+        ros2 daemon start >/dev/null 2>&1
+        for node in $(ros2 node list 2>/dev/null); do
+            ros2 node kill "$node" 2>/dev/null
+        done
+    fi
+
     # Check if processes are stopped
     if ! check_process "gz sim" && ! check_process "yolo12_detector_node"; then
         print_status $GREEN "✅ All processes stopped"
@@ -1031,11 +1216,6 @@ kill_all_processes() {
     rm -f /tmp/*.log 2>/dev/null
     
     print_status $GREEN "🧹 Cleanup complete"
-}
-
-manual_test() {
-    print_status $BLUE "🧪 手动测试占位"
-    echo "该选项预留给自定义调试流程，目前请根据需要自行启动相关节点。"
 }
 
 # Rebuild project
@@ -1116,13 +1296,18 @@ main() {
                 full_integration_test
                 ;;
             2)
-                manual_test
+                waypoint_controller_test
                 ;;
             3)
+                manual_velocity_test
+                ;;
+            4)
                 kill_all_processes
                 ;;
-            0) 
+            0)
                 print_status $GREEN "👋 Goodbye!"
+                print_status $YELLOW "🧹 退出前清理所有相关进程..."
+                kill_all_processes
                 exit 0
                 ;;
             *)

@@ -38,7 +38,7 @@ class NMPCTrackerNode(Node):
         self.drone_state_received = False
         self.person_detected = False
         self.last_person_detection_time = 0.0
-        self.control_enabled = True
+        self.control_enabled = False
         self.last_tracking_yaw: float = 0.0
         self._planned_waypoint_sequence: List[np.ndarray] = []
         self._current_waypoint_index = 0
@@ -55,8 +55,8 @@ class NMPCTrackerNode(Node):
         self._init_publishers()
         self._init_subscribers()
         self._init_timers()
-        
-        self.get_logger().info("NMPC Tracker Node initialized")
+
+        self.get_logger().info("NMPC Tracker Node initialized (control enable/disable now managed by TrackTargetModule)")
     
     def _init_parameters(self):
         """Initialize ROS2 parameters"""
@@ -134,38 +134,23 @@ class NMPCTrackerNode(Node):
             depth=10
         )
         
-        # Control command publishers for low-level controllers
+        # Control command publishers - 发布到NMPC专用话题，由TrackTarget模块转发
+        # 这样确保只有TrackTarget模块激活时，NMPC的指令才会被转发到下游控制器
         self.waypoint_pub = self.create_publisher(
-            PoseStamped, 
-            '/drone/control/waypoint_command', 
-            control_qos
-        )
-        
-        self.attitude_pub = self.create_publisher(
-            Vector3Stamped, 
-            '/drone/control/attitude_command', 
-            control_qos
-        )
-        
-        
-        # Control enable/disable publishers
-        self.waypoint_enable_pub = self.create_publisher(
-            Bool,
-            '/drone/control/waypoint_enable',
-            control_qos
-        )
-        
-        self.attitude_enable_pub = self.create_publisher(
-            Bool,
-            '/drone/control/attitude_enable',
+            PoseStamped,
+            '/nmpc/waypoint_command',  # 修改为NMPC专用话题
             control_qos
         )
 
-        self.velocity_enable_pub = self.create_publisher(
-            Bool,
-            '/drone/control/velocity_enable',
+        self.attitude_pub = self.create_publisher(
+            Vector3Stamped,
+            '/nmpc/attitude_command',  # 修改为NMPC专用话题
             control_qos
         )
+
+
+        # ❌ 移除NMPC直接控制低层控制器的enable publisher
+        # ✅ 现在由TrackTargetModule通过ActionContext统一管理控制器enable/disable
 
 
         # Status publisher
@@ -628,20 +613,15 @@ class NMPCTrackerNode(Node):
         )
 
     def enable_callback(self, msg: Bool):
-        """Handle control enable/disable commands"""
+        """Handle control enable/disable commands from TrackTargetModule"""
         self.control_enabled = msg.data
         if self.control_enabled:
-            self.get_logger().info("Control enabled")
+            self.get_logger().info("NMPC control enabled by TrackTargetModule")
         else:
-            self.get_logger().info("Control disabled")
-        
-        # Enable/disable low-level controllers
-        enable_msg = Bool()
-        enable_msg.data = self.control_enabled
-        
-        self.waypoint_enable_pub.publish(enable_msg)
-        self.attitude_enable_pub.publish(enable_msg)
-        self.velocity_enable_pub.publish(enable_msg)
+            self.get_logger().info("NMPC control disabled")
+
+        # ❌ 不再由NMPC自己enable/disable低层控制器
+        # ✅ TrackTargetModule会通过ActionContext统一管理
         if not self.control_enabled:
             return
     
@@ -740,7 +720,8 @@ class NMPCTrackerNode(Node):
         self._advance_waypoint_progress()
 
         # Current target waypoint
-        target_position = self._current_tracking_waypoint()
+        target_position = self._current_tracking_waypoint().copy()
+        target_position[2] = float(self.fixed_tracking_altitude)
 
         # Create and publish waypoint command
         waypoint_msg = PoseStamped()

@@ -41,21 +41,24 @@ class ActionManagerNode(Node):
 
     def __init__(self) -> None:
         super().__init__("mission_action_manager")
-        self._context = ActionContext(self)
+        # 注意：Node 基类使用 _context 存放 ROS Context，不要覆盖
+        self._action_context = ActionContext(self)
         self.modules = {
-            "takeoff": TakeoffModule(self._context),
-            "hover": HoverModule(self._context),
-            "fly_to": FlyToTargetModule(self._context),
-            "track_target": TrackTargetModule(self._context),
-            "search": SearchModule(self._context),
-            "lost_hold": LostHoldModule(self._context),
-            "inspect": InspectModule(self._context),
-            "land": LandModule(self._context),
-            "delivery": DeliveryModule(self._context),
-            "search_area": SearchAreaModule(self._context),
-            "avoidance": AvoidanceModule(self._context),
+            "takeoff": TakeoffModule(self._action_context),
+            "hover": HoverModule(self._action_context),
+            "fly_to": FlyToTargetModule(self._action_context),
+            "track_target": TrackTargetModule(self._action_context),
+            "search": SearchModule(self._action_context),
+            "lost_hold": LostHoldModule(self._action_context),
+            "inspect": InspectModule(self._action_context),
+            "land": LandModule(self._action_context),
+            "delivery": DeliveryModule(self._action_context),
+            "search_area": SearchAreaModule(self._action_context),
+            "avoidance": AvoidanceModule(self._action_context),
         }
         self._active_handles: Dict[str, ActionHandle] = {}
+        # 全局互斥：同一时间只能有一个active module
+        self._current_active_module: Optional[str] = None
 
         # Subscriptions
         self.odom_sub = self.create_subscription(
@@ -117,23 +120,39 @@ class ActionManagerNode(Node):
     # Internal helpers
     # ------------------------------------------------------------------
     def _odometry_callback(self, msg: Odometry) -> None:
-        self._context.update_odometry(msg)
+        self._action_context.update_odometry(msg)
 
     def _start_action(self, name: str, goal) -> bool:
+        # 全局互斥检查：如果有其他action正在运行，先强制停止
+        if self._current_active_module is not None and self._current_active_module != name:
+            old_name = self._current_active_module
+            old_handle = self._active_handles.get(old_name)
+            if old_handle and not old_handle.done():
+                self.get_logger().info(
+                    f"🔄 Switching from '{old_name}' to '{name}' - canceling old action"
+                )
+                old_handle.cancel()  # 立即取消旧模块
+                # 等待旧模块完全停止（最多等待0.5秒）
+                try:
+                    old_handle.result(timeout=0.5)
+                except Exception:
+                    pass  # 超时也继续
+
         module = self.modules[name]
         active_handle = self._active_handles.get(name)
         if active_handle and not active_handle.done():
-            self.get_logger().warn("Action '%s' already running", name)
+            self.get_logger().warn(f"Action '{name}' already running")
             return False
 
         try:
             handle = module.start(goal)
         except RuntimeError as exc:
-            self.get_logger().error("Failed to start %s: %s", name, exc)
+            self.get_logger().error(f"Failed to start {name}: {exc}")
             self._publish_event(name, "failed_to_start", str(exc))
             return False
 
         self._active_handles[name] = handle
+        self._current_active_module = name  # 更新当前活动模块
         handle.future.add_done_callback(
             lambda fut, action_name=name: self._on_action_done(action_name, fut)
         )
@@ -144,17 +163,17 @@ class ActionManagerNode(Node):
         try:
             result: ActionResult = future.result()
             self.get_logger().info(
-                "Action '%s' finished with %s: %s",
-                name,
-                result.outcome.value,
-                result.message,
+                f"Action '{name}' finished with {result.outcome.value}: {result.message}"
             )
             self._publish_event(name, result.outcome.value, result.message)
         except Exception as exc:  # pylint: disable=broad-except
-            self.get_logger().error("Action '%s' raised exception: %s", name, exc)
+            self.get_logger().error(f"Action '{name}' raised exception: {exc}")
             self._publish_event(name, "exception", str(exc))
         finally:
             self._active_handles.pop(name, None)
+            # 清除当前活动模块标记
+            if self._current_active_module == name:
+                self._current_active_module = None
 
     def _publish_event(self, action: str, outcome: str, message: str) -> None:
         msg = String()

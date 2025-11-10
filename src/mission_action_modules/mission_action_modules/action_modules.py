@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 import math
 import numpy as np
@@ -62,7 +62,7 @@ class SearchGoal:
 
 @dataclass
 class LostHoldGoal:
-    duration: float = 10.0  # seconds
+    duration: float = 60.0  # seconds
     hold_position: Optional[Sequence[float]] = None  # xyz
     yaw: Optional[float] = None  # radians
     detection_confirmations: int = 3
@@ -117,6 +117,9 @@ class TakeoffModule(ActionModule):
         self._target: Optional[np.ndarray] = None
         self._timeout = 0.0
         self._start_time = 0.0
+        self._yaw_reference = 0.0
+        self._timeout_warned = False
+        self._stable_start_time: Optional[float] = None
 
     def on_start(self, goal: TakeoffGoal) -> None:
         position = self.context.get_position()
@@ -135,14 +138,18 @@ class TakeoffModule(ActionModule):
             else self.context.defaults.takeoff_timeout
         )
         self._start_time = self.context.now()
+        self._timeout_warned = False
+        self._stable_start_time = None
         self._target = np.array([position[0], position[1], target_altitude], dtype=float)
 
         # Enable controllers
         self.context.enable_waypoint_control(True)
         self.context.enable_yaw_control(True)
         self.context.enable_velocity_control(True)
+        self._yaw_reference = self.context.get_yaw() or 0.0
 
         self.context.send_waypoint(self._target)
+        self.context.send_yaw(0.0, 0.0, self._yaw_reference)
         self.create_timer(0.2, self._monitor_altitude)
 
     def _monitor_altitude(self) -> None:
@@ -155,20 +162,42 @@ class TakeoffModule(ActionModule):
 
         altitude_error = abs(position[2] - self._target[2])
         elapsed = self.context.now() - self._start_time
+        tolerance = self.context.defaults.altitude_tolerance
+        stable_required = max(
+            0.0, getattr(self.context.defaults, "takeoff_stable_duration", 5.0)
+        )
 
-        if altitude_error <= self.context.defaults.altitude_tolerance:
-            self.succeed(f"Reached altitude {self._target[2]:.2f} m")
-            return
+        if altitude_error <= tolerance:
+            if self._stable_start_time is None:
+                self._stable_start_time = self.context.now()
+            stable_elapsed = self.context.now() - self._stable_start_time
+            if stable_elapsed >= stable_required:
+                self.succeed(
+                    f"Reached altitude {self._target[2]:.2f} m and held for "
+                    f"{stable_required:.1f}s"
+                )
+                return
+        else:
+            self._stable_start_time = None
 
         if elapsed > self._timeout:
-            self.fail(
-                f"Takeoff timeout ({elapsed:.1f}s) before reaching {self._target[2]:.2f} m"
-            )
+            # Do not abort control; keep publishing so the vehicle keeps climbing
+            if not getattr(self, "_timeout_warned", False):
+                self.context.node.get_logger().warn(
+                    f"[TakeoffModule] Timeout after {elapsed:.1f}s before reaching "
+                    f"{self._target[2]:.2f} m. Continuing to command climb."
+                )
+                self._timeout_warned = True
+            # Reset timer to avoid spamming the log and continue commanding the same target
+            self._start_time = self.context.now()
+            self.context.send_waypoint(self._target)
+            self.context.send_yaw(0.0, 0.0, self._yaw_reference)
             return
 
         # Refresh waypoint periodically for robustness
         if elapsed % 1.0 < 0.2:
             self.context.send_waypoint(self._target)
+            self.context.send_yaw(0.0, 0.0, self._yaw_reference)
 
 
 class HoverModule(ActionModule):
@@ -180,6 +209,7 @@ class HoverModule(ActionModule):
         self._tolerance = 0.0
         self._duration = 0.0
         self._start_time = 0.0
+        self._hover_yaw = 0.0
 
     def on_start(self, goal: HoverGoal) -> None:
         position = self.context.get_position()
@@ -205,7 +235,10 @@ class HoverModule(ActionModule):
         self._start_time = self.context.now()
 
         self.context.enable_waypoint_control(True)
+        self.context.enable_yaw_control(True)
         self.context.send_waypoint(self._target)
+        self._hover_yaw = self.context.get_yaw() or 0.0
+        self.context.send_yaw(0.0, 0.0, self._hover_yaw)
 
         self.create_timer(0.2, self._monitor_hover)
 
@@ -223,8 +256,9 @@ class HoverModule(ActionModule):
             self.succeed(f"Hover complete ({elapsed:.1f}s)")
             return
 
-        if distance > self._tolerance * 2.0:
+        if distance > self._tolerance * 2.0 or elapsed % 1.0 < 0.2:
             self.context.send_waypoint(self._target)
+            self.context.send_yaw(0.0, 0.0, self._hover_yaw)
 
 
 class FlyToTargetModule(ActionModule):
@@ -272,10 +306,12 @@ class FlyToTargetModule(ActionModule):
         target = self._waypoints[self._current_idx]
         self.context.send_waypoint(target)
 
+        yaw_cmd = None
         if self._yaw_targets:
-            yaw = self._yaw_targets[self._current_idx]
-            if yaw is not None:
-                self.context.send_yaw(0.0, 0.0, float(yaw))
+            yaw_cmd = self._yaw_targets[self._current_idx]
+        if yaw_cmd is None:
+            yaw_cmd = self.context.get_yaw() or 0.0
+        self.context.send_yaw(0.0, 0.0, float(yaw_cmd))
 
     def _monitor_progress(self) -> None:
         if not self._waypoints:
@@ -314,13 +350,33 @@ class TrackTargetModule(ActionModule):
 
     def __init__(self, context: ActionContext) -> None:
         super().__init__(context, "TrackTargetModule")
+        from geometry_msgs.msg import PoseStamped, Vector3Stamped
+
+        # Publisher to enable/disable NMPC
         self._enable_pub = context.node.create_publisher(Bool, "/nmpc/enable", 10)
+
+        # Subscribe to NMPC outputs and forward to ActionContext
+        self._nmpc_waypoint_sub = context.node.create_subscription(
+            PoseStamped,
+            "/nmpc/waypoint_command",
+            self._nmpc_waypoint_callback,
+            10,
+        )
+        self._nmpc_attitude_sub = context.node.create_subscription(
+            Vector3Stamped,
+            "/nmpc/attitude_command",
+            self._nmpc_attitude_callback,
+            10,
+        )
+
+        # Subscribe to controller status
         self._status_sub = context.node.create_subscription(
             Float64MultiArray,
             "/drone/controller/status",
             self._status_callback,
             10,
         )
+
         self._goal: Optional[TrackTargetGoal] = None
         self._start_time = 0.0
         self._last_detection_time = 0.0
@@ -332,9 +388,13 @@ class TrackTargetModule(ActionModule):
         self._last_detection_time = 0.0
         self._currently_detected = False
 
-        enable_msg = Bool()
-        enable_msg.data = True
-        self._enable_pub.publish(enable_msg)
+        # Enable low-level controllers via ActionContext
+        self.context.enable_waypoint_control(True)
+        self.context.enable_yaw_control(True)
+        self.context.enable_velocity_control(True)
+
+        # Enable NMPC
+        self._set_nmpc_enabled(True)
 
         if goal.target_class:
             self.context.node.get_logger().info(
@@ -348,6 +408,53 @@ class TrackTargetModule(ActionModule):
             )
 
         self.create_timer(0.2, self._monitor_tracking)
+
+    def _nmpc_waypoint_callback(self, msg) -> None:
+        """Forward NMPC waypoint commands to ActionContext (only when this module is active)."""
+        if not self._active:
+            return
+        # Extract position from PoseStamped
+        import numpy as np
+        position = np.array([
+            msg.pose.position.x,
+            msg.pose.position.y,
+            msg.pose.position.z
+        ])
+        self.context.send_waypoint(position, stamp=msg.header.stamp)
+
+    def _nmpc_attitude_callback(self, msg) -> None:
+        """Forward NMPC attitude commands to ActionContext (only when this module is active)."""
+        if not self._active:
+            return
+        # Extract roll, pitch, yaw from Vector3Stamped
+        roll = float(msg.vector.x)
+        pitch = float(msg.vector.y)
+        yaw = float(msg.vector.z)
+        self.context.send_yaw(roll, pitch, yaw)
+
+    def _set_nmpc_enabled(self, enabled: bool) -> None:
+        msg = Bool()
+        msg.data = bool(enabled)
+        self._enable_pub.publish(msg)
+
+    def on_cancel(self) -> None:
+        """Called when module is canceled - disable NMPC and controllers."""
+        self.context.node.get_logger().info("[TrackTargetModule] Canceling - disabling NMPC and controllers")
+        self._set_nmpc_enabled(False)
+        # Controllers will be disabled by ActionBase._set_result()
+        super().on_cancel()
+
+    def succeed(self, message: str = "", data: Optional[Dict[str, Any]] = None) -> None:
+        """Called when tracking succeeds - disable NMPC."""
+        self.context.node.get_logger().info("[TrackTargetModule] Succeeded - disabling NMPC")
+        self._set_nmpc_enabled(False)
+        super().succeed(message, data)
+
+    def fail(self, message: str) -> None:
+        """Called when tracking fails - disable NMPC."""
+        self.context.node.get_logger().info(f"[TrackTargetModule] Failed: {message} - disabling NMPC")
+        self._set_nmpc_enabled(False)
+        super().fail(message)
 
     def _status_callback(self, msg: Float64MultiArray) -> None:
         now = self.context.now()
@@ -397,6 +504,8 @@ class SearchModule(ActionModule):
         self._duration: Optional[float] = None
         self._detection_streak = 0
         self._confirmations_required = 3
+        self._last_waypoint_refresh = 0.0
+        self._waypoint_refresh_period = 0.5  # seconds
         self._status_sub = context.node.create_subscription(
             Float64MultiArray,
             "/drone/controller/status",
@@ -441,16 +550,26 @@ class SearchModule(ActionModule):
         self.context.enable_waypoint_control(True)
         self.context.enable_yaw_control(True)
         self.context.send_waypoint(self._center)
+        # Publish initial yaw command immediately so the controller starts from current heading
+        self.context.send_yaw(0.0, 0.0, yaw)
+        self._last_waypoint_refresh = self.context.now()
 
         self.create_timer(0.1, self._rotate_step)
 
     def _rotate_step(self) -> None:
         if self._center is None:
             return
-        elapsed = self.context.now() - self._start_time
+        now = self.context.now()
+        elapsed = now - self._start_time
+        # 基于启动时间累加yaw，实现持续旋转
         yaw_cmd = self._base_yaw + self._yaw_rate * elapsed
         yaw_cmd = self.context._wrap_angle(yaw_cmd)
         self.context.send_yaw(0.0, 0.0, yaw_cmd)
+
+        if now - self._last_waypoint_refresh >= self._waypoint_refresh_period:
+            # Keep refreshing the waypoint so the PID layer never times out
+            self.context.send_waypoint(self._center)
+            self._last_waypoint_refresh = now
 
         if self._detection_streak >= self._confirmations_required:
             self.succeed("Target detected during search")
@@ -484,11 +603,11 @@ class InspectModule(ActionModule):
             self.fail("No odometry available for inspect")
             return
 
-        self._hold_position = (
-            np.array(goal.hold_position, dtype=float)
-            if goal.hold_position is not None
-            else position.copy()
-        )
+        if goal.hold_position is not None:
+            self._hold_position = np.array(goal.hold_position, dtype=float)
+        else:
+            self._hold_position = position.copy()
+            self._hold_position[2] = self.context.defaults.takeoff_altitude
 
         self._target_point = (
             np.array(goal.target_point, dtype=float)
@@ -521,6 +640,7 @@ class LostHoldModule(ActionModule):
         self._hold_yaw = 0.0
         self._confirmations_required = 3
         self._detection_streak = 0
+        self._stable_start_time: Optional[float] = None
         self._status_sub = context.node.create_subscription(
             Float64MultiArray,
             "/drone/controller/status",
@@ -539,12 +659,13 @@ class LostHoldModule(ActionModule):
         self._start_time = self.context.now()
         self._confirmations_required = max(1, goal.detection_confirmations)
         self._detection_streak = 0
-        self._hold_position = (
-            np.array(goal.hold_position, dtype=float)
-            if goal.hold_position is not None
-            else position.copy()
-        )
+        if goal.hold_position is not None:
+            self._hold_position = np.array(goal.hold_position, dtype=float)
+        else:
+            self._hold_position = position.copy()
+            self._hold_position[2] = self.context.defaults.takeoff_altitude
         self._hold_yaw = goal.yaw if goal.yaw is not None else yaw
+        self._stable_start_time = None
 
         self.context.enable_waypoint_control(True)
         self.context.enable_yaw_control(True)
@@ -557,17 +678,52 @@ class LostHoldModule(ActionModule):
         if self._goal is None:
             return
 
-        elapsed = self.context.now() - self._start_time
+        # 持续刷新waypoint和yaw指令，保持控制器活跃
+        if self._hold_position is not None:
+            self.context.send_waypoint(self._hold_position)
+        self.context.send_yaw(0.0, 0.0, self._hold_yaw)
+
+        # 检查是否重新检测到目标（优先级最高）
         if self._detection_streak >= self._confirmations_required:
             self.succeed("Target reacquired during hold")
             return
 
-        if elapsed >= self._goal.duration:
-            self.fail(f"Lost-hold timeout after {elapsed:.1f}s")
+        # 验证高度稳定性（类似TakeoffModule的逻辑）
+        position = self.context.get_position()
+        elapsed = self.context.now() - self._start_time
+        tolerance = self.context.defaults.altitude_tolerance
+        stable_required = max(
+            0.0, getattr(self.context.defaults, "takeoff_stable_duration", 5.0)
+        )
+
+        # 检查高度是否在容差范围内
+        stable = False
+        if (
+            position is not None
+            and self._hold_position is not None
+            and abs(position[2] - self._hold_position[2]) <= tolerance
+        ):
+            if self._stable_start_time is None:
+                self._stable_start_time = self.context.now()
+            stable_elapsed = self.context.now() - self._stable_start_time
+            if stable_elapsed >= stable_required:
+                stable = True
+        else:
+            # 高度超出容差，重置稳定计时器
+            self._stable_start_time = None
+
+        # 如果高度稳定，说明无人机已经恢复到目标位置
+        if stable:
+            self.succeed(
+                f"Held altitude {self._hold_position[2]:.2f} m for {stable_required:.1f}s"
+            )
             return
 
-        if self._hold_position is not None and elapsed % 2.0 < 0.1:
-            self.context.send_waypoint(self._hold_position)
+        # ❌ 移除超时检查 - LOSTHOLD必须等到成功条件满足才能退出
+        # 成功条件：
+        # 1. 重新检测到目标 → 转入 TRACK
+        # 2. 高度稳定 → 转入 SEARCH
+        # 如果无人机坠落，LOSTHOLD会无限期尝试恢复高度，直到稳定为止
 
     def _status_callback(self, msg: Float64MultiArray) -> None:
         detected = bool(int(msg.data[0])) if msg.data else False
@@ -609,6 +765,7 @@ class LandModule(ActionModule):
         self._final_altitude = 0.05
         self._timeout = 0.0
         self._start_time = 0.0
+        self._landing_yaw = 0.0
 
     def on_start(self, goal: LandGoal) -> None:
         position = self.context.get_position()
@@ -638,7 +795,10 @@ class LandModule(ActionModule):
 
         self.context.enable_waypoint_control(True)
         self.context.enable_velocity_control(True)
+        self.context.enable_yaw_control(True)
         self.context.send_waypoint(self._target)
+        self._landing_yaw = self.context.get_yaw() or 0.0
+        self.context.send_yaw(0.0, 0.0, self._landing_yaw)
 
         self.create_timer(0.2, self._monitor_descent)
 
@@ -663,6 +823,7 @@ class LandModule(ActionModule):
         # Refresh landing waypoint every second to keep controller engaged
         if elapsed % 1.0 < 0.2:
             self.context.send_waypoint(self._target)
+            self.context.send_yaw(0.0, 0.0, self._landing_yaw)
 
 
 class DeliveryModule(ActionModule):
@@ -706,7 +867,10 @@ class AvoidanceModule(ActionModule):
             return
 
         self.context.enable_waypoint_control(True)
+        self.context.enable_yaw_control(True)
         self.context.send_waypoint(position)
+        yaw = self.context.get_yaw() or 0.0
+        self.context.send_yaw(0.0, 0.0, yaw)
 
         self._start_time = self.context.now()
         self._hold_duration = goal.hold_time

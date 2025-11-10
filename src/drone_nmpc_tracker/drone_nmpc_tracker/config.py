@@ -53,16 +53,16 @@ class NMPCConfig:
         
         # ========== Cost Function Weights ==========
         # Position / dynamics tracking weights
-        self.W_POSITION = np.array([15.0, 15.0, 50.0])  # [x, y, z]
+        self.W_POSITION = np.array([15.0, 15.0, 10.0])  # [x, y, z]
         self.W_VELOCITY = np.array([1.2, 1.2, 0.8])     # penalise high velocities (SOFT)
         self.W_ACCELERATION = np.array([1.8, 1.8, 1.2]) # penalise aggressive accelerations (HARD)
         self.W_CAMERA_TILT = 6.0                        # penalise roll/pitch induced by accel
         self.TARGET_ATTITUDE_SMOOTHING = 0.2            # 0=use raw attitude, 1=keep previous attitude
 
         # Person tracking specific weights - prioritize distance over everything
-        self.W_TRACKING_DISTANCE = 30.0  # Weight for maintaining optimal tracking distance - VERY HIGH priority
+        self.W_TRACKING_DISTANCE = 20.0  # Weight for maintaining optimal tracking distance - VERY HIGH priority
         self.W_SMOOTH_TRACKING = 0.8     # Slightly lower smoothing penalty to react quicker
-        self.W_YAW_ALIGNMENT = 20.0       # Force drone to face the target
+        self.W_YAW_ALIGNMENT = 30.0       # Force drone to face the target
         
         # ========== Constraints ==========
         # State constraints

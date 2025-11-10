@@ -65,7 +65,9 @@ class ActionDefaults:
     """Default parameters derived from current system behaviour."""
 
     takeoff_altitude: float = 3.0  # meters
-    takeoff_timeout: float = 15.0  # seconds
+    takeoff_timeout: float = 60.0  # seconds
+    takeoff_stable_duration: float = 5.0  # seconds
+    takeoff_stable_duration: float = 5.0  # seconds within tolerance before succeeding
     hover_duration: float = 10.0  # seconds
     search_yaw_rate: float = 0.05  # rad/s
     search_altitude: float = 3.0  # meters
@@ -103,6 +105,11 @@ class ActionContext:
         # Internal caches
         self._last_waypoint: Optional[np.ndarray] = None
         self._last_yaw_cmd: Optional[float] = None
+
+    # Provide rclpy node handle compatibility for any helper APIs that expect a Node.
+    @property
+    def handle(self):
+        return getattr(self.node, "handle", None)
 
     # ------------------------------------------------------------------
     # State update helpers
@@ -153,6 +160,12 @@ class ActionContext:
         msg = Bool()
         msg.data = bool(enabled)
         self._velocity_enable_pub.publish(msg)
+
+    def disable_all_controllers(self) -> None:
+        """Disable every low-level control layer to prevent old modules from publishing."""
+        self.enable_waypoint_control(False)
+        self.enable_yaw_control(False)
+        self.enable_velocity_control(False)
 
     def send_waypoint(
         self,
@@ -250,7 +263,16 @@ class ActionModule:
     def cancel(self) -> None:
         if not self._active:
             return
-        self.context.node.get_logger().info(f"[{self.name}] canceled")
+        self.context.node.get_logger().info(f"[{self.name}] canceled - immediately stopping all timers")
+        # 立即停止定时器，防止旧模块继续发布指令
+        self.stop_timers()
+        # ❌ 不要在这里禁用控制器！
+        # ✅ 让新模块启动时重新enable，避免切换时的控制真空
+        # 原因：
+        # 1. Timer已停止，旧模块不会再发布新指令
+        # 2. 控制器保持enabled，维持最后的目标（避免失控）
+        # 3. 新模块启动时的enable会覆盖这个状态
+        # 调用子类的清理逻辑
         self.on_cancel()
         self._set_result(ActionOutcome.CANCELED, "canceled by request")
 
@@ -288,6 +310,9 @@ class ActionModule:
         if self._handle and not self._handle.future.done():
             result = ActionResult(outcome=outcome, message=message, data=data or {})
             self._handle.future.set_result(result)
+        # ❌ 移除：不要在正常结束时禁用控制器
+        # ✅ 只在被cancel时禁用（见cancel()方法）
+        # 这样可以避免TAKEOFF完成后立即禁用控制器导致无人机下降的问题
         self.stop_timers()
         self._active = False
         self._goal = None

@@ -43,6 +43,7 @@ class YawController(Node):
         self.declare_parameter('max_yaw_step', 0.2)
         self.declare_parameter('derivative_filter_alpha', 0.4)
         self.declare_parameter('yaw_integral_limit', 1.2)
+        self.declare_parameter('attitude_command_timeout', 3.0)
 
         self.control_frequency = float(self.get_parameter('control_frequency').value)
         self.yaw_tolerance = float(self.get_parameter('yaw_tolerance').value)
@@ -54,6 +55,7 @@ class YawController(Node):
         self.derivative_filter_alpha = float(np.clip(
             self.get_parameter('derivative_filter_alpha').value, 0.0, 1.0))
         self.yaw_integral_limit = abs(float(self.get_parameter('yaw_integral_limit').value))
+        self.command_timeout = float(self.get_parameter('attitude_command_timeout').value)
 
         # State
         self.current_yaw = None
@@ -65,6 +67,8 @@ class YawController(Node):
         self.prev_error = 0.0
         self.last_control_time = None
         self.filtered_derivative = 0.0
+        self._last_yaw_cmd = None
+        self._stale_attitude_warned = False
 
         self.file_logger = _init_file_logger('yaw_controller')
         self._log_counter = 0
@@ -121,6 +125,8 @@ class YawController(Node):
         self.last_command_time = self.get_clock().now()
         self.yaw_integral = 0.0
         self.prev_error = 0.0
+        self._last_yaw_cmd = self.target_yaw
+        self._stale_attitude_warned = False
 
     def odometry_callback(self, msg: Odometry) -> None:
         quat = [
@@ -139,6 +145,18 @@ class YawController(Node):
             return
 
         now = self.get_clock().now()
+        if self.last_command_time is not None:
+            command_age = (now - self.last_command_time).nanoseconds / 1e9
+            if self.command_timeout > 0.0 and command_age > self.command_timeout:
+                if self._last_yaw_cmd is not None and not self._stale_attitude_warned:
+                    self.get_logger().warn(
+                        f'Attitude command stale for {command_age:.2f} s – holding last yaw {self._last_yaw_cmd:.3f} rad'
+                    )
+                    self.file_logger.info('holding_last_yaw_due_to_timeout')
+                    self._stale_attitude_warned = True
+            else:
+                self._stale_attitude_warned = False
+
         if self.last_control_time is None:
             dt = 1.0 / self.control_frequency
         else:

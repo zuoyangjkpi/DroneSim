@@ -39,6 +39,8 @@ class MulticopterVelocityControlAdapter(Node):
         self.declare_parameter('max_angular_velocity_z', 2.0)
         self.declare_parameter('linear_cmd_filter_alpha', 0.3)
         self.declare_parameter('yaw_rate_filter_alpha', 0.4)
+        self.declare_parameter('velocity_setpoint_timeout', 0.8)
+        self.declare_parameter('angular_setpoint_timeout', 0.8)
 
         self.control_frequency = self.get_parameter('control_frequency').value
         self.max_linear_velocity_xy = self.get_parameter('max_linear_velocity_xy').value
@@ -49,6 +51,8 @@ class MulticopterVelocityControlAdapter(Node):
             self.get_parameter('linear_cmd_filter_alpha').value, 0.0, 1.0))
         self.yaw_rate_filter_alpha = float(np.clip(
             self.get_parameter('yaw_rate_filter_alpha').value, 0.0, 1.0))
+        self.velocity_setpoint_timeout = float(self.get_parameter('velocity_setpoint_timeout').value)
+        self.angular_setpoint_timeout = float(self.get_parameter('angular_setpoint_timeout').value)
 
         # Publishers / subscribers
         self.cmd_vel_pub = self.create_publisher(Twist, '/X3/cmd_vel', 10)
@@ -85,6 +89,10 @@ class MulticopterVelocityControlAdapter(Node):
         self.filtered_yaw_rate = 0.0
         self.rotation_world_from_body = None  # 3x3 matrix
         self.controller_active = False
+        self._last_velocity_msg_time = None
+        self._last_angular_msg_time = None
+        self._velocity_stale = False
+        self._angular_stale = False
 
         self.file_logger = _init_file_logger('multicopter_velocity_control_adapter')
 
@@ -102,9 +110,13 @@ class MulticopterVelocityControlAdapter(Node):
             msg.twist.linear.y,
             msg.twist.linear.z,
         ])
+        self._last_velocity_msg_time = self.get_clock().now()
+        self._velocity_stale = False
 
     def angular_velocity_setpoint_callback(self, msg: Vector3Stamped) -> None:
         self.desired_yaw_rate = float(msg.vector.z)
+        self._last_angular_msg_time = self.get_clock().now()
+        self._angular_stale = False
 
     def odometry_callback(self, msg: Odometry) -> None:
         quat = (
@@ -166,6 +178,45 @@ class MulticopterVelocityControlAdapter(Node):
     def control_loop(self) -> None:
         if not self.controller_active:
             return
+        now = self.get_clock().now()
+        velocity_stale = False
+        angular_stale = False
+        if self.velocity_setpoint_timeout > 0.0:
+            if self._last_velocity_msg_time is None:
+                velocity_stale = True
+            else:
+                age = (now - self._last_velocity_msg_time).nanoseconds / 1e9
+                velocity_stale = age > self.velocity_setpoint_timeout
+        if self.angular_setpoint_timeout > 0.0:
+            if self._last_angular_msg_time is None:
+                angular_stale = True
+            else:
+                age = (now - self._last_angular_msg_time).nanoseconds / 1e9
+                angular_stale = age > self.angular_setpoint_timeout
+
+        if velocity_stale:
+            if not self._velocity_stale and self._last_velocity_msg_time is not None:
+                age = (now - self._last_velocity_msg_time).nanoseconds / 1e9
+                self.get_logger().warn(
+                    f'No velocity setpoint for {age:.2f}s -> zeroing linear command')
+                self.file_logger.info('zero_linear_due_to_controller_stall')
+            self.desired_linear_world = np.zeros(3)
+            self.filtered_linear_world = np.zeros(3)
+            self._velocity_stale = True
+        else:
+            self._velocity_stale = False
+
+        if angular_stale:
+            if not self._angular_stale and self._last_angular_msg_time is not None:
+                age = (now - self._last_angular_msg_time).nanoseconds / 1e9
+                self.get_logger().warn(
+                    f'No angular setpoint for {age:.2f}s -> zeroing yaw rate')
+                self.file_logger.info('zero_yaw_due_to_controller_stall')
+            self.desired_yaw_rate = 0.0
+            self.filtered_yaw_rate = 0.0
+            self._angular_stale = True
+        else:
+            self._angular_stale = False
 
         if 0.0 < self.linear_cmd_filter_alpha < 1.0:
             self.filtered_linear_world = (

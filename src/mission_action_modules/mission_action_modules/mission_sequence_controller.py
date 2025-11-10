@@ -33,8 +33,10 @@ class MissionSequenceController(Node):
         self._active_actions: set[str] = set()
         self._current_altitude = 0.0
         self._altitude_ready = False
+        self._have_odom = False
+        self._takeoff_wait_logged = False
 
-        self._clients = {
+        self._action_clients = {
             "takeoff": self.create_client(Trigger, "mission_actions/takeoff"),
             "search": self.create_client(Trigger, "mission_actions/search"),
             "track_target": self.create_client(Trigger, "mission_actions/track_target"),
@@ -59,12 +61,16 @@ class MissionSequenceController(Node):
         self._altitude_ready = (
             self._current_altitude >= self.takeoff_height - self.takeoff_tolerance
         )
+        if not self._have_odom:
+            self.get_logger().info("Received first odometry sample, takeoff sequence can start")
+        self._have_odom = True
+        self._takeoff_wait_logged = False
 
     def _event_callback(self, msg: String) -> None:
         try:
             payload = json.loads(msg.data)
         except json.JSONDecodeError:
-            self.get_logger().warn("Received malformed mission action event: %s", msg.data)
+            self.get_logger().warn(f"Received malformed mission action event: {msg.data}")
             return
 
         action = payload.get("action")
@@ -82,11 +88,11 @@ class MissionSequenceController(Node):
             if outcome == "succeeded":
                 self._transition(SequenceState.TRACK)
             elif outcome in ("failed", "exception", "failed_to_start"):
-                self.get_logger().warn("Search failed (%s). Restarting search.", outcome)
+                self.get_logger().warn(f"Search failed ({outcome}). Restarting search.")
                 self._transition(SequenceState.SEARCH)
         elif action == "track_target":
             if outcome in ("failed", "exception", "failed_to_start"):
-                self.get_logger().warn("Track lost (%s). Entering lost-hold.", outcome)
+                self.get_logger().warn(f"Track lost ({outcome}). Entering lost-hold.")
                 self._transition(SequenceState.LOST_HOLD)
         elif action == "lost_hold":
             if outcome == "succeeded":
@@ -103,6 +109,11 @@ class MissionSequenceController(Node):
             return
 
         if self.state == SequenceState.TAKEOFF:
+            if not self._have_odom:
+                if not self._takeoff_wait_logged:
+                    self.get_logger().warn("Waiting for /X3/odometry before issuing takeoff")
+                    self._takeoff_wait_logged = True
+                return
             self._ensure_action_running("takeoff")
         elif self.state == SequenceState.TAKEOFF_HOLD:
             if self._altitude_ready and self._elapsed_in_state() >= self.takeoff_hold_time:
@@ -117,14 +128,14 @@ class MissionSequenceController(Node):
     def _ensure_action_running(self, name: str) -> None:
         if name in self._active_actions:
             return
-        client = self._clients.get(name)
+        client = self._action_clients.get(name)
         if client is None:
-            self.get_logger().error("No client for action '%s'", name)
+            self.get_logger().error(f"No client for action '{name}'")
             self._fail_sequence(f"Missing client for {name}")
             return
 
         while not client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().warn("Waiting for service mission_actions/%s...", name)
+            self.get_logger().warn(f"Waiting for service mission_actions/{name}...")
 
         request = Trigger.Request()
         future = client.call_async(request)
@@ -135,13 +146,11 @@ class MissionSequenceController(Node):
                 resp = fut.result()
                 if not resp.success:
                     self.get_logger().error(
-                        "Service mission_actions/%s responded with failure: %s",
-                        action_name,
-                        resp.message,
+                        f"Service mission_actions/{action_name} responded with failure: {resp.message}"
                     )
             except Exception as exc:  # pylint: disable=broad-except
                 self.get_logger().error(
-                    "Service call mission_actions/%s failed: %s", action_name, exc
+                    f"Service call mission_actions/{action_name} failed: {exc}"
                 )
 
         future.add_done_callback(_on_response)
@@ -149,7 +158,7 @@ class MissionSequenceController(Node):
     def _transition(self, new_state: SequenceState) -> None:
         if self.state == new_state:
             return
-        self.get_logger().info("Mission sequence transition: %s -> %s", self.state.name, new_state.name)
+        self.get_logger().info(f"Mission sequence transition: {self.state.name} -> {new_state.name}")
         self.state = new_state
         self.state_enter_time = self._now()
 
@@ -157,7 +166,7 @@ class MissionSequenceController(Node):
         return self._now() - self.state_enter_time
 
     def _fail_sequence(self, reason: str) -> None:
-        self.get_logger().error("Mission sequence aborted: %s", reason)
+        self.get_logger().error(f"Mission sequence aborted: {reason}")
         self.state = SequenceState.ERROR
 
     def _now(self) -> float:
@@ -174,4 +183,3 @@ def main(args=None) -> None:
     finally:
         node.destroy_node()
         rclpy.shutdown()
-

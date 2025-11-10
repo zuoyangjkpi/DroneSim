@@ -6,6 +6,7 @@
 #include <neural_network_msgs/msg/neural_network_detection_array.hpp>
 #include <std_msgs/msg/float64_multi_array.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <cmath>
 
 class DetectionVisualizerNode : public rclcpp::Node
@@ -17,6 +18,7 @@ public:
         last_publish_time_(this->get_clock()->now()),
         tracking_distance_(0.0),
         tracking_altitude_(0.0),
+        nmpc_status_received_(false),
         drone_altitude_(0.0),
         drone_vx_(0.0),
         drone_vy_(0.0),
@@ -24,8 +26,17 @@ public:
         drone_speed_xy_(0.0),
         drone_speed_(0.0),
         drone_heading_rad_(0.0),
-        nmpc_status_received_(false),
-        odometry_received_(false)
+        odometry_received_(false),
+        target_x_(0.0),
+        target_y_(0.0),
+        target_z_(0.0),
+        target_yaw_(0.0),
+        delta_x_(0.0),
+        delta_y_(0.0),
+        delta_z_(0.0),
+        delta_yaw_(0.0),
+        waypoint_received_(false),
+        attitude_received_(false)
     {
         RCLCPP_INFO(this->get_logger(), "Detection visualizer node starting...");
 
@@ -61,6 +72,16 @@ public:
         odometry_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
             "/X3/odometry", 1,
             std::bind(&DetectionVisualizerNode::odometryCallback, this, std::placeholders::_1));
+
+        // Subscribe to waypoint command
+        waypoint_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+            "/drone/control/waypoint_command", 1,
+            std::bind(&DetectionVisualizerNode::waypointCallback, this, std::placeholders::_1));
+
+        // Subscribe to attitude command
+        attitude_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+            "/drone/control/attitude_command", 1,
+            std::bind(&DetectionVisualizerNode::attitudeCallback, this, std::placeholders::_1));
 
         // Publisher for annotated image
         annotated_image_pub_ = image_transport_->advertise("/detection_image", 1);
@@ -116,8 +137,43 @@ private:
         drone_speed_ = std::sqrt(drone_vx_*drone_vx_ + drone_vy_*drone_vy_ + drone_vz_*drone_vz_);
 
         odometry_received_ = true;
+
+        // Calculate errors if we have waypoint and attitude targets
+        if (waypoint_received_) {
+            delta_x_ = target_x_ - msg->pose.pose.position.x;
+            delta_y_ = target_y_ - msg->pose.pose.position.y;
+            delta_z_ = target_z_ - msg->pose.pose.position.z;
+        }
+
+        if (attitude_received_) {
+            // Calculate yaw error
+            double target_yaw = target_yaw_;
+            double current_yaw = drone_heading_rad_;
+            delta_yaw_ = target_yaw - current_yaw;
+            // Wrap to [-pi, pi]
+            while (delta_yaw_ > M_PI) delta_yaw_ -= 2.0 * M_PI;
+            while (delta_yaw_ < -M_PI) delta_yaw_ += 2.0 * M_PI;
+        }
     }
-    
+
+    void waypointCallback(const geometry_msgs::msg::PoseStamped::ConstSharedPtr& msg)
+    {
+        target_x_ = msg->pose.position.x;
+        target_y_ = msg->pose.position.y;
+        target_z_ = msg->pose.position.z;
+        waypoint_received_ = true;
+    }
+
+    void attitudeCallback(const geometry_msgs::msg::PoseStamped::ConstSharedPtr& msg)
+    {
+        // Extract yaw from quaternion
+        const auto& q = msg->pose.orientation;
+        const double siny_cosp = 2.0 * (q.w * q.z + q.x * q.y);
+        const double cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z);
+        target_yaw_ = std::atan2(siny_cosp, cosy_cosp);
+        attitude_received_ = true;
+    }
+
     void publishAnnotatedImage()
     {
         if (!current_image_) {
@@ -212,6 +268,34 @@ private:
                 cv::putText(cv_ptr->image, heading_text,
                     cv::Point(10, 210), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 255), 2);
             }
+
+            // Add control error overlay (magenta text) - world frame
+            if (waypoint_received_ && attitude_received_) {
+                char delta_x_text[64];
+                snprintf(delta_x_text, sizeof(delta_x_text),
+                    "Delta X: %.2f m", delta_x_);
+                cv::putText(cv_ptr->image, delta_x_text,
+                    cv::Point(10, 240), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 0, 255), 2);
+
+                char delta_y_text[64];
+                snprintf(delta_y_text, sizeof(delta_y_text),
+                    "Delta Y: %.2f m", delta_y_);
+                cv::putText(cv_ptr->image, delta_y_text,
+                    cv::Point(10, 270), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 0, 255), 2);
+
+                char delta_z_text[64];
+                snprintf(delta_z_text, sizeof(delta_z_text),
+                    "Delta Z: %.2f m", delta_z_);
+                cv::putText(cv_ptr->image, delta_z_text,
+                    cv::Point(10, 300), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 0, 255), 2);
+
+                const double delta_yaw_deg = delta_yaw_ * 57.29577951308232;
+                char delta_yaw_text[64];
+                snprintf(delta_yaw_text, sizeof(delta_yaw_text),
+                    "Delta Yaw: %.1f deg", delta_yaw_deg);
+                cv::putText(cv_ptr->image, delta_yaw_text,
+                    cv::Point(10, 330), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 0, 255), 2);
+            }
             
             // Always publish the image (with or without detections)
             annotated_image_pub_.publish(cv_ptr->toImageMsg());
@@ -230,6 +314,8 @@ private:
     rclcpp::Subscription<neural_network_msgs::msg::NeuralNetworkDetectionArray>::SharedPtr detection_sub_;
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr nmpc_status_sub_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odometry_sub_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr waypoint_sub_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr attitude_sub_;
     rclcpp::TimerBase::SharedPtr init_timer_;
 
     sensor_msgs::msg::Image::ConstSharedPtr current_image_;
@@ -253,6 +339,18 @@ private:
     double drone_speed_;
     double drone_heading_rad_;
     bool odometry_received_;
+
+    // Control targets and errors
+    double target_x_;
+    double target_y_;
+    double target_z_;
+    double target_yaw_;
+    double delta_x_;
+    double delta_y_;
+    double delta_z_;
+    double delta_yaw_;
+    bool waypoint_received_;
+    bool attitude_received_;
 };
 
 int main(int argc, char** argv)
