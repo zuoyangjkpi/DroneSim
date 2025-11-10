@@ -116,6 +116,66 @@ wait_for_service() {
     return 1
 }
 
+# Function to clean up zombie processes before starting tests
+cleanup_zombie_processes() {
+    print_status $BLUE "🧹 Cleaning up zombie processes"
+    echo "================================="
+
+    local processes_to_clean=(
+        "manual_velocity_test"
+        "waypoint_test_runner"
+        "waypoint_test_orchestrator"
+    )
+
+    local total_killed=0
+
+    for process_name in "${processes_to_clean[@]}"; do
+        # Count processes before cleanup
+        local count_before=$(ps aux | grep -E "$process_name" | grep -v grep | wc -l)
+
+        if [ $count_before -gt 0 ]; then
+            print_status $YELLOW "⚠️  Found $count_before zombie instance(s) of $process_name"
+
+            # Kill all matching processes
+            ps aux | grep -E "$process_name" | grep -v grep | awk '{print $2}' | while read pid; do
+                if kill -9 "$pid" 2>/dev/null; then
+                    print_status $GREEN "  ✅ Killed PID $pid"
+                    total_killed=$((total_killed + 1))
+                fi
+            done
+
+            # Wait a moment for cleanup
+            sleep 0.5
+
+            # Verify cleanup
+            local count_after=$(ps aux | grep -E "$process_name" | grep -v grep | wc -l)
+            if [ $count_after -eq 0 ]; then
+                print_status $GREEN "✅ All $process_name processes cleaned"
+            else
+                print_status $YELLOW "⚠️  Still $count_after $process_name process(es) running"
+            fi
+        fi
+    done
+
+    if [ $total_killed -gt 0 ]; then
+        print_status $GREEN "✅ Cleanup complete: killed $total_killed zombie process(es)"
+        # Give system time to release resources
+        sleep 1
+    else
+        print_status $GREEN "✅ No zombie processes found"
+    fi
+
+    # Verify ROS topic publishers
+    if command -v ros2 &> /dev/null && [ -n "$ROS_DISTRO" ]; then
+        local velocity_publishers=$(ros2 topic info /drone/control/velocity_setpoint 2>&1 | grep "Publisher count" | awk '{print $3}')
+        if [ -n "$velocity_publishers" ] && [ "$velocity_publishers" -gt 1 ]; then
+            print_status $YELLOW "⚠️  Warning: $velocity_publishers publishers on /drone/control/velocity_setpoint (expected: 1)"
+        fi
+    fi
+
+    echo ""
+}
+
 # Main menu function
 show_menu() {
     echo ""
@@ -545,20 +605,25 @@ full_integration_test() {
     fi
 
     # Step 11: Start low-level controllers that bridge NMPC to Gazebo
-    local controller_params="$PWD/src/drone_low_level_controllers/config/controllers.yaml"
-    if [ ! -f "$controller_params" ]; then
-        print_status $RED "❌ Controller parameter file not found at $controller_params"
+    local guidance_params="$PWD/src/drone_guidance_controllers/config/controllers.yaml"
+    local velocity_params="$PWD/src/drone_low_level_controllers/config/controllers.yaml"
+    if [ ! -f "$guidance_params" ]; then
+        print_status $RED "❌ Guidance controller parameter file not found at $guidance_params"
+        return 1
+    fi
+    if [ ! -f "$velocity_params" ]; then
+        print_status $RED "❌ Velocity controller parameter file not found at $velocity_params"
         return 1
     fi
 
     print_status $YELLOW "Step 11/12: Starting waypoint controller..."
-    ros2 run drone_low_level_controllers waypoint_controller.py \
-        --ros-args --params-file "$controller_params" \
+    ros2 run drone_guidance_controllers waypoint_controller \
+        --ros-args --params-file "$guidance_params" \
         > /tmp/waypoint_controller.log 2>&1 &
     local waypoint_pid=$!
     sleep 2
 
-    if check_process "waypoint_controller.py"; then
+    if check_process "waypoint_controller"; then
         print_status $GREEN "✅ Waypoint controller started successfully"
     else
         print_status $RED "❌ Waypoint controller failed to start"
@@ -566,13 +631,13 @@ full_integration_test() {
     fi
 
     print_status $YELLOW "Step 11/12: Starting yaw controller..."
-    ros2 run drone_low_level_controllers yaw_controller.py \
-        --ros-args --params-file "$controller_params" \
+    ros2 run drone_guidance_controllers yaw_controller \
+        --ros-args --params-file "$guidance_params" \
         > /tmp/yaw_controller.log 2>&1 &
     local yaw_pid=$!
     sleep 2
 
-    if check_process "yaw_controller.py"; then
+    if check_process "yaw_controller"; then
         print_status $GREEN "✅ Yaw controller started successfully"
     else
         print_status $RED "❌ Yaw controller failed to start"
@@ -581,7 +646,7 @@ full_integration_test() {
 
     print_status $YELLOW "Step 11/12: Starting MulticopterVelocityControl adapter..."
     ros2 run drone_low_level_controllers multicopter_velocity_control_adapter.py \
-        --ros-args --params-file "$controller_params" \
+        --ros-args --params-file "$velocity_params" \
         > /tmp/multicopter_velocity_control_adapter.log 2>&1 &
     local mc_adapter_pid=$!
     sleep 2
@@ -922,9 +987,19 @@ waypoint_controller_test() {
     print_status $BLUE "🧭 Waypoint Controller Test (Takeoff → Fly 10m @45° → Hold)"
     echo "============================================================"
 
+    local control_log="/tmp/waypoint_controller_control.log"
+    : > "$control_log"
+    log_control_msg() {
+        echo "[$(date '+%F %T')] $*" >> "$control_log"
+    }
+    log_control_msg "==== Waypoint controller test started ===="
+
     print_status $YELLOW "🧹 Cleaning up existing processes..."
     kill_all_processes
     sleep 2
+
+    # Additional cleanup for zombie test processes
+    cleanup_zombie_processes
 
     print_status $YELLOW "Step 1/4: Launching Gazebo simulation..."
     if ! launch_gazebo; then
@@ -932,69 +1007,91 @@ waypoint_controller_test() {
         return 1
     fi
 
-    local controller_params="$PWD/src/drone_low_level_controllers/config/controllers.yaml"
-    if [ ! -f "$controller_params" ]; then
-        print_status $RED "❌ Controller parameter file not found at $controller_params"
+    local guidance_params="$PWD/src/drone_guidance_controllers/config/controllers.yaml"
+    local velocity_params="$PWD/src/drone_low_level_controllers/config/controllers.yaml"
+    if [ ! -f "$guidance_params" ]; then
+        print_status $RED "❌ Guidance controller parameter file not found at $guidance_params"
+        return 1
+    fi
+    if [ ! -f "$velocity_params" ]; then
+        print_status $RED "❌ Velocity controller parameter file not found at $velocity_params"
         return 1
     fi
 
     print_status $YELLOW "Step 2/4: Starting low-level controllers for waypoint testing..."
+    log_control_msg "Using guidance params: $guidance_params"
+    log_control_msg "Using velocity params: $velocity_params"
 
     print_status $YELLOW "  • Waypoint controller"
-    ros2 run drone_low_level_controllers waypoint_controller.py \
-        --ros-args --params-file "$controller_params" \
-        > /tmp/waypoint_controller.log 2>&1 &
+    log_control_msg "Launching waypoint controller node"
+    stdbuf -oL ros2 run drone_guidance_controllers waypoint_controller \
+        --ros-args --params-file "$guidance_params" \
+        2>&1 | tee -a "$control_log" > /tmp/waypoint_controller.log &
     sleep 2
-    if check_process "waypoint_controller.py"; then
+    if check_process "waypoint_controller"; then
         print_status $GREEN "    ✅ Waypoint controller running"
+        log_control_msg "Waypoint controller running"
     else
         print_status $RED "    ❌ Waypoint controller failed to start"
+        log_control_msg "Waypoint controller failed to start"
         return 1
     fi
 
     print_status $YELLOW "  • Yaw controller"
-    ros2 run drone_low_level_controllers yaw_controller.py \
-        --ros-args --params-file "$controller_params" \
-        > /tmp/yaw_controller.log 2>&1 &
+    log_control_msg "Launching yaw controller node"
+    stdbuf -oL ros2 run drone_guidance_controllers yaw_controller \
+        --ros-args --params-file "$guidance_params" \
+        2>&1 | tee -a "$control_log" > /tmp/yaw_controller.log &
     sleep 2
-    if check_process "yaw_controller.py"; then
+    if check_process "yaw_controller"; then
         print_status $GREEN "    ✅ Yaw controller running"
+        log_control_msg "Yaw controller running"
     else
         print_status $RED "    ❌ Yaw controller failed to start"
+        log_control_msg "Yaw controller failed to start"
         return 1
     fi
 
     print_status $YELLOW "  • Multicopter velocity adapter"
-    ros2 run drone_low_level_controllers multicopter_velocity_control_adapter.py \
-        --ros-args --params-file "$controller_params" \
-        > /tmp/multicopter_velocity_control_adapter.log 2>&1 &
+    log_control_msg "Launching velocity adapter node"
+    stdbuf -oL ros2 run drone_low_level_controllers multicopter_velocity_control_adapter.py \
+        --ros-args --params-file "$velocity_params" \
+        2>&1 | tee -a "$control_log" > /tmp/multicopter_velocity_control_adapter.log &
     sleep 2
     if check_process "multicopter_velocity_control_adapter.py"; then
         print_status $GREEN "    ✅ Velocity adapter running"
+        log_control_msg "Velocity adapter running"
     else
         print_status $RED "    ❌ Multicopter velocity adapter failed to start"
+        log_control_msg "Velocity adapter failed to start"
         return 1
     fi
 
     print_status $YELLOW "Step 3/4: Enabling PX4 bridge interface (/X3/enable)"
+    log_control_msg "Publishing /X3/enable true"
     ros2 topic pub --once /X3/enable std_msgs/msg/Bool "{data: true}" > /tmp/x3_enable.log 2>&1
 
     print_status $YELLOW "Step 4/4: Executing waypoint test sequence..."
-    ros2 run mission_action_modules waypoint_test_runner \
+    log_control_msg "Launching waypoint_test_runner (hover hold infinite). Control log: $control_log"
+    stdbuf -oL ros2 run mission_action_modules waypoint_test_runner \
         --ros-args \
         -p takeoff_altitude:=3.0 \
         -p offset_distance:=10.0 \
         -p offset_heading_deg:=45.0 \
-        -p hover_duration:=8.0 \
-        > /tmp/waypoint_test_runner.log 2>&1 &
+        -p hover_duration:=-1.0 \
+        -p fly_timeout:=-1.0 \
+        2>&1 | tee -a "$control_log" > /tmp/waypoint_test_runner.log &
 
     local runner_pid=$!
     if wait_for_node "/waypoint_test_orchestrator" 10; then
         print_status $GREEN "✅ Waypoint test orchestrator is running (PID $runner_pid)"
-        print_status $YELLOW "📄 Monitor progress: tail -f /tmp/waypoint_test_runner.log"
+        print_status $YELLOW "📄 Control log aggregate: $control_log"
+        print_status $YELLOW "📄 Raw orchestrator log: /tmp/waypoint_test_runner.log"
         print_status $YELLOW "🛎️ 完成后无人机会在目标点悬停，如需停止请选择菜单 3) 杀掉进程"
+        log_control_msg "Waypoint test orchestrator running (PID $runner_pid)"
     else
         print_status $RED "❌ Failed to detect waypoint test orchestrator node"
+        log_control_msg "Waypoint test orchestrator failed to start"
         return 1
     fi
 }
@@ -1012,21 +1109,24 @@ manual_velocity_test() {
     kill_all_processes
     sleep 2
 
+    # Additional cleanup for zombie test processes
+    cleanup_zombie_processes
+
     print_status $YELLOW "Step 1/4: Launching Gazebo simulation..."
     if ! launch_gazebo; then
         print_status $RED "❌ Gazebo startup failed, cannot continue"
         return 1
     fi
 
-    local controller_params="$PWD/src/drone_low_level_controllers/config/controllers.yaml"
-    if [ ! -f "$controller_params" ]; then
-        print_status $RED "❌ Controller parameter file not found at $controller_params"
+    local velocity_params="$PWD/src/drone_low_level_controllers/config/controllers.yaml"
+    if [ ! -f "$velocity_params" ]; then
+        print_status $RED "❌ Controller parameter file not found at $velocity_params"
         return 1
     fi
 
     print_status $YELLOW "Step 2/4: Starting ONLY velocity adapter (NO PID controllers)..."
     ros2 run drone_low_level_controllers multicopter_velocity_control_adapter.py \
-        --ros-args --params-file "$controller_params" \
+        --ros-args --params-file "$velocity_params" \
         > /tmp/multicopter_velocity_control_adapter.log 2>&1 &
     sleep 2
     if check_process "multicopter_velocity_control_adapter.py"; then
@@ -1049,7 +1149,7 @@ manual_velocity_test() {
     echo "   • Yaw gain (k2): 1.0"
     echo ""
 
-    python3 manual_velocity_test.py \
+    ros2 run mission_action_modules manual_velocity_test \
         --ros-args \
         -p takeoff_height:=3.0 \
         -p target_distance:=10.0 \
@@ -1069,7 +1169,6 @@ manual_velocity_test() {
         echo "   1. 手动起飞：发送 vz=dz*0.5 直到到达3m高度"
         echo "   2. 水平飞行：发送 vx=dx*0.5, vy=dy*0.5, yaw_rate=dyaw*1.0"
         echo "   3. 飞向相对位置 (10m @ 45°)"
-        echo "   4. 到达后HOLD（发送零速度）"
         echo ""
         print_status $YELLOW "🛎️ 完成后按任意键返回菜单，选择选项4) 终止所有进程"
     else
@@ -1187,8 +1286,8 @@ kill_all_processes() {
     pkill -f "pose_cov_ops_interface_node" 2>/dev/null
     pkill -f "drone_state_publisher_node" 2>/dev/null
     pkill -f "multicopter_velocity_control_adapter.py" 2>/dev/null
-    pkill -f "waypoint_controller.py" 2>/dev/null
-    pkill -f "yaw_controller.py" 2>/dev/null
+    pkill -f "waypoint_controller" 2>/dev/null
+    pkill -f "yaw_controller" 2>/dev/null
     pkill -f "px4_bridge" 2>/dev/null
     pkill -f "robot_state_publisher" 2>/dev/null
     pkill -f "static_transform_publisher" 2>/dev/null

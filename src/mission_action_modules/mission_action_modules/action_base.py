@@ -104,7 +104,7 @@ class ActionContext:
 
         # Internal caches
         self._last_waypoint: Optional[np.ndarray] = None
-        self._last_yaw_cmd: Optional[float] = None
+        self._last_attitude_cmd: Optional[np.ndarray] = None
 
     # Provide rclpy node handle compatibility for any helper APIs that expect a Node.
     @property
@@ -200,7 +200,7 @@ class ActionContext:
         msg.vector.y = pitch
         msg.vector.z = yaw
         self._yaw_pub.publish(msg)
-        self._last_yaw_cmd = yaw
+        self._last_attitude_cmd = np.array([roll, pitch, yaw], dtype=float)
 
     # ------------------------------------------------------------------
     # Convenience getters
@@ -213,6 +213,16 @@ class ActionContext:
 
     def get_yaw(self) -> Optional[float]:
         return self.state.yaw
+
+    def get_last_waypoint(self) -> Optional[np.ndarray]:
+        if self._last_waypoint is None:
+            return None
+        return self._last_waypoint.copy()
+
+    def get_last_attitude_command(self) -> Optional[np.ndarray]:
+        if self._last_attitude_cmd is None:
+            return None
+        return self._last_attitude_cmd.copy()
 
     def now(self) -> float:
         return self.node.get_clock().now().nanoseconds / 1e9

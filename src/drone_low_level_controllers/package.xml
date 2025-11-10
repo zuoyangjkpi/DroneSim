@@ -3,21 +3,18 @@
 <package format="3">
   <name>drone_low_level_controllers</name>
   <version>1.0.0</version>
-  <description>Low-level control plugins for drone: waypoint, attitude, and velocity controllers</description>
+  <description>Velocity adapter bridge for Gazebo MulticopterVelocityControl.</description>
 
   <maintainer email="user@example.com">ROS2 User</maintainer>
   <license>MIT</license>
 
   <!-- Dependencies -->
   <buildtool_depend>ament_cmake</buildtool_depend>
-
-  <!-- Core ROS2 dependencies -->
   <depend>rclpy</depend>
-
-  <!-- Message dependencies -->
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>std_msgs</depend>
+  <exec_depend>python3-numpy</exec_depend>
 
   <!-- Test dependencies -->
   <test_depend>ament_lint_auto</test_depend>

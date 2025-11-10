@@ -207,7 +207,7 @@ class HoverModule(ActionModule):
         super().__init__(context, "HoverModule")
         self._target: Optional[np.ndarray] = None
         self._tolerance = 0.0
-        self._duration = 0.0
+        self._duration: Optional[float] = 0.0
         self._start_time = 0.0
         self._hover_yaw = 0.0
 
@@ -222,11 +222,15 @@ class HoverModule(ActionModule):
             if goal.target_position is not None
             else position.copy()
         )
-        self._duration = (
+        duration = (
             goal.duration
             if goal.duration is not None
             else self.context.defaults.hover_duration
         )
+        if duration is None or duration <= 0.0:
+            self._duration = None  # hold indefinitely until canceled
+        else:
+            self._duration = duration
         self._tolerance = (
             goal.tolerance
             if goal.tolerance is not None
@@ -252,7 +256,7 @@ class HoverModule(ActionModule):
         elapsed = self.context.now() - self._start_time
         distance = float(np.linalg.norm(position - self._target))
 
-        if elapsed >= self._duration:
+        if self._duration is not None and elapsed >= self._duration:
             self.succeed(f"Hover complete ({elapsed:.1f}s)")
             return
 
@@ -329,12 +333,21 @@ class FlyToTargetModule(ActionModule):
             self._current_idx += 1
             self._start_time = self.context.now()
             if self._current_idx >= len(self._waypoints):
+                self.context.node.get_logger().info(
+                    f"[FlyToTargetModule] Reached final waypoint {self._current_idx}/{len(self._waypoints)} | "
+                    f"Distance: {distance:.3f}m <= Tolerance: {self._tolerance:.3f}m"
+                )
                 self.succeed("Reached final waypoint")
                 return
+            self.context.node.get_logger().info(
+                f"[FlyToTargetModule] Reached waypoint {self._current_idx}/{len(self._waypoints)} | "
+                f"Distance: {distance:.3f}m <= Tolerance: {self._tolerance:.3f}m | Moving to next"
+            )
             self._command_current_waypoint()
             return
 
-        if elapsed > self._timeout_per_leg:
+        # 如果timeout_per_leg <= 0，表示不设超时限制
+        if self._timeout_per_leg > 0 and elapsed > self._timeout_per_leg:
             self.fail(
                 f"Timeout moving to waypoint {self._current_idx + 1}/{len(self._waypoints)}"
             )

@@ -1,43 +1,4 @@
-# Low-Level Controller Configuration for X3 Drone
-
-waypoint_controller:
-  ros__parameters:
-    # Control parameters
-    control_frequency: 90.0
-    position_tolerance: 0.035     # meters
-    velocity_tolerance: 0.05      # m/s
-    waypoint_timeout: 4.0         # seconds before fail-safe hover engages
-
-    # PID gains for position control
-    kp_xy: 1.9
-    ki_xy: 0.008
-    kd_xy: 0.85
-    kp_z: 1.05
-    ki_z: 0.005
-    kd_z: 0.85
-
-    # Velocity limits - fast but bounded
-    max_velocity_xy: 3.0
-    max_velocity_z: 1.0
-
-    # Additional protections
-    max_vertical_error: 0.4
-    integral_limit_xy: 3.0
-    integral_limit_z: 0.3
-
-yaw_controller:
-  ros__parameters:
-    control_frequency: 150.0
-    yaw_tolerance: 0.030
-    kp_yaw: 2.6
-    ki_yaw: 0.008
-    kd_yaw: 0.0
-    max_angular_velocity_yaw: 3.0
-    max_yaw_step: 0.55
-    derivative_filter_alpha: 0.25
-    yaw_integral_limit: 1.0
-    attitude_command_timeout: 3.0
-
+# Velocity adapter parameters
 multicopter_velocity_control_adapter:
   ros__parameters:
     control_frequency: 160.0

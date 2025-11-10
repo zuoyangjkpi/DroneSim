@@ -23,10 +23,11 @@ echo "   - STEP_SIZE: $(python3 -c "from src.drone_nmpc_tracker.drone_nmpc_track
 echo "   - TARGET_POSITION_SMOOTHING: $(python3 -c "from src.drone_nmpc_tracker.drone_nmpc_tracker.config import nmpc_config; print(nmpc_config.TARGET_POSITION_SMOOTHING)")"
 
 echo ""
+GUIDANCE_CFG="src/drone_guidance_controllers/config/controllers.yaml"
 echo "2. 低级控制器PID参数 (从YAML文件):"
-echo "   - 位置控制kp_xy: $(grep 'kp_xy:' src/drone_low_level_controllers/config/controllers.yaml | awk '{print $2}')"
-echo "   - 位置控制kd_xy: $(grep 'kd_xy:' src/drone_low_level_controllers/config/controllers.yaml | awk '{print $2}')"
-echo "   - 姿态控制kp_roll: $(grep 'kp_roll:' src/drone_low_level_controllers/config/controllers.yaml | awk '{print $2}')"
+echo "   - 位置控制kp_xy: $(grep 'kp_xy:' $GUIDANCE_CFG | awk '{print $2}')"
+echo "   - 位置控制kd_xy: $(grep 'kd_xy:' $GUIDANCE_CFG | awk '{print $2}')"
+echo "   - 姿态控制kp_yaw: $(grep 'kp_yaw:' $GUIDANCE_CFG | awk '{print $2}')"
 
 echo ""
 echo "3. 投影模型置信度阈值："

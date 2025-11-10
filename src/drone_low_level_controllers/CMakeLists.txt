@@ -6,8 +6,6 @@ find_package(ament_cmake REQUIRED)
 
 # Install Python executables
 install(PROGRAMS
-  drone_low_level_controllers/waypoint_controller.py
-  drone_low_level_controllers/yaw_controller.py
   drone_low_level_controllers/multicopter_velocity_control_adapter.py
   DESTINATION lib/${PROJECT_NAME}
 )

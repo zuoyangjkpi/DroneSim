@@ -43,7 +43,7 @@ source install/setup.bash
 8. `projection_model`：将 YOLO 像素框投影成世界坐标。
 9. `pose_cov_ops_interface`：给无协方差的 Pose 加协方差矩阵。
 10. `drone_nmpc_tracker/nmpc_tracker_node`：NMPC 跟踪控制 + 高层状态机。
-11. `drone_low_level_controllers`（waypoint/attitude/MulticopterVelocityControl adapter）三级 PID。
+11. `drone_guidance_controllers`（waypoint/yaw）+ `drone_low_level_controllers`（velocity adapter）三级控制链。
 12. `ros2 topic pub /X3/enable` & `/nmpc/enable`：解锁无人机控制与 NMPC。
 
 ### 2.3 关键节点与话题
@@ -55,7 +55,7 @@ source install/setup.bash
 | 投影 | `projection_model_node` (`projection_model/src/Projector.cpp`) | `/person_detections`, `/X3/pose_with_covariance`, `/machine_1/camera/pose(_optical)` | `/person_detections/world_frame`, `/neural_network_feedback` | 估计行人三维位置及协方差 |
 | 状态桥 | `pose_cov_ops_interface_node` | `/X3/odometry` | `/X3/pose_with_covariance` | 添加协方差，供投影模型与 NMPC 使用 |
 | NMPC | `nmpc_tracker_node` (`drone_nmpc_tracker/nmpc_node.py`) | `/person_detections/world_frame`, `/X3/odometry`, `/nmpc/enable` 等 | `/drone/control/waypoint_command`, `/drone/control/attitude_command`, `/nmpc/person_estimate`, `/drone/controller/status` | 状态机 + NMPC 优化（`nmpc_controller.py`） |
-| 低层控制 | `waypoint_controller.py` / `yaw_controller.py` / `multicopter_velocity_control_adapter.py` | 上层控制话题 | `/drone/control/velocity_setpoint`, `/drone/control/angular_velocity_setpoint`, `/X3/cmd_vel` | 纯 Python PID + Gazebo `MulticopterVelocityControl` 插件适配 |
+| 低层控制 | `drone_guidance_controllers` (waypoint/yaw) + `multicopter_velocity_control_adapter.py` | 上层控制话题 | `/drone/control/velocity_setpoint`, `/drone/control/angular_velocity_setpoint`, `/X3/cmd_vel` | Guidance PID 输出速度，velocity adapter 转为 Gazebo `MulticopterVelocityControl` |
 | 辅助 | `visualization_node.py`, `drone_tf_publisher.py` | 多话题 | Marker、TF | RViz 可视化 |
 
 ### 2.4 主要包与算法内容

@@ -4,18 +4,21 @@ Launch file for drone low-level control plugins
 """
 
 import os
+
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
-    # Get package directory
-    pkg_dir = get_package_share_directory('drone_low_level_controllers')
+    # Package directories
+    velocity_pkg_dir = get_package_share_directory('drone_low_level_controllers')
+    guidance_pkg_dir = get_package_share_directory('drone_guidance_controllers')
 
-    # Path to config file
-    config_file = os.path.join(pkg_dir, 'config', 'controllers.yaml')
+    # Path to config files
+    guidance_config = os.path.join(guidance_pkg_dir, 'config', 'controllers.yaml')
+    velocity_config = os.path.join(velocity_pkg_dir, 'config', 'controllers.yaml')
 
     # Launch arguments
     use_sim_time_arg = DeclareLaunchArgument(
@@ -26,11 +29,11 @@ def generate_launch_description():
 
     # Waypoint controller node
     waypoint_controller_node = Node(
-        package='drone_low_level_controllers',
-        executable='waypoint_controller.py',
+        package='drone_guidance_controllers',
+        executable='waypoint_controller',
         name='waypoint_controller',
         parameters=[
-            config_file,
+            guidance_config,
             {'use_sim_time': LaunchConfiguration('use_sim_time')}
         ],
         output='screen'
@@ -38,11 +41,11 @@ def generate_launch_description():
 
     # Yaw controller node
     yaw_controller_node = Node(
-        package='drone_low_level_controllers',
-        executable='yaw_controller.py',
+        package='drone_guidance_controllers',
+        executable='yaw_controller',
         name='yaw_controller',
         parameters=[
-            config_file,
+            guidance_config,
             {'use_sim_time': LaunchConfiguration('use_sim_time')}
         ],
         output='screen'
@@ -54,7 +57,7 @@ def generate_launch_description():
         executable='multicopter_velocity_control_adapter.py',
         name='multicopter_velocity_control_adapter',
         parameters=[
-            config_file,
+            velocity_config,
             {'use_sim_time': LaunchConfiguration('use_sim_time')}
         ],
         output='screen'

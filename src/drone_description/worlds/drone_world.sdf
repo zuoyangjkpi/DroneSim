@@ -527,11 +527,11 @@
         <commandSubTopic>cmd_vel</commandSubTopic>
         <enableSubTopic>enable</enableSubTopic>
         <comLinkName>X3/base_link</comLinkName>
-        <!-- 原始增益参数（已恢复） -->
-        <velocityGain>1.8 1.8 1.4</velocityGain>
-        <attitudeGain>1.6 1.6 0.12</attitudeGain>
-        <angularRateGain>0.32 0.32 0.12</angularRateGain>
-        <maximumLinearAcceleration>1.6 1.6 1.4</maximumLinearAcceleration>
+        <!-- XY快速响应（提高velocityGain和加速度限制以达到5m/s），Z降低超调 -->
+        <velocityGain>6.0 6.0 3.0</velocityGain>
+        <attitudeGain>4.5 4.5 0.18</attitudeGain>
+        <angularRateGain>1.5 1.5 0.16</angularRateGain>
+        <maximumLinearAcceleration>6.0 6.0 2.0</maximumLinearAcceleration>
         <actuatorsTopic>command/motor_speed</actuatorsTopic>
         <rotorConfiguration>
           <rotor>

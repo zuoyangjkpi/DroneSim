@@ -12,7 +12,7 @@ from rclpy.node import Node
 from std_msgs.msg import Bool
 
 
-LOG_PATH = '/tmp/drone_low_level_controllers.log'
+LOG_PATH = '/tmp/drone_guidance_controllers.log'
 
 
 def _init_file_logger(name: str) -> logging.Logger:

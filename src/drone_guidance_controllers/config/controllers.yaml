@@ -1,0 +1,35 @@
+# Guidance-layer controllers (waypoint + yaw)
+
+waypoint_controller:
+  ros__parameters:
+    control_frequency: 90.0
+    position_tolerance: 0.035
+    velocity_tolerance: 0.05
+    waypoint_timeout: 4.0
+
+    kp_xy: 1.9
+    ki_xy: 0.008
+    kd_xy: 0.85
+    kp_z: 1.3            # 从1.05提高到1.3，加快响应
+    ki_z: 0.002          # 从0.005降到0.002，减少积分超调
+    kd_z: 1.5            # 从0.85提高到1.5，增加阻尼抑制超调
+
+    max_velocity_xy: 5.0          # 从3.0提高到5.0，让XY反应更快
+    max_velocity_z: 1.5           # 从1.0提高到1.5
+
+    max_vertical_error: 0.4
+    integral_limit_xy: 5.0        # 相应提高积分限幅
+    integral_limit_z: 0.3
+
+yaw_controller:
+  ros__parameters:
+    control_frequency: 150.0
+    yaw_tolerance: 0.030
+    kp_yaw: 2.6
+    ki_yaw: 0.008
+    kd_yaw: 0.5               # 从0.0增加到0.5，减少震荡
+    max_angular_velocity_yaw: 4.5  # 从3.0提高到4.5，让yaw反应更快
+    max_yaw_step: 0.55
+    derivative_filter_alpha: 0.25
+    yaw_integral_limit: 1.0
+    attitude_command_timeout: 3.0
