@@ -9,6 +9,7 @@ import rclpy
 from geometry_msgs.msg import Twist, TwistStamped, Vector3Stamped
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy, QoSHistoryPolicy
 from std_msgs.msg import Bool
 
 LOG_PATH = '/tmp/drone_low_level_controllers.log'
@@ -54,6 +55,14 @@ class MulticopterVelocityControlAdapter(Node):
         self.velocity_setpoint_timeout = float(self.get_parameter('velocity_setpoint_timeout').value)
         self.angular_setpoint_timeout = float(self.get_parameter('angular_setpoint_timeout').value)
 
+        # QoS profile for enable topic - transient local for latching behavior
+        enable_qos = QoSProfile(
+            depth=1,
+            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            history=QoSHistoryPolicy.KEEP_LAST,
+        )
+
         # Publishers / subscribers
         self.cmd_vel_pub = self.create_publisher(Twist, '/X3/cmd_vel', 10)
 
@@ -79,7 +88,7 @@ class MulticopterVelocityControlAdapter(Node):
             Bool,
             '/drone/control/velocity_enable',
             self.enable_callback,
-            10,
+            enable_qos,
         )
 
         # State

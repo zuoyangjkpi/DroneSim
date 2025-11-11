@@ -10,6 +10,7 @@ import rclpy
 from geometry_msgs.msg import Vector3Stamped
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy, QoSHistoryPolicy
 from scipy.spatial.transform import Rotation
 from std_msgs.msg import Bool
 
@@ -73,6 +74,14 @@ class YawController(Node):
         self.file_logger = _init_file_logger('yaw_controller')
         self._log_counter = 0
 
+        # QoS profile for enable topic - transient local for latching behavior
+        enable_qos = QoSProfile(
+            depth=1,
+            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            history=QoSHistoryPolicy.KEEP_LAST,
+        )
+
         # Publishers
         self.angular_velocity_pub = self.create_publisher(
             Vector3Stamped, '/drone/control/angular_velocity_setpoint', 10)
@@ -96,7 +105,7 @@ class YawController(Node):
             Bool,
             '/drone/control/attitude_enable',
             self.enable_callback,
-            10,
+            enable_qos,
         )
 
         self.control_timer = self.create_timer(1.0 / self.control_frequency, self.control_loop)
@@ -163,12 +172,8 @@ class YawController(Node):
             dt = max(1e-3, (now - self.last_control_time).nanoseconds / 1e9)
         self.last_control_time = now
 
-        delta = self.target_yaw - self.current_yaw
-        pi = math.pi
-        if abs(delta) <= pi:
-            yaw_error = delta
-        else:
-            yaw_error = self._wrap_angle(self.target_yaw + self.current_yaw)
+        # Compute shortest angular error, wrapped to [-π, π]
+        yaw_error = self._wrap_angle(self.target_yaw - self.current_yaw)
 
         # Integral with clamp
         limit = self.yaw_integral_limit if self.yaw_integral_limit > 0.0 else 1.5

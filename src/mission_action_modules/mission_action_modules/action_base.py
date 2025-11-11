@@ -10,6 +10,7 @@ from builtin_interfaces.msg import Time as TimeMsg
 from geometry_msgs.msg import PoseStamped, Vector3Stamped
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy, QoSHistoryPolicy
 from std_msgs.msg import Bool
 
 
@@ -85,21 +86,29 @@ class ActionContext:
         self.state = VehicleState()
         self.defaults = ActionDefaults()
 
+        # QoS profile for enable topics - transient local for latching behavior
+        enable_qos = QoSProfile(
+            depth=1,
+            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            history=QoSHistoryPolicy.KEEP_LAST,
+        )
+
         # Publishers for low-level controllers
         self._waypoint_pub = node.create_publisher(
             PoseStamped, "/drone/control/waypoint_command", 10
         )
         self._waypoint_enable_pub = node.create_publisher(
-            Bool, "/drone/control/waypoint_enable", 10
+            Bool, "/drone/control/waypoint_enable", enable_qos
         )
         self._yaw_pub = node.create_publisher(
             Vector3Stamped, "/drone/control/attitude_command", 10
         )
         self._yaw_enable_pub = node.create_publisher(
-            Bool, "/drone/control/attitude_enable", 10
+            Bool, "/drone/control/attitude_enable", enable_qos
         )
         self._velocity_enable_pub = node.create_publisher(
-            Bool, "/drone/control/velocity_enable", 10
+            Bool, "/drone/control/velocity_enable", enable_qos
         )
 
         # Internal caches

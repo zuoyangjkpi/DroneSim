@@ -6,6 +6,7 @@ Bypasses PID controllers and directly publishes velocity commands to test Gazebo
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy, QoSHistoryPolicy
 from geometry_msgs.msg import TwistStamped, Vector3Stamped, PoseStamped
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Bool
@@ -35,6 +36,14 @@ class ManualVelocityTester(Node):
         self.pos_tol = self.get_parameter('position_tolerance').value
         self.yaw_tol = self.get_parameter('yaw_tolerance').value
 
+        # QoS profile for enable topic - transient local for latching behavior
+        enable_qos = QoSProfile(
+            depth=1,
+            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            history=QoSHistoryPolicy.KEEP_LAST,
+        )
+
         # Publishers - directly to velocity adapter
         self.velocity_setpoint_pub = self.create_publisher(
             TwistStamped, '/drone/control/velocity_setpoint', 10
@@ -43,7 +52,7 @@ class ManualVelocityTester(Node):
             Vector3Stamped, '/drone/control/angular_velocity_setpoint', 10
         )
         self.velocity_enable_pub = self.create_publisher(
-            Bool, '/drone/control/velocity_enable', 10
+            Bool, '/drone/control/velocity_enable', enable_qos
         )
 
         # Subscribers

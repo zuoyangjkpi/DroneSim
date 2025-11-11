@@ -9,6 +9,7 @@ import rclpy
 from geometry_msgs.msg import PoseStamped, TwistStamped, Vector3Stamped
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy, QoSHistoryPolicy
 from std_msgs.msg import Bool
 
 
@@ -88,6 +89,14 @@ class WaypointController(Node):
         # File logger for external monitoring
         self.file_logger = _init_file_logger('waypoint_controller')
 
+        # QoS profile for enable topic - transient local for latching behavior
+        enable_qos = QoSProfile(
+            depth=1,
+            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            history=QoSHistoryPolicy.KEEP_LAST,
+        )
+
         # Publishers
         self.velocity_setpoint_pub = self.create_publisher(
             TwistStamped, '/drone/control/velocity_setpoint', 10)
@@ -102,7 +111,7 @@ class WaypointController(Node):
             Odometry, '/X3/odometry', self.odometry_callback, 10)
         self.enable_sub = self.create_subscription(
             Bool, '/drone/control/waypoint_enable',
-            self.enable_callback, 10)
+            self.enable_callback, enable_qos)
 
         # Control timer
         self.control_timer = self.create_timer(
