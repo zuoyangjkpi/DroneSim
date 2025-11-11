@@ -7,6 +7,7 @@
 #include <std_msgs/msg/float64_multi_array.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/vector3_stamped.hpp>
 #include <cmath>
 
 class DetectionVisualizerNode : public rclcpp::Node
@@ -78,8 +79,8 @@ public:
             "/drone/control/waypoint_command", 1,
             std::bind(&DetectionVisualizerNode::waypointCallback, this, std::placeholders::_1));
 
-        // Subscribe to attitude command
-        attitude_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+        // Subscribe to attitude command (Vector3Stamped: roll, pitch, yaw)
+        attitude_sub_ = this->create_subscription<geometry_msgs::msg::Vector3Stamped>(
             "/drone/control/attitude_command", 1,
             std::bind(&DetectionVisualizerNode::attitudeCallback, this, std::placeholders::_1));
 
@@ -164,13 +165,10 @@ private:
         waypoint_received_ = true;
     }
 
-    void attitudeCallback(const geometry_msgs::msg::PoseStamped::ConstSharedPtr& msg)
+    void attitudeCallback(const geometry_msgs::msg::Vector3Stamped::ConstSharedPtr& msg)
     {
-        // Extract yaw from quaternion
-        const auto& q = msg->pose.orientation;
-        const double siny_cosp = 2.0 * (q.w * q.z + q.x * q.y);
-        const double cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z);
-        target_yaw_ = std::atan2(siny_cosp, cosy_cosp);
+        // Extract yaw directly from vector (vector.z = yaw in radians)
+        target_yaw_ = msg->vector.z;
         attitude_received_ = true;
     }
 
@@ -315,7 +313,7 @@ private:
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr nmpc_status_sub_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odometry_sub_;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr waypoint_sub_;
-    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr attitude_sub_;
+    rclcpp::Subscription<geometry_msgs::msg::Vector3Stamped>::SharedPtr attitude_sub_;
     rclcpp::TimerBase::SharedPtr init_timer_;
 
     sensor_msgs::msg::Image::ConstSharedPtr current_image_;

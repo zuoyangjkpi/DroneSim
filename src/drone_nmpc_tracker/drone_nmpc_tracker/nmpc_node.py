@@ -80,7 +80,7 @@ class NMPCTrackerNode(Node):
         self.declare_parameter('tracking_phase_offset', 0.0)
         self.declare_parameter('tracking_height_offset', nmpc_config.TRACKING_HEIGHT_OFFSET)
         self.declare_parameter('person_position_filter_alpha', nmpc_config.PERSON_POSITION_FILTER_ALPHA)
-        self.declare_parameter('track_detection_confirmations', 3)
+        self.declare_parameter('track_detection_confirmations', 1)
         # Get parameter values
         self.control_frequency = self.get_parameter('control_frequency').value
         self.person_timeout = self.get_parameter('person_timeout').value
@@ -667,11 +667,74 @@ class NMPCTrackerNode(Node):
             self.get_logger().error(f'NMPC优化失败: {exc}')
             return
 
-        self._refresh_waypoint_queue()
-        self._send_tracking_commands(control)
+        # Standard MPC: only execute the first point from the optimized sequence
+        self._send_tracking_commands_first_point_only(control, info)
 
         if self.enable_visualization and info:
             self._publish_visualization(info)
+
+    def _send_tracking_commands_first_point_only(self, control: np.ndarray, info: dict):
+        """Send only the first point from the optimized trajectory (standard MPC approach)."""
+        # Extract the first waypoint from the optimized trajectory
+        if 'trajectory' not in info or len(info['trajectory']) == 0:
+            self.get_logger().warn('No trajectory in NMPC output - cannot send command')
+            return
+
+        # Get the first state from the optimized trajectory
+        first_state = info['trajectory'][0]
+        target_position = first_state.data[self.config.STATE_X:self.config.STATE_Z+1].copy()
+
+        # Override altitude to fixed tracking altitude
+        target_position[2] = float(self.fixed_tracking_altitude)
+
+        # Create and publish waypoint command
+        waypoint_msg = PoseStamped()
+        waypoint_msg.header.stamp = self.get_clock().now().to_msg()
+        waypoint_msg.header.frame_id = self.world_frame
+        waypoint_msg.pose.position.x = float(target_position[0])
+        waypoint_msg.pose.position.y = float(target_position[1])
+        waypoint_msg.pose.position.z = float(target_position[2])
+        waypoint_msg.pose.orientation.w = 1.0
+
+        self.waypoint_pub.publish(waypoint_msg)
+
+        # Retrieve desired attitude from NMPC output
+        desired_attitude = getattr(self.controller, "target_attitude", None)
+
+        if desired_attitude is not None and len(desired_attitude) >= 2:
+            roll_cmd = float(desired_attitude[0])
+            pitch_cmd = float(desired_attitude[1])
+        else:
+            roll_cmd = 0.0
+            pitch_cmd = 0.0
+
+        # Compute yaw to face the person
+        person_pos = self._filtered_person_position
+        if person_pos is not None:
+            drone_pos = self._get_current_position()
+            dx = person_pos[0] - drone_pos[0]
+            dy = person_pos[1] - drone_pos[1]
+            yaw_cmd = float(np.arctan2(dy, dx))
+        else:
+            yaw_cmd = self.last_tracking_yaw
+
+        # Create and publish attitude command
+        attitude_msg = Vector3Stamped()
+        attitude_msg.header.stamp = self.get_clock().now().to_msg()
+        attitude_msg.header.frame_id = self.drone_frame
+        attitude_msg.vector.x = roll_cmd
+        attitude_msg.vector.y = pitch_cmd
+        attitude_msg.vector.z = yaw_cmd
+
+        self.attitude_pub.publish(attitude_msg)
+
+        self.last_tracking_yaw = yaw_cmd
+        self._log_waypoint_command(
+            source="NMPC_FIRST_POINT",
+            position=target_position,
+            velocity=None,
+            yaw=yaw_cmd
+        )
 
     def _refresh_waypoint_queue(self):
         plan_id = self.controller.get_plan_sequence_id()

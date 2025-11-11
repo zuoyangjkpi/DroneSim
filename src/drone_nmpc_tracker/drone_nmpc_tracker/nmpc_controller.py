@@ -459,9 +459,10 @@ class DroneNMPCController:
                 accel = (vel_next - vel_curr) / self.dt
                 total_cost += np.sum(self.config.W_ACCELERATION * accel**2)
 
-                lateral_acc = np.linalg.norm(accel[:2])
-                tilt = math.atan2(lateral_acc, self.config.GRAVITY)
-                total_cost += self.config.W_CAMERA_TILT * tilt**2
+                # Camera tilt penalty removed per user request
+                # lateral_acc = np.linalg.norm(accel[:2])
+                # tilt = math.atan2(lateral_acc, self.config.GRAVITY)
+                # total_cost += self.config.W_CAMERA_TILT * tilt**2
         
         return total_cost
     

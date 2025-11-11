@@ -17,7 +17,7 @@ YOLO12DetectorNode::YOLO12DetectorNode(const rclcpp::NodeOptions & options)
 {
     // Declare use_sim_time parameter FIRST
     if (!this->has_parameter("use_sim_time")) {
-        this->declare_parameter("use_sim_time", true);
+        this->declare_parameter("use_sim_time", false);
     }
     // Initialize parameters
     initializeParameters();

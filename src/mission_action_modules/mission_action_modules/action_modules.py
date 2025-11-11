@@ -500,9 +500,12 @@ class TrackTargetModule(ActionModule):
             return
 
         track_duration = self._last_detection_time - self._start_time
-        if track_duration >= self._goal.min_duration:
-            if self._goal.max_duration is None or elapsed >= self._goal.max_duration:
-                self.succeed(f"Maintained tracking for {track_duration:.1f}s")
+        if (
+            self._goal.max_duration is not None
+            and track_duration >= self._goal.min_duration
+            and elapsed >= self._goal.max_duration
+        ):
+            self.succeed(f"Maintained tracking for {track_duration:.1f}s")
 
 
 class SearchModule(ActionModule):
@@ -519,6 +522,7 @@ class SearchModule(ActionModule):
         self._confirmations_required = 3
         self._last_waypoint_refresh = 0.0
         self._waypoint_refresh_period = 0.5  # seconds
+        # Subscribe to global controller status (published by ActionManager)
         self._status_sub = context.node.create_subscription(
             Float64MultiArray,
             "/drone/controller/status",
@@ -592,6 +596,7 @@ class SearchModule(ActionModule):
             self.succeed(f"Search completed after {elapsed:.1f}s")
 
     def _status_callback(self, msg: Float64MultiArray) -> None:
+        """Process global controller status (person detection) during search."""
         detected = bool(int(msg.data[0])) if msg.data else False
         if detected:
             self._detection_streak = min(self._detection_streak + 1, self._confirmations_required)
@@ -698,7 +703,7 @@ class LostHoldModule(ActionModule):
 
         # 检查是否重新检测到目标（优先级最高）
         if self._detection_streak >= self._confirmations_required:
-            self.succeed("Target reacquired during hold")
+            self.succeed("Target reacquired during hold", data={"reacquired": True})
             return
 
         # 验证高度稳定性（类似TakeoffModule的逻辑）

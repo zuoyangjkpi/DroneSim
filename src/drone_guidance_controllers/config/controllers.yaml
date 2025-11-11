@@ -25,9 +25,9 @@ yaw_controller:
   ros__parameters:
     control_frequency: 100.0
     yaw_tolerance: 0.030
-    kp_yaw: 0.8               # 从0.4降到0.3，进一步减少超调
+    kp_yaw: 0.178               # 从0.4降到0.3，进一步减少超调
     ki_yaw: 0.0005            # 从0.001降到0.0005，几乎纯PD控制
-    kd_yaw: 4.5               # 从1.0提高到1.2，增强阻尼
+    kd_yaw: 1.00               # 从1.0提高到1.2，增强阻尼
     max_angular_velocity_yaw: 3.0  # 从2.0降到1.8，稍微限制速度
     max_yaw_step: 0.25        # 从0.30降到0.25，更平滑的目标变化
     derivative_filter_alpha: 0.25

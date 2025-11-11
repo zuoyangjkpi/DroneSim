@@ -5,7 +5,6 @@ from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from tf2_ros import TransformBroadcaster
 from geometry_msgs.msg import TransformStamped
-from rclpy.parameter import Parameter
 import math
 
 
@@ -28,12 +27,9 @@ class DroneTfPublisher(Node):
     def __init__(self):
         super().__init__('drone_tf_publisher')
 
-        # Ensure the node uses simulation time when available
+        # Default to ROS wall-clock time unless overridden externally
         if not self.has_parameter('use_sim_time'):
-            self.declare_parameter('use_sim_time', True)
-        self.set_parameters([
-            Parameter('use_sim_time', value=True)
-        ])
+            self.declare_parameter('use_sim_time', False)
         
         # Create TF broadcaster
         self.tf_broadcaster = TransformBroadcaster(self)

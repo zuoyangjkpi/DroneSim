@@ -67,10 +67,9 @@ class ActionDefaults:
 
     takeoff_altitude: float = 3.0  # meters
     takeoff_timeout: float = 60.0  # seconds
-    takeoff_stable_duration: float = 5.0  # seconds
-    takeoff_stable_duration: float = 5.0  # seconds within tolerance before succeeding
-    hover_duration: float = 10.0  # seconds
-    search_yaw_rate: float = 0.05  # rad/s
+    takeoff_stable_duration: float = 3.0  # seconds within tolerance before succeeding
+    hover_duration: float = 3.0  # seconds
+    search_yaw_rate: float = 0.03  # rad/s (slower search rotation)
     search_altitude: float = 3.0  # meters
     inspect_timeout: float = 15.0  # seconds
     land_timeout: float = 20.0  # seconds

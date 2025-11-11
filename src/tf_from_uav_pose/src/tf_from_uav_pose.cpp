@@ -19,7 +19,7 @@ TfFromUAVPose::TfFromUAVPose() : Node("tf_from_uav_pose") {
     
     // CRITICAL: Declare use_sim_time parameter FIRST
     if (!this->has_parameter("use_sim_time")) {
-        this->declare_parameter("use_sim_time", true);
+        this->declare_parameter("use_sim_time", false);
     }
     
     // Initialize parameters first

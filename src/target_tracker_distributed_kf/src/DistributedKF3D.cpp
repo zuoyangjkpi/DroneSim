@@ -21,7 +21,7 @@ DistributedKF3D::DistributedKF3D() :
     
     // Declare use_sim_time parameter FIRST
     if (!this->has_parameter("use_sim_time")) {
-        this->declare_parameter("use_sim_time", true);
+        this->declare_parameter("use_sim_time", false);
     }
     
     // Declare all parameters before using them

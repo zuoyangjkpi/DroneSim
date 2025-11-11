@@ -109,7 +109,7 @@ class DroneSimulationLauncher:
             'ros2', 'launch', 
             'drone_state_publisher', 
             'simulation.launch.py',
-            'use_sim_time:=true',
+            'use_sim_time:=false',
             'robot_id:=1',
             'num_robots:=1'
         ]

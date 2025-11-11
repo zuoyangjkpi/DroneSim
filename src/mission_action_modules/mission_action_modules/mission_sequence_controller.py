@@ -25,7 +25,7 @@ class MissionSequenceController(Node):
     def __init__(self) -> None:
         super().__init__("mission_sequence_controller")
         self.takeoff_height = float(self.declare_parameter("sequence.takeoff_height", 3.0).value)
-        self.takeoff_hold_time = float(self.declare_parameter("sequence.post_takeoff_wait", 3.0).value)
+        self.takeoff_hold_time = float(self.declare_parameter("sequence.post_takeoff_wait", 1.0).value)
         self.takeoff_tolerance = float(self.declare_parameter("sequence.altitude_tolerance", 0.1).value)
 
         self.state = SequenceState.TAKEOFF
@@ -76,7 +76,8 @@ class MissionSequenceController(Node):
         action = payload.get("action")
         outcome = payload.get("outcome")
         message = payload.get("message", "")
-        if action:
+        data = payload.get("data", {})
+        if action and outcome != "started":
             self._active_actions.discard(action)
 
         if action == "takeoff":
@@ -96,9 +97,15 @@ class MissionSequenceController(Node):
                 self._transition(SequenceState.LOST_HOLD)
         elif action == "lost_hold":
             if outcome == "succeeded":
-                self._transition(SequenceState.TRACK)
+                # Check if target was reacquired or just stabilized
+                if data.get("reacquired", False):
+                    self.get_logger().info("Lost-hold succeeded: target reacquired → TRACK")
+                    self._transition(SequenceState.TRACK)
+                else:
+                    self.get_logger().info("Lost-hold succeeded: stabilized without target → SEARCH")
+                    self._transition(SequenceState.SEARCH)
             elif outcome in ("failed", "exception", "failed_to_start"):
-                self.get_logger().warn("Lost-hold timeout. Returning to search.")
+                self.get_logger().warn("Lost-hold failed. Returning to search.")
                 self._transition(SequenceState.SEARCH)
 
     # ------------------------------------------------------------------

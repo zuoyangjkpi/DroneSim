@@ -12,9 +12,9 @@ namespace model_distance_from_height {
 Projector::Projector() : Node("model_distance_from_height_node"), last_time_(rclcpp::Time(0)) {
   using namespace pose_cov_ops::interface;
 
-  // Declare use_sim_time parameter FIRST
+  // Declare use_sim_time parameter FIRST (default: wall-clock/system time)
   if (!this->has_parameter("use_sim_time")) {
-    this->declare_parameter("use_sim_time", true);
+    this->declare_parameter("use_sim_time", false);
   }
 
   // Declare and get parameters

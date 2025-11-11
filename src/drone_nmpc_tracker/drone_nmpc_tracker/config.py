@@ -23,9 +23,9 @@ class NMPCConfig:
         
         # Drone physical parameters
         self.DRONE_MASS = 5.0  # kg (octocopter)
-        self.DRONE_MAX_VELOCITY = 3.0  # m/s
+        self.DRONE_MAX_VELOCITY = 4.0  # m/s
         self.DRONE_MAX_ACCELERATION = 2.0  # m/s^2
-        self.DRONE_MAX_ANGULAR_VELOCITY = 1.5  # rad/s
+        self.DRONE_MAX_ANGULAR_VELOCITY = 3.0  # rad/s
 
         # Drone moment of inertia
         self.DRONE_INERTIA_XX = 0.45  # kg*m^2
@@ -53,16 +53,15 @@ class NMPCConfig:
         
         # ========== Cost Function Weights ==========
         # Position / dynamics tracking weights
-        self.W_POSITION = np.array([15.0, 15.0, 10.0])  # [x, y, z]
+        self.W_POSITION = np.array([8.0, 8.0, 5.0])  # [x, y, z]
         self.W_VELOCITY = np.array([1.2, 1.2, 0.8])     # penalise high velocities (SOFT)
-        self.W_ACCELERATION = np.array([1.8, 1.8, 1.2]) # penalise aggressive accelerations (HARD)
-        self.W_CAMERA_TILT = 6.0                        # penalise roll/pitch induced by accel
+        self.W_ACCELERATION = np.array([4.0, 4.0, 1.2]) # penalise aggressive accelerations (HARD)
         self.TARGET_ATTITUDE_SMOOTHING = 0.2            # 0=use raw attitude, 1=keep previous attitude
 
         # Person tracking specific weights - prioritize distance over everything
-        self.W_TRACKING_DISTANCE = 20.0  # Weight for maintaining optimal tracking distance - VERY HIGH priority
+        self.W_TRACKING_DISTANCE = 10.0  # Weight for maintaining optimal tracking distance - VERY HIGH priority
         self.W_SMOOTH_TRACKING = 0.8     # Slightly lower smoothing penalty to react quicker
-        self.W_YAW_ALIGNMENT = 30.0       # Force drone to face the target
+        self.W_YAW_ALIGNMENT = 10.0       # Force drone to face the target
         
         # ========== Constraints ==========
         # State constraints
@@ -85,14 +84,14 @@ class NMPCConfig:
             0.0,          # Minimum thrust
             -math.pi/6,   # Minimum roll command
             -math.pi/6,   # Minimum pitch command
-            -1.0          # Minimum yaw rate command
+            -1.8          # Minimum yaw rate command
         ])
 
         self.CONTROL_MAX = np.array([
             80.0,         # Maximum thrust (N) for heavier platform
             math.pi/6,    # Maximum roll command
             math.pi/6,    # Maximum pitch command
-            1.0           # Maximum yaw rate command
+            1.8           # Maximum yaw rate command
         ])
         
         # ========== Person Tracking Parameters ==========

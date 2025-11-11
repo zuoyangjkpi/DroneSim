@@ -176,6 +176,21 @@ cleanup_zombie_processes() {
     echo ""
 }
 
+# Unified cleanup function called before starting any test
+startup_cleanup() {
+    print_status $BLUE "🔧 执行启动前统一清理"
+    echo "=========================="
+
+    # Step 1: Kill all ROS processes
+    kill_all_processes
+
+    # Step 2: Clean up zombie processes
+    cleanup_zombie_processes
+
+    print_status $GREEN "✅ 启动前清理完成"
+    echo ""
+}
+
 # Main menu function
 show_menu() {
     echo ""
@@ -346,7 +361,7 @@ test_yolo_detector() {
     
     ros2 run neural_network_detector yolo12_detector_node \
         --ros-args \
-        -p "use_sim_time:=true" \
+        -p "use_sim_time:=false" \
         -p "model_path:=$model_path" \
         -p "labels_path:=$labels_path" \
         -p "use_gpu:=false" \
@@ -453,10 +468,9 @@ full_integration_test() {
     print_status $YELLOW "   11. Low-level controllers (waypoint, yaw, velocity)"
     print_status $YELLOW "   12. Mission action manager + TrackTarget module"
     
-    # Clean up existing processes
-    print_status $YELLOW "🧹 Cleaning up existing processes..."
-    kill_all_processes
-    sleep 3
+    # Clean up existing processes with unified startup cleanup
+    startup_cleanup
+    sleep 2
     
     # Step 1: Launch Gazebo
     print_status $YELLOW "Step 1/12: Starting Gazebo simulation..."
@@ -512,7 +526,7 @@ full_integration_test() {
     print_status $YELLOW "Step 6/12: Starting drone_state_publisher bridge..."
     ros2 run drone_state_publisher drone_state_publisher_node \
         --ros-args \
-        -p use_sim_time:=True \
+        -p use_sim_time:=False \
         > /tmp/drone_state_publisher.log 2>&1 &
     local drone_state_pub_pid=$!
     sleep 2
@@ -528,7 +542,7 @@ full_integration_test() {
     print_status $YELLOW "Step 7/12: Starting tf_from_uav_pose node..."
     ros2 run tf_from_uav_pose tf_from_uav_pose_node \
         --ros-args \
-        -p use_sim_time:=True \
+        -p use_sim_time:=False \
         -p poseTopicName:="/machine_1/pose" \
         -p rawPoseTopicName:="/machine_1/pose/raw" \
         -p stdPoseTopicName:="/machine_1/pose/corr/std" \
@@ -994,12 +1008,8 @@ waypoint_controller_test() {
     }
     log_control_msg "==== Waypoint controller test started ===="
 
-    print_status $YELLOW "🧹 Cleaning up existing processes..."
-    kill_all_processes
-    sleep 2
-
-    # Additional cleanup for zombie test processes
-    cleanup_zombie_processes
+    # Unified startup cleanup
+    startup_cleanup
 
     print_status $YELLOW "Step 1/4: Launching Gazebo simulation..."
     if ! launch_gazebo; then
@@ -1105,12 +1115,8 @@ manual_velocity_test() {
     print_status $YELLOW "用于诊断Gazebo MulticopterVelocityControl插件和坐标转换是否正常"
     echo ""
 
-    print_status $YELLOW "🧹 Cleaning up existing processes..."
-    kill_all_processes
-    sleep 2
-
-    # Additional cleanup for zombie test processes
-    cleanup_zombie_processes
+    # Unified startup cleanup
+    startup_cleanup
 
     print_status $YELLOW "Step 1/4: Launching Gazebo simulation..."
     if ! launch_gazebo; then
@@ -1258,41 +1264,70 @@ kill_all_processes() {
     
     print_status $YELLOW "🛑 Stopping all processes..."
     
-    # Kill specific processes
+    # Kill specific processes (first pass - graceful)
     pkill -f "gz sim" 2>/dev/null
     pkill -f "yolo12_detector_node" 2>/dev/null
     pkill -f "nmpc_tracker_node" 2>/dev/null
     pkill -f "nmpc_test_node" 2>/dev/null
+
+    # Mission action modules (Option 1)
     pkill -f "mission_action_manager" 2>/dev/null
-    pkill -9 -f "mission_action_manager" 2>/dev/null
     pkill -f "mission_action_modules/.*/action_manager" 2>/dev/null
-    pkill -9 -f "mission_action_modules/.*/action_manager" 2>/dev/null
     pkill -f "mission_action_modules.*action_manager" 2>/dev/null
-    pkill -9 -f "mission_action_modules.*action_manager" 2>/dev/null
     pkill -f "mission_sequence_controller" 2>/dev/null
-    pkill -9 -f "mission_sequence_controller" 2>/dev/null
     pkill -f "mission_action_modules/.*/mission_sequence_controller" 2>/dev/null
-    pkill -9 -f "mission_action_modules/.*/mission_sequence_controller" 2>/dev/null
+
+    # Option 2 specific nodes (waypoint test)
+    pkill -f "waypoint_test_runner" 2>/dev/null
+    pkill -f "waypoint_test_orchestrator" 2>/dev/null
+
+    # Option 3 specific nodes (manual velocity test)
+    pkill -f "manual_velocity_test" 2>/dev/null
+    pkill -f "manual_velocity_tester" 2>/dev/null
+
+    # Visualization and detection nodes
     pkill -f "detection_visualizer_node" 2>/dev/null
     pkill -f "visualization_node.py" 2>/dev/null
     pkill -f "drone_tf_publisher.py" 2>/dev/null
+
+    # Generic ROS processes
     pkill -f "ros2 launch" 2>/dev/null
     pkill -f "ros2 run" 2>/dev/null
     pkill -f "parameter_bridge" 2>/dev/null
     pkill -f "rviz2" 2>/dev/null
     pkill -f "ros2 topic pub" 2>/dev/null
+
+    # Perception and state estimation nodes
     pkill -f "projection_model_node" 2>/dev/null
     pkill -f "tf_from_uav_pose_node" 2>/dev/null
     pkill -f "pose_cov_ops_interface_node" 2>/dev/null
     pkill -f "drone_state_publisher_node" 2>/dev/null
+
+    # Control nodes (used by all options)
     pkill -f "multicopter_velocity_control_adapter.py" 2>/dev/null
     pkill -f "waypoint_controller" 2>/dev/null
     pkill -f "yaw_controller" 2>/dev/null
+
+    # Other nodes
     pkill -f "px4_bridge" 2>/dev/null
     pkill -f "robot_state_publisher" 2>/dev/null
     pkill -f "static_transform_publisher" 2>/dev/null
-    
+
     sleep 2
+
+    # Second pass - force kill stubborn processes
+    print_status $YELLOW "🔨 Force killing stubborn processes..."
+    pkill -9 -f "mission_action_manager" 2>/dev/null
+    pkill -9 -f "mission_sequence_controller" 2>/dev/null
+    pkill -9 -f "waypoint_test_runner" 2>/dev/null
+    pkill -9 -f "waypoint_test_orchestrator" 2>/dev/null
+    pkill -9 -f "manual_velocity_test" 2>/dev/null
+    pkill -9 -f "nmpc_tracker_node" 2>/dev/null
+    pkill -9 -f "waypoint_controller" 2>/dev/null
+    pkill -9 -f "yaw_controller" 2>/dev/null
+    pkill -9 -f "multicopter_velocity_control_adapter" 2>/dev/null
+
+    sleep 1
     
     # Kill any remaining ROS nodes gracefully
     if command -v ros2 >/dev/null 2>&1; then

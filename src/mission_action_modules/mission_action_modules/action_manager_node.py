@@ -7,7 +7,8 @@ import rclpy
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from std_srvs.srv import Trigger
-from std_msgs.msg import String
+from std_msgs.msg import String, Float64MultiArray
+from neural_network_msgs.msg import NeuralNetworkDetectionArray
 
 from .action_base import ActionContext, ActionHandle, ActionResult
 from .action_modules import (
@@ -64,6 +65,27 @@ class ActionManagerNode(Node):
         self.odom_sub = self.create_subscription(
             Odometry, "/X3/odometry", self._odometry_callback, 10
         )
+        self.detection_sub = self.create_subscription(
+            NeuralNetworkDetectionArray,
+            "/person_detections",
+            self._detection_callback,
+            10
+        )
+
+        # Publishers
+        self.event_pub = self.create_publisher(String, "/mission_actions/events", 10)
+        self.status_pub = self.create_publisher(
+            Float64MultiArray,
+            "/drone/controller/status",
+            10
+        )
+
+        # Detection state
+        self._person_detected = False
+        self._last_detection_time = 0.0
+
+        # Periodic status publishing
+        self.create_timer(0.1, self._publish_status)  # 10 Hz
 
         # Basic services for manual testing / bring-up
         self.create_service(Trigger, "mission_actions/takeoff", self._srv_takeoff)
@@ -72,8 +94,6 @@ class ActionManagerNode(Node):
         self.create_service(Trigger, "mission_actions/land", self._srv_land)
         self.create_service(Trigger, "mission_actions/track_target", self._srv_track_target)
         self.create_service(Trigger, "mission_actions/lost_hold", self._srv_lost_hold)
-
-        self.event_pub = self.create_publisher(String, "/mission_actions/events", 10)
 
         self.get_logger().info("Mission action manager ready")
 
@@ -122,6 +142,27 @@ class ActionManagerNode(Node):
     def _odometry_callback(self, msg: Odometry) -> None:
         self._action_context.update_odometry(msg)
 
+    def _detection_callback(self, msg: NeuralNetworkDetectionArray) -> None:
+        """Process YOLO detections and update global detection state."""
+        self._person_detected = len(msg.detections) > 0
+        if self._person_detected:
+            self._last_detection_time = self.get_clock().now().nanoseconds / 1e9
+
+    def _publish_status(self) -> None:
+        """Publish global controller status for all action modules."""
+        msg = Float64MultiArray()
+        # data[0]: person detected (bool as float)
+        # data[1-5]: reserved for future use (tracking distance, altitude, etc.)
+        msg.data = [
+            float(self._person_detected),
+            0.0,  # tracking_distance (placeholder)
+            3.0,  # tracking_altitude (placeholder)
+            0.0,  # optimization_time (placeholder)
+            0.0,  # iterations (placeholder)
+            0.0,  # cost (placeholder)
+        ]
+        self.status_pub.publish(msg)
+
     def _start_action(self, name: str, goal) -> bool:
         # 全局互斥检查：如果有其他action正在运行，先强制停止
         if self._current_active_module is not None and self._current_active_module != name:
@@ -165,22 +206,23 @@ class ActionManagerNode(Node):
             self.get_logger().info(
                 f"Action '{name}' finished with {result.outcome.value}: {result.message}"
             )
-            self._publish_event(name, result.outcome.value, result.message)
+            self._publish_event(name, result.outcome.value, result.message, result.data)
         except Exception as exc:  # pylint: disable=broad-except
             self.get_logger().error(f"Action '{name}' raised exception: {exc}")
-            self._publish_event(name, "exception", str(exc))
+            self._publish_event(name, "exception", str(exc), {})
         finally:
             self._active_handles.pop(name, None)
             # 清除当前活动模块标记
             if self._current_active_module == name:
                 self._current_active_module = None
 
-    def _publish_event(self, action: str, outcome: str, message: str) -> None:
+    def _publish_event(self, action: str, outcome: str, message: str, data: dict = None) -> None:
         msg = String()
         msg.data = json.dumps({
             "action": action,
             "outcome": outcome,
             "message": message,
+            "data": data or {},
         })
         self.event_pub.publish(msg)
 
