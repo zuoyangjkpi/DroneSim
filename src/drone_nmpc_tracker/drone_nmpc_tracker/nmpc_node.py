@@ -682,24 +682,45 @@ class NMPCTrackerNode(Node):
 
     def _send_tracking_commands_first_point_only(self, control: np.ndarray, info: dict):
         """Send only the first point from the optimized trajectory (standard MPC approach)."""
-        # Extract the first waypoint from the optimized trajectory
-        if 'trajectory' not in info or len(info['trajectory']) == 0:
-            self.get_logger().warn('No trajectory in NMPC output - cannot send command')
-            return
 
-        # Standard MPC: execute only the first step from the optimized sequence
-        # trajectory[0] = current state, trajectory[1] = next desired state
-        if len(info['trajectory']) > 1:
-            next_state = info['trajectory'][1]
-            target_position = np.array(next_state.data[nmpc_config.STATE_X:nmpc_config.STATE_Z+1])
-        else:
-            # Fallback if trajectory has only one point
-            self.get_logger().warn('Trajectory has only 1 point, using controller target_position')
+        # !!!!! BYPASS MODE FOR DEBUGGING !!!!!
+        # Set to True to bypass NMPC and send target_position directly
+        BYPASS_NMPC = True
+
+        if BYPASS_NMPC:
+            # DEBUG: Bypass NMPC completely, send target_position directly
             if hasattr(self.controller, 'target_position') and self.controller.target_position is not None:
                 target_position = self.controller.target_position.copy()
+                current_pos = self._get_current_position()
+                delta = target_position - current_pos
+                self.get_logger().info(
+                    f'[BYPASS MODE] Sending target_position directly: '
+                    f'delta=[{delta[0]:.3f}, {delta[1]:.3f}, {delta[2]:.3f}]m, '
+                    f'dist={np.linalg.norm(delta):.3f}m',
+                    throttle_duration_sec=0.5
+                )
             else:
-                self.get_logger().error('No valid target position available')
+                self.get_logger().error('No target_position available in bypass mode')
                 return
+        else:
+            # Extract the first waypoint from the optimized trajectory
+            if 'trajectory' not in info or len(info['trajectory']) == 0:
+                self.get_logger().warn('No trajectory in NMPC output - cannot send command')
+                return
+
+            # Standard MPC: execute only the first step from the optimized sequence
+            # trajectory[0] = current state, trajectory[1] = next desired state
+            if len(info['trajectory']) > 1:
+                next_state = info['trajectory'][1]
+                target_position = np.array(next_state.data[nmpc_config.STATE_X:nmpc_config.STATE_Z+1])
+            else:
+                # Fallback if trajectory has only one point
+                self.get_logger().warn('Trajectory has only 1 point, using controller target_position')
+                if hasattr(self.controller, 'target_position') and self.controller.target_position is not None:
+                    target_position = self.controller.target_position.copy()
+                else:
+                    self.get_logger().error('No valid target position available')
+                    return
 
         # Debug logging to diagnose why tracking distance is not achieved
         current_pos = self._get_current_position()

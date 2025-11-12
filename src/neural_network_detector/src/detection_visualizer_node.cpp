@@ -197,12 +197,20 @@ private:
             cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(current_image_, sensor_msgs::image_encodings::BGR8);
             
             // Draw bounding boxes if detections are available
-            if (current_detections_ && !current_detections_->detections.empty()) {
-                int detection_count = 0;
-                for (const auto& detection : current_detections_->detections) {
-                    if (detection.object_class == 0 && detection.detection_score > 0.3) { // Person class matching YOLO threshold
-                        // Draw green bounding box with thicker line for stability
-                        cv::rectangle(cv_ptr->image,
+        int text_y = 30;
+        const int line_spacing = 28;
+        auto put_status_line = [&](const std::string& text, const cv::Scalar& color, double scale = 0.7) {
+            cv::putText(cv_ptr->image, text,
+                cv::Point(10, text_y), cv::FONT_HERSHEY_SIMPLEX, scale, color, 2);
+            text_y += line_spacing;
+        };
+
+        if (current_detections_ && !current_detections_->detections.empty()) {
+            int detection_count = 0;
+            for (const auto& detection : current_detections_->detections) {
+                if (detection.object_class == 0 && detection.detection_score > 0.3) { // Person class matching YOLO threshold
+                    // Draw green bounding box with thicker line for stability
+                    cv::rectangle(cv_ptr->image,
                             cv::Point(static_cast<int>(detection.xmin), static_cast<int>(detection.ymin)),
                             cv::Point(static_cast<int>(detection.xmax), static_cast<int>(detection.ymax)),
                             cv::Scalar(0, 255, 0), 4);
@@ -219,36 +227,36 @@ private:
                 
                 // Add detection count overlay
                 if (detection_count > 0) {
-                    std::string count_text = "Persons detected: " + std::to_string(detection_count);
-                    cv::putText(cv_ptr->image, count_text,
-                        cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 0), 2);
+                    put_status_line("Persons detected: " + std::to_string(detection_count),
+                        cv::Scalar(0, 255, 0), 0.8);
                 }
             } else {
                 // Add "No detections" overlay when no person detected
-                std::string no_detection_text = "No persons detected";
-                cv::putText(cv_ptr->image, no_detection_text,
-                    cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 0, 255), 2);
+                put_status_line("No persons detected", cv::Scalar(0, 0, 255), 0.8);
             }
 
-            // Add NMPC tracking status overlay (yellow text)
+            text_y += 5;
+
+            // Add NMPC tracking status overlay (blue text)
             if (nmpc_status_received_) {
+                const cv::Scalar kBlueText(255, 0, 0);  // BGR
+
                 char desired_text[64];
                 snprintf(desired_text, sizeof(desired_text),
                     "Desired Distance: %.2f m", desired_tracking_distance_);
-                cv::putText(cv_ptr->image, desired_text,
-                    cv::Point(10, 60), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 0), 2);
+                put_status_line(desired_text, kBlueText);
 
                 char current_text[64];
                 snprintf(current_text, sizeof(current_text),
                     "Current Distance: %.2f m", current_tracking_distance_);
-                cv::putText(cv_ptr->image, current_text,
-                    cv::Point(10, 90), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 0), 2);
+                put_status_line(current_text, kBlueText);
 
                 char tracking_altitude_text[64];
                 snprintf(tracking_altitude_text, sizeof(tracking_altitude_text),
                     "Tracking Altitude: %.2f m", tracking_altitude_);
-                cv::putText(cv_ptr->image, tracking_altitude_text,
-                    cv::Point(10, 90), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 0), 2);
+                put_status_line(tracking_altitude_text, kBlueText);
+
+                text_y += 5;
             }
 
             // Add drone altitude and speed overlay (yellow text)
@@ -256,27 +264,25 @@ private:
                 char altitude_text[64];
                 snprintf(altitude_text, sizeof(altitude_text),
                     "Drone Altitude: %.2f m", drone_altitude_);
-                cv::putText(cv_ptr->image, altitude_text,
-                    cv::Point(10, 120), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 255), 2);
+                put_status_line(altitude_text, cv::Scalar(0, 255, 255));
 
                 char speed_xy_text[64];
                 snprintf(speed_xy_text, sizeof(speed_xy_text),
                     "Drone Speed XY: %.2f m/s", drone_speed_xy_);
-                cv::putText(cv_ptr->image, speed_xy_text,
-                    cv::Point(10, 150), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 255), 2);
+                put_status_line(speed_xy_text, cv::Scalar(0, 255, 255));
 
                 char speed_z_text[64];
                 snprintf(speed_z_text, sizeof(speed_z_text),
                     "Drone Speed Z: %.2f m/s", drone_vz_);
-                cv::putText(cv_ptr->image, speed_z_text,
-                    cv::Point(10, 180), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 255), 2);
+                put_status_line(speed_z_text, cv::Scalar(0, 255, 255));
 
                 const double heading_deg = drone_heading_rad_ * 57.29577951308232;
                 char heading_text[64];
                 snprintf(heading_text, sizeof(heading_text),
                     "Drone Heading: %.1f deg", heading_deg);
-                cv::putText(cv_ptr->image, heading_text,
-                    cv::Point(10, 210), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 255), 2);
+                put_status_line(heading_text, cv::Scalar(0, 255, 255));
+
+                text_y += 5;
             }
 
             // Add control error overlay (magenta text) - world frame
@@ -284,27 +290,23 @@ private:
                 char delta_x_text[64];
                 snprintf(delta_x_text, sizeof(delta_x_text),
                     "Delta X: %.2f m", delta_x_);
-                cv::putText(cv_ptr->image, delta_x_text,
-                    cv::Point(10, 240), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 0, 255), 2);
+                put_status_line(delta_x_text, cv::Scalar(255, 0, 255));
 
                 char delta_y_text[64];
                 snprintf(delta_y_text, sizeof(delta_y_text),
                     "Delta Y: %.2f m", delta_y_);
-                cv::putText(cv_ptr->image, delta_y_text,
-                    cv::Point(10, 270), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 0, 255), 2);
+                put_status_line(delta_y_text, cv::Scalar(255, 0, 255));
 
                 char delta_z_text[64];
                 snprintf(delta_z_text, sizeof(delta_z_text),
                     "Delta Z: %.2f m", delta_z_);
-                cv::putText(cv_ptr->image, delta_z_text,
-                    cv::Point(10, 300), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 0, 255), 2);
+                put_status_line(delta_z_text, cv::Scalar(255, 0, 255));
 
                 const double delta_yaw_deg = delta_yaw_ * 57.29577951308232;
                 char delta_yaw_text[64];
                 snprintf(delta_yaw_text, sizeof(delta_yaw_text),
                     "Delta Yaw: %.1f deg", delta_yaw_deg);
-                cv::putText(cv_ptr->image, delta_yaw_text,
-                    cv::Point(10, 330), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 0, 255), 2);
+                put_status_line(delta_yaw_text, cv::Scalar(255, 0, 255));
             }
             
             // Always publish the image (with or without detections)

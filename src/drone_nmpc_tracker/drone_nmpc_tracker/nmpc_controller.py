@@ -468,11 +468,25 @@ class DroneNMPCController:
         self.cost_value = self.compute_total_cost(trajectory, controls)
         
         info = {
-            'trajectory': [s.data for s in trajectory],
+            'trajectory': trajectory,  # Store State objects directly
             'iterations': self.iterations_used,
             'optimization_time': self.optimization_time,
             'cost': self.cost_value
         }
+
+        # Debug: print trajectory[1] details every 1 second
+        if not hasattr(self, '_last_traj_log_time'):
+            self._last_traj_log_time = 0.0
+        if time.time() - self._last_traj_log_time > 1.0:
+            if len(trajectory) > 1:
+                pos1 = trajectory[1].data[self.config.STATE_X:self.config.STATE_Z+1]
+                vel1 = trajectory[1].data[self.config.STATE_VX:self.config.STATE_VZ+1]
+                pos0 = trajectory[0].data[self.config.STATE_X:self.config.STATE_Z+1]
+                delta = pos1 - pos0
+                print(f"[NMPC Optimizer] traj[1] delta=[{delta[0]:.3f}, {delta[1]:.3f}, {delta[2]:.3f}]m, "
+                      f"vel=[{vel1[0]:.2f}, {vel1[1]:.2f}, {vel1[2]:.2f}]m/s, "
+                      f"iters={self.iterations_used}, grad_norm={grad_norm:.4f}")
+            self._last_traj_log_time = time.time()
 
         self._update_planned_waypoints_from_trajectory(trajectory)
 

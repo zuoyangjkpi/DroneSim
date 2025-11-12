@@ -212,27 +212,29 @@ class VisualizationNode(Node):
 
         marker_array.markers.append(marker)
 
-        # Add text marker showing desired vs current horizontal distance
-        distance_marker = Marker()
-        distance_marker.header.frame_id = "world"
-        distance_marker.header.stamp = self.get_clock().now().to_msg()
-        distance_marker.ns = "tracking_distance_text"
-        distance_marker.id = 1
-        distance_marker.type = Marker.TEXT_VIEW_FACING
-        distance_marker.action = Marker.ADD
-        distance_marker.pose.position.x = person_x
-        distance_marker.pose.position.y = person_y
-        distance_marker.pose.position.z = self.tracking_altitude + 0.5
-        distance_marker.scale.z = 0.4
-        distance_marker.color.r = 1.0
-        distance_marker.color.g = 1.0
-        distance_marker.color.b = 0.0
-        distance_marker.color.a = 0.9
-        distance_marker.text = (
-            f"Desired Distance: {self.desired_tracking_distance:.2f} m\n"
-            f"Current Distance: {self.current_tracking_distance:.2f} m"
-        )
-        marker_array.markers.append(distance_marker)
+        # Add text markers showing desired vs current horizontal distance (stacked vertically)
+        text_base_height = self.tracking_altitude + 0.6
+        for idx, (label, value, z_offset) in enumerate([
+            ("Desired Distance", self.desired_tracking_distance, 0.0),
+            ("Current Distance", self.current_tracking_distance, -0.25),
+        ], start=1):
+            text_marker = Marker()
+            text_marker.header.frame_id = "world"
+            text_marker.header.stamp = self.get_clock().now().to_msg()
+            text_marker.ns = "tracking_distance_text"
+            text_marker.id = idx
+            text_marker.type = Marker.TEXT_VIEW_FACING
+            text_marker.action = Marker.ADD
+            text_marker.pose.position.x = person_x
+            text_marker.pose.position.y = person_y
+            text_marker.pose.position.z = text_base_height + z_offset
+            text_marker.scale.z = 0.35
+            text_marker.color.r = 1.0
+            text_marker.color.g = 1.0
+            text_marker.color.b = 0.0
+            text_marker.color.a = 0.9
+            text_marker.text = f"{label}: {value:.2f} m"
+            marker_array.markers.append(text_marker)
 
         self.trajectory_marker_pub.publish(marker_array)
 

@@ -527,11 +527,11 @@
         <commandSubTopic>cmd_vel</commandSubTopic>
         <enableSubTopic>enable</enableSubTopic>
         <comLinkName>X3/base_link</comLinkName>
-        <!-- 内环快速准确跟踪，外环控制激进程度 -->
-        <velocityGain>6.65 6.65 6.65</velocityGain>  <!-- 提高Z轴，改善高度维持 -->
-        <attitudeGain>7.61 7.61 0.60</attitudeGain>  <!-- 提高姿态响应，改善加减速稳定性 -->
-        <angularRateGain>2.08 2.08 0.80</angularRateGain>  <!-- 提高内环速度，快速准确跟踪 -->
-        <maximumLinearAcceleration>7.0 7.0 5.0</maximumLinearAcceleration>  <!-- 提高加速度限制 -->
+        <!-- 平衡调参：响应速度与稳定性兼顾 -->
+        <velocityGain>3.2 3.2 4.5</velocityGain>  <!-- 提高XY到3.2，支持快速响应 -->
+        <attitudeGain>5.5 5.5 0.90</attitudeGain>  <!-- Yaw提高到0.90（2倍），支持快速转向 -->
+        <angularRateGain>3.8 3.8 1.80</angularRateGain>  <!-- Yaw提高到1.80（2倍），ratio=2.0保持阻尼 -->
+        <maximumLinearAcceleration>3.0 3.0 2.0</maximumLinearAcceleration>  <!-- 提高XY到3.0，支持快速避让 -->
         <actuatorsTopic>command/motor_speed</actuatorsTopic>
         <rotorConfiguration>
           <rotor>

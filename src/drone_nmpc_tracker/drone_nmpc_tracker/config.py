@@ -23,8 +23,8 @@ class NMPCConfig:
         
         # Drone physical parameters
         self.DRONE_MASS = 5.0  # kg (octocopter)
-        self.DRONE_MAX_VELOCITY = 4.0  # m/s
-        self.DRONE_MAX_ACCELERATION = 2.0  # m/s^2
+        self.DRONE_MAX_VELOCITY = 5.0  # m/s - INCREASED for faster tracking
+        self.DRONE_MAX_ACCELERATION = 3.5  # m/s^2 - INCREASED to match Gazebo limits
         self.DRONE_MAX_ANGULAR_VELOCITY = 3.0  # rad/s
 
         # Drone moment of inertia
@@ -53,10 +53,10 @@ class NMPCConfig:
         
         # ========== Cost Function Weights ==========
         # Position / dynamics tracking weights
-        # AGGRESSIVE: W_POSITION very high for rapid tracking convergence
-        self.W_POSITION = np.array([40.0, 40.0, 15.0])  # INCREASED 60% - force rapid position convergence
-        self.W_VELOCITY = np.array([0.3, 0.3, 0.2])     # REDUCED - allow higher speeds
-        self.W_ACCELERATION = np.array([2.5, 2.5, 0.8]) # REDUCED slightly - allow faster response
+        # VERY AGGRESSIVE: Extremely high W_POSITION to force rapid movement
+        self.W_POSITION = np.array([80.0, 80.0, 25.0])  # DOUBLED AGAIN - absolutely prioritize position tracking
+        self.W_VELOCITY = np.array([0.15, 0.15, 0.1])   # REDUCED further - allow max speeds
+        self.W_ACCELERATION = np.array([1.8, 1.8, 0.6]) # REDUCED more - allow aggressive acceleration
         self.TARGET_ATTITUDE_SMOOTHING = 0.15           # Reduced from 0.2 for faster attitude response
 
         # Camera stability - limit pitch/roll to keep person steady in frame
@@ -86,16 +86,16 @@ class NMPCConfig:
         # Control constraints
         self.CONTROL_MIN = np.array([
             0.0,          # Minimum thrust
-            -math.pi/6,   # Minimum roll command
-            -math.pi/6,   # Minimum pitch command
-            -1.8          # Minimum yaw rate command
+            -math.pi/4.5, # Minimum roll command (40°) - INCREASED for aggressive tracking
+            -math.pi/4.5, # Minimum pitch command (40°) - INCREASED for aggressive tracking
+            -2.5          # Minimum yaw rate command (rad/s) - INCREASED
         ])
 
         self.CONTROL_MAX = np.array([
             80.0,         # Maximum thrust (N) for heavier platform
-            math.pi/6,    # Maximum roll command
-            math.pi/6,    # Maximum pitch command
-            1.8           # Maximum yaw rate command
+            math.pi/4.5,  # Maximum roll command (40°) - INCREASED for aggressive tracking
+            math.pi/4.5,  # Maximum pitch command (40°) - INCREASED for aggressive tracking
+            2.5           # Maximum yaw rate command (rad/s) - INCREASED
         ])
         
         # ========== Person Tracking Parameters ==========
@@ -123,9 +123,9 @@ class NMPCConfig:
         self.WIND_TURBULENCE = 0.1  # Wind turbulence factor
         
         # ========== Solver Parameters ==========
-        self.MAX_ITERATIONS = 20  # Reduced further for real-time performance
+        self.MAX_ITERATIONS = 25  # INCREASED for better convergence
         self.CONVERGENCE_TOLERANCE = 5e-3  # Relaxed for faster convergence and stability
-        self.STEP_SIZE = 0.02  # Reduced to prevent oscillations in optimization
+        self.STEP_SIZE = 0.08  # INCREASED 4x - optimizer was too conservative
         self.REGULARIZATION = 1e-4  # Increased for better numerical stability
         
         # ========== ROS2 Topic Names ==========
