@@ -17,7 +17,8 @@ public:
         last_image_time_(this->get_clock()->now()),
         last_detection_time_(this->get_clock()->now()),
         last_publish_time_(this->get_clock()->now()),
-        tracking_distance_(0.0),
+        desired_tracking_distance_(0.0),
+        current_tracking_distance_(0.0),
         tracking_altitude_(0.0),
         nmpc_status_received_(false),
         drone_altitude_(0.0),
@@ -109,11 +110,16 @@ private:
 
     void nmpcStatusCallback(const std_msgs::msg::Float64MultiArray::ConstSharedPtr& msg)
     {
-        // msg.data format: [person_detected, tracking_distance, tracking_altitude, optimization_time, iterations_used, cost_value]
+        // msg.data format: [person_detected, desired_distance, tracking_altitude, optimization_time, iterations_used, cost_value, current_distance]
         if (msg->data.size() >= 3) {
-            tracking_distance_ = msg->data[1];
+            desired_tracking_distance_ = msg->data[1];
             tracking_altitude_ = msg->data[2];
             nmpc_status_received_ = true;
+        }
+        if (msg->data.size() >= 7) {
+            current_tracking_distance_ = msg->data[6];
+        } else {
+            current_tracking_distance_ = desired_tracking_distance_;
         }
     }
 
@@ -226,11 +232,17 @@ private:
 
             // Add NMPC tracking status overlay (yellow text)
             if (nmpc_status_received_) {
-                char tracking_distance_text[64];
-                snprintf(tracking_distance_text, sizeof(tracking_distance_text),
-                    "Tracking Distance: %.2f m", tracking_distance_);
-                cv::putText(cv_ptr->image, tracking_distance_text,
+                char desired_text[64];
+                snprintf(desired_text, sizeof(desired_text),
+                    "Desired Distance: %.2f m", desired_tracking_distance_);
+                cv::putText(cv_ptr->image, desired_text,
                     cv::Point(10, 60), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 0), 2);
+
+                char current_text[64];
+                snprintf(current_text, sizeof(current_text),
+                    "Current Distance: %.2f m", current_tracking_distance_);
+                cv::putText(cv_ptr->image, current_text,
+                    cv::Point(10, 90), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 0), 2);
 
                 char tracking_altitude_text[64];
                 snprintf(tracking_altitude_text, sizeof(tracking_altitude_text),
@@ -324,7 +336,8 @@ private:
     rclcpp::Time last_publish_time_;
 
     // NMPC tracking status
-    double tracking_distance_;
+    double desired_tracking_distance_;
+    double current_tracking_distance_;
     double tracking_altitude_;
     bool nmpc_status_received_;
 

@@ -6,7 +6,7 @@ from enum import Enum, auto
 import rclpy
 from rclpy.node import Node
 from std_srvs.srv import Trigger
-from std_msgs.msg import String
+from std_msgs.msg import String, Float64MultiArray
 from nav_msgs.msg import Odometry
 
 
@@ -49,6 +49,15 @@ class MissionSequenceController(Node):
         self.odom_sub = self.create_subscription(
             Odometry, "/X3/odometry", self._odom_callback, 10
         )
+        # Subscribe to global detection status from ActionManager
+        self.status_sub = self.create_subscription(
+            Float64MultiArray, "/drone/controller/status", self._status_callback, 10
+        )
+
+        # Detection monitoring state
+        self._person_detected = False
+        self._detection_confirmations = 0
+        self._required_confirmations = 3  # Require 3 consecutive detections
 
         self.timer = self.create_timer(0.5, self._tick)
         self.get_logger().info("Mission sequence controller ready (TAKEOFF phase)")
@@ -56,6 +65,26 @@ class MissionSequenceController(Node):
     # ------------------------------------------------------------------
     # ROS callbacks
     # ------------------------------------------------------------------
+    def _status_callback(self, msg: Float64MultiArray) -> None:
+        """Monitor person detection from ActionManager and auto-switch to TRACK during SEARCH."""
+        if not msg.data:
+            return
+
+        detected = bool(int(msg.data[0]))
+
+        if detected:
+            self._detection_confirmations = min(self._detection_confirmations + 1, self._required_confirmations)
+            if self._detection_confirmations >= self._required_confirmations:
+                self._person_detected = True
+        else:
+            self._detection_confirmations = 0
+            self._person_detected = False
+
+        # Auto-switch from SEARCH to TRACK when person detected
+        if self.state == SequenceState.SEARCH and self._person_detected:
+            self.get_logger().info("Person detected during search → switching to TRACK")
+            self._transition(SequenceState.TRACK)
+
     def _odom_callback(self, msg: Odometry) -> None:
         self._current_altitude = float(msg.pose.pose.position.z)
         self._altitude_ready = (
@@ -86,10 +115,14 @@ class MissionSequenceController(Node):
             elif outcome not in ("started",):
                 self._fail_sequence(f"Takeoff {outcome}: {message}")
         elif action == "search":
-            if outcome == "succeeded":
-                self._transition(SequenceState.TRACK)
-            elif outcome in ("failed", "exception", "failed_to_start"):
+            # SearchModule no longer reports detection success - MissionSequenceController
+            # monitors detections directly and switches to TRACK via _status_callback
+            if outcome in ("failed", "exception", "failed_to_start"):
                 self.get_logger().warn(f"Search failed ({outcome}). Restarting search.")
+                self._transition(SequenceState.SEARCH)
+            # If search completes successfully (timeout), just restart it
+            elif outcome == "succeeded":
+                self.get_logger().info("Search timeout reached, restarting search.")
                 self._transition(SequenceState.SEARCH)
         elif action == "track_target":
             if outcome in ("failed", "exception", "failed_to_start"):
@@ -168,6 +201,10 @@ class MissionSequenceController(Node):
         self.get_logger().info(f"Mission sequence transition: {self.state.name} -> {new_state.name}")
         self.state = new_state
         self.state_enter_time = self._now()
+
+        # Reset detection confirmations when entering SEARCH or TRACK states
+        if new_state in (SequenceState.SEARCH, SequenceState.TRACK):
+            self._detection_confirmations = 0
 
     def _elapsed_in_state(self) -> float:
         return self._now() - self.state_enter_time

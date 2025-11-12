@@ -518,17 +518,10 @@ class SearchModule(ActionModule):
         self._base_yaw = 0.0
         self._start_time = 0.0
         self._duration: Optional[float] = None
-        self._detection_streak = 0
-        self._confirmations_required = 3
         self._last_waypoint_refresh = 0.0
         self._waypoint_refresh_period = 0.5  # seconds
-        # Subscribe to global controller status (published by ActionManager)
-        self._status_sub = context.node.create_subscription(
-            Float64MultiArray,
-            "/drone/controller/status",
-            self._status_callback,
-            10,
-        )
+        # SearchModule is a pure execution module - no detection monitoring
+        # MissionSequenceController handles detection and module switching
 
     def on_start(self, goal: SearchGoal) -> None:
         position = self.context.get_position()
@@ -557,8 +550,6 @@ class SearchModule(ActionModule):
         self._duration = goal.duration
         self._base_yaw = yaw
         self._start_time = self.context.now()
-        self._detection_streak = 0
-        self._confirmations_required = max(1, goal.confirmations)
 
         if goal.pattern.lower() not in ("rotate", "orbit"):
             self.fail(f"Search pattern '{goal.pattern}' not implemented yet")
@@ -588,20 +579,10 @@ class SearchModule(ActionModule):
             self.context.send_waypoint(self._center)
             self._last_waypoint_refresh = now
 
-        if self._detection_streak >= self._confirmations_required:
-            self.succeed("Target detected during search")
-            return
-
+        # SearchModule only completes on timeout (if duration set) or external cancellation
+        # MissionSequenceController monitors detections and switches modules
         if self._duration is not None and elapsed >= self._duration:
             self.succeed(f"Search completed after {elapsed:.1f}s")
-
-    def _status_callback(self, msg: Float64MultiArray) -> None:
-        """Process global controller status (person detection) during search."""
-        detected = bool(int(msg.data[0])) if msg.data else False
-        if detected:
-            self._detection_streak = min(self._detection_streak + 1, self._confirmations_required)
-        else:
-            self._detection_streak = 0
 
 
 class InspectModule(ActionModule):

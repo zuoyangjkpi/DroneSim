@@ -72,6 +72,14 @@ class ActionManagerNode(Node):
             10
         )
 
+        # Subscribe to NMPC internal status to get tracking details
+        self.nmpc_status_sub = self.create_subscription(
+            Float64MultiArray,
+            "/nmpc/internal_status",
+            self._nmpc_status_callback,
+            10
+        )
+
         # Publishers
         self.event_pub = self.create_publisher(String, "/mission_actions/events", 10)
         self.status_pub = self.create_publisher(
@@ -83,6 +91,14 @@ class ActionManagerNode(Node):
         # Detection state
         self._person_detected = False
         self._last_detection_time = 0.0
+
+        # NMPC tracking details (from /nmpc/internal_status)
+        self._desired_tracking_distance = 0.0
+        self._current_tracking_distance = 0.0
+        self._tracking_altitude = 3.0
+        self._optimization_time = 0.0
+        self._iterations = 0.0
+        self._cost = 0.0
 
         # Periodic status publishing
         self.create_timer(0.1, self._publish_status)  # 10 Hz
@@ -148,18 +164,34 @@ class ActionManagerNode(Node):
         if self._person_detected:
             self._last_detection_time = self.get_clock().now().nanoseconds / 1e9
 
+    def _nmpc_status_callback(self, msg: Float64MultiArray) -> None:
+        """Process NMPC internal status and extract tracking details."""
+        if not msg.data or len(msg.data) < 6:
+            return
+        # NMPC publishes: [person_detected, desired_distance, altitude, opt_time, iterations, cost, current_distance]
+        self._desired_tracking_distance = float(msg.data[1])
+        self._tracking_altitude = float(msg.data[2])
+        self._optimization_time = float(msg.data[3])
+        self._iterations = float(msg.data[4])
+        self._cost = float(msg.data[5])
+        if len(msg.data) >= 7:
+            self._current_tracking_distance = float(msg.data[6])
+        else:
+            self._current_tracking_distance = self._desired_tracking_distance
+
     def _publish_status(self) -> None:
         """Publish global controller status for all action modules."""
         msg = Float64MultiArray()
-        # data[0]: person detected (bool as float)
-        # data[1-5]: reserved for future use (tracking distance, altitude, etc.)
+        # data[0]: person detected (from YOLO via ActionManager)
+        # data[1-6]: tracking details (from NMPC via /nmpc/internal_status)
         msg.data = [
             float(self._person_detected),
-            0.0,  # tracking_distance (placeholder)
-            3.0,  # tracking_altitude (placeholder)
-            0.0,  # optimization_time (placeholder)
-            0.0,  # iterations (placeholder)
-            0.0,  # cost (placeholder)
+            self._desired_tracking_distance,
+            self._tracking_altitude,
+            self._optimization_time,
+            self._iterations,
+            self._cost,
+            self._current_tracking_distance,
         ]
         self.status_pub.publish(msg)
 

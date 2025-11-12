@@ -48,7 +48,9 @@ class VisualizationNode(Node):
         self.current_drone_position = [0.0, 0.0, 2.0]  # Default drone position
 
         # Trajectory parameters (circular orbit around person) - will be updated from NMPC
-        self.orbit_radius = 3.7  # Default: OPTIMAL_TRACKING_DISTANCE from NMPC config
+        self.desired_tracking_distance = 3.5  # Default preferred horizontal spacing
+        self.current_tracking_distance = 0.0
+        self.orbit_radius = self.desired_tracking_distance
         self.orbit_height = 3.0  # Default: TRACKING_FIXED_ALTITUDE from NMPC config
         self.tracking_altitude = 3.0  # Will be updated from NMPC status
         self.current_person_position = None  # Predicted position provided by NMPC
@@ -142,13 +144,18 @@ class VisualizationNode(Node):
 
     def nmpc_status_callback(self, msg):
         """Update tracking parameters from NMPC status"""
-        # msg.data format: [person_detected, tracking_distance, tracking_altitude, optimization_time, iterations_used, cost_value]
+        # msg.data format: [person_detected, desired_distance, tracking_altitude, optimization_time, iterations_used, cost_value, current_distance]
         if len(msg.data) >= 3:
-            self.orbit_radius = msg.data[1]  # tracking_distance
-            self.tracking_altitude = msg.data[2]  # tracking_altitude
+            self.desired_tracking_distance = msg.data[1]
+            self.orbit_radius = self.desired_tracking_distance
+            self.tracking_altitude = msg.data[2]
             # Update orbit_height to match NMPC's tracking altitude
             if self.current_person_position:
                 self.orbit_height = self.tracking_altitude - self.current_person_position[2]
+        if len(msg.data) >= 7:
+            self.current_tracking_distance = msg.data[6]
+        else:
+            self.current_tracking_distance = self.desired_tracking_distance
 
     def _publish_person_markers(self):
         """Publish markers for predicted (NMPC) and actual person positions."""
@@ -204,6 +211,28 @@ class VisualizationNode(Node):
             marker.points.append(point)
 
         marker_array.markers.append(marker)
+
+        # Add text marker showing desired vs current horizontal distance
+        distance_marker = Marker()
+        distance_marker.header.frame_id = "world"
+        distance_marker.header.stamp = self.get_clock().now().to_msg()
+        distance_marker.ns = "tracking_distance_text"
+        distance_marker.id = 1
+        distance_marker.type = Marker.TEXT_VIEW_FACING
+        distance_marker.action = Marker.ADD
+        distance_marker.pose.position.x = person_x
+        distance_marker.pose.position.y = person_y
+        distance_marker.pose.position.z = self.tracking_altitude + 0.5
+        distance_marker.scale.z = 0.4
+        distance_marker.color.r = 1.0
+        distance_marker.color.g = 1.0
+        distance_marker.color.b = 0.0
+        distance_marker.color.a = 0.9
+        distance_marker.text = (
+            f"Desired Distance: {self.desired_tracking_distance:.2f} m\n"
+            f"Current Distance: {self.current_tracking_distance:.2f} m"
+        )
+        marker_array.markers.append(distance_marker)
 
         self.trajectory_marker_pub.publish(marker_array)
 

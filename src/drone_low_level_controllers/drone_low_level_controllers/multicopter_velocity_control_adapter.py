@@ -34,10 +34,10 @@ class MulticopterVelocityControlAdapter(Node):
 
         # Parameters
         self.declare_parameter('control_frequency', 50.0)
-        self.declare_parameter('max_linear_velocity_xy', 3.0)
-        self.declare_parameter('max_linear_velocity_z', 2.0)
+        self.declare_parameter('max_linear_velocity_xy', 5.0)
+        self.declare_parameter('max_linear_velocity_z', 4.0)
         self.declare_parameter('max_angular_velocity_xy', 3.0)
-        self.declare_parameter('max_angular_velocity_z', 2.0)
+        self.declare_parameter('max_angular_velocity_z', 3.0)
         self.declare_parameter('linear_cmd_filter_alpha', 0.3)
         self.declare_parameter('yaw_rate_filter_alpha', 0.4)
         self.declare_parameter('velocity_setpoint_timeout', 0.8)

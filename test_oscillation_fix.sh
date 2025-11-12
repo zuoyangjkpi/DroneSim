@@ -18,7 +18,7 @@ echo ""
 echo "📋 检查修复的关键参数："
 
 echo "1. NMPC配置参数："
-echo "   - OPTIMAL_TRACKING_DISTANCE: $(python3 -c "from src.drone_nmpc_tracker.drone_nmpc_tracker.config import nmpc_config; print(nmpc_config.OPTIMAL_TRACKING_DISTANCE)")"
+echo "   - DESIRED_TRACKING_DISTANCE_XY: $(python3 -c "from src.drone_nmpc_tracker.drone_nmpc_tracker.config import nmpc_config; print(nmpc_config.DESIRED_TRACKING_DISTANCE_XY)")"
 echo "   - STEP_SIZE: $(python3 -c "from src.drone_nmpc_tracker.drone_nmpc_tracker.config import nmpc_config; print(nmpc_config.STEP_SIZE)")"
 echo "   - TARGET_POSITION_SMOOTHING: $(python3 -c "from src.drone_nmpc_tracker.drone_nmpc_tracker.config import nmpc_config; print(nmpc_config.TARGET_POSITION_SMOOTHING)")"
 

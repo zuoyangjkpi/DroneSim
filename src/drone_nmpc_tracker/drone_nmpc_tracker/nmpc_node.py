@@ -153,10 +153,11 @@ class NMPCTrackerNode(Node):
         # ✅ 现在由TrackTargetModule通过ActionContext统一管理控制器enable/disable
 
 
-        # Status publisher
+        # Status publisher - publish to NMPC-specific topic to avoid conflict with ActionManager
+        # ActionManager publishes global status to /drone/controller/status
         self.status_pub = self.create_publisher(
             Float64MultiArray,
-            nmpc_config.TOPIC_STATUS,
+            '/nmpc/internal_status',  # Use separate topic, not nmpc_config.TOPIC_STATUS
             control_qos
         )
 
@@ -617,6 +618,12 @@ class NMPCTrackerNode(Node):
         self.control_enabled = msg.data
         if self.control_enabled:
             self.get_logger().info("NMPC control enabled by TrackTargetModule")
+            # Reset detection state when enabled to avoid stale timeout
+            self.person_detected = False
+            self._detection_streak = 0
+            self._filtered_person_position = None
+            self.last_person_detection_time = self._now()
+            self.controller.clear_detection()
         else:
             self.get_logger().info("NMPC control disabled")
 
@@ -680,9 +687,31 @@ class NMPCTrackerNode(Node):
             self.get_logger().warn('No trajectory in NMPC output - cannot send command')
             return
 
-        # Get the first state from the optimized trajectory
-        first_state = info['trajectory'][0]
-        target_position = first_state.data[self.config.STATE_X:self.config.STATE_Z+1].copy()
+        # Standard MPC: execute only the first step from the optimized sequence
+        # trajectory[0] = current state, trajectory[1] = next desired state
+        if len(info['trajectory']) > 1:
+            next_state = info['trajectory'][1]
+            target_position = np.array(next_state.data[nmpc_config.STATE_X:nmpc_config.STATE_Z+1])
+        else:
+            # Fallback if trajectory has only one point
+            self.get_logger().warn('Trajectory has only 1 point, using controller target_position')
+            if hasattr(self.controller, 'target_position') and self.controller.target_position is not None:
+                target_position = self.controller.target_position.copy()
+            else:
+                self.get_logger().error('No valid target position available')
+                return
+
+        # Debug logging to diagnose why tracking distance is not achieved
+        current_pos = self._get_current_position()
+        delta = target_position - current_pos
+        if hasattr(self.controller, 'target_position'):
+            target_dist = np.linalg.norm(self.controller.target_position - current_pos)
+            traj_dist = np.linalg.norm(delta)
+            self.get_logger().info(
+                f'MPC step: traj[1]_dist={traj_dist:.3f}m, target_dist={target_dist:.3f}m, '
+                f'delta=[{delta[0]:.3f}, {delta[1]:.3f}, {delta[2]:.3f}]',
+                throttle_duration_sec=1.0
+            )
 
         # Override altitude to fixed tracking altitude
         target_position[2] = float(self.fixed_tracking_altitude)
@@ -996,13 +1025,23 @@ class NMPCTrackerNode(Node):
             status = self.controller.get_status()
 
             msg = Float64MultiArray()
+            desired_distance = status.get(
+                'desired_tracking_distance',
+                nmpc_config.DESIRED_TRACKING_DISTANCE_XY,
+            )
+            current_distance = status.get(
+                'current_tracking_distance',
+                status.get('tracking_distance', 0.0),
+            )
+
             msg.data = [
                 float(status['person_detected']),
-                status['tracking_distance'],
-                self.fixed_tracking_altitude,  # Add tracking altitude
+                desired_distance,
+                self.fixed_tracking_altitude,  # tracking altitude for visualisation
                 status['optimization_time'],
                 float(status['iterations_used']),
-                status['cost_value']
+                status['cost_value'],
+                current_distance,
             ]
 
             self.status_pub.publish(msg)

@@ -13,9 +13,9 @@ class NMPCConfig:
     
     def __init__(self):
         # ========== NMPC Parameters ==========
-        self.TIMESTEP = 0.25  # Time step in seconds
-        self.LOOKAHEAD = 2.0  # Look ahead time in seconds (8 * TIMESTEP)
-        self.N = int(self.LOOKAHEAD / self.TIMESTEP)  # Number of prediction steps
+        self.TIMESTEP = 0.35  # Time step in seconds (increased from 0.25 for larger steps)
+        self.LOOKAHEAD = 2.1  # Look ahead time in seconds
+        self.N = int(self.LOOKAHEAD / self.TIMESTEP)  # Number of prediction steps = 6
         
         # ========== Drone Parameters ==========
         self.MACHINES = 1  # Number of drones (single drone tracking)
@@ -53,15 +53,19 @@ class NMPCConfig:
         
         # ========== Cost Function Weights ==========
         # Position / dynamics tracking weights
-        self.W_POSITION = np.array([8.0, 8.0, 5.0])  # [x, y, z]
-        self.W_VELOCITY = np.array([1.2, 1.2, 0.8])     # penalise high velocities (SOFT)
-        self.W_ACCELERATION = np.array([4.0, 4.0, 1.2]) # penalise aggressive accelerations (HARD)
-        self.TARGET_ATTITUDE_SMOOTHING = 0.2            # 0=use raw attitude, 1=keep previous attitude
+        # AGGRESSIVE: W_POSITION very high for rapid tracking convergence
+        self.W_POSITION = np.array([40.0, 40.0, 15.0])  # INCREASED 60% - force rapid position convergence
+        self.W_VELOCITY = np.array([0.3, 0.3, 0.2])     # REDUCED - allow higher speeds
+        self.W_ACCELERATION = np.array([2.5, 2.5, 0.8]) # REDUCED slightly - allow faster response
+        self.TARGET_ATTITUDE_SMOOTHING = 0.15           # Reduced from 0.2 for faster attitude response
+
+        # Camera stability - limit pitch/roll to keep person steady in frame
+        self.W_CAMERA_TILT = 15.0                       # Penalty for excessive tilt angles
 
         # Person tracking specific weights - prioritize distance over everything
-        self.W_TRACKING_DISTANCE = 10.0  # Weight for maintaining optimal tracking distance - VERY HIGH priority
-        self.W_SMOOTH_TRACKING = 0.8     # Slightly lower smoothing penalty to react quicker
-        self.W_YAW_ALIGNMENT = 10.0       # Force drone to face the target
+        self.W_TRACKING_DISTANCE = 20.0  # DOUBLED from 10.0 - force maintaining tracking distance
+        self.W_SMOOTH_TRACKING = 0.5     # Further reduced from 0.8 to react even quicker
+        self.W_YAW_ALIGNMENT = 12.0      # Slightly increased from 10.0 for better camera pointing
         
         # ========== Constraints ==========
         # State constraints
@@ -95,20 +99,12 @@ class NMPCConfig:
         ])
         
         # ========== Person Tracking Parameters ==========
-        # Optimized for X3 drone with 30° downward camera tilt
-        self.OPTIMAL_TRACKING_DISTANCE = 3.7  # Optimal distance for 30° tilt (meters)
-        self.MIN_TRACKING_DISTANCE = 3.0      # Minimum safe distance for tilted camera
-        self.MAX_TRACKING_DISTANCE = 4.5     # Extended max distance due to better visibility with tilt
-        self.TRACKING_HEIGHT_OFFSET = 1.5     # Increased height offset for better downward view
-        self.TRACKING_FIXED_ALTITUDE = 3.0    # Consistent with takeoff altitude for unified flight height (m)
-        self.TARGET_POSITION_SMOOTHING = 0.2       # 0=no smoothing, 1=full smoothing - further reduced for faster response
-        self.PERSON_POSITION_FILTER_ALPHA = 0.35    # Less filtering for quicker person updates
-        self.RADIAL_VELOCITY_GAIN = 1.9            # Gain for radial correction toward desired orbit radius
-        self.RADIAL_INTEGRAL_GAIN = 0.4            # Integral gain to remove steady-state distance error
-        self.MAX_RADIAL_INTEGRAL = 4.0             # Clamp integral term to avoid windup
-        self.MAX_RADIAL_VELOCITY = 3.2             # Limit radial correction speed (m/s)
-        self.MIN_PHASE_STEP_TIME = 0.04            # Lower bound on phase integration step (s)
-        self.MAX_PHASE_STEP_TIME = 0.3             # Upper bound on phase integration step (s)
+        # Track a fixed horizontal offset while keeping the camera pointed at the person
+        self.DESIRED_TRACKING_DISTANCE_XY = 3.5     # Desired horizontal spacing (m)
+        self.TRACKING_HEIGHT_OFFSET = 1.5          # Increased height offset for better downward view
+        self.TRACKING_FIXED_ALTITUDE = 3.0         # Consistent with takeoff altitude for unified flight height (m)
+        self.TARGET_POSITION_SMOOTHING = 0.95      # High alpha = more new data, less smoothing
+        self.PERSON_POSITION_FILTER_ALPHA = 0.75   # Much higher - reduce滞后, track person movement faster
         self.MIN_WAYPOINT_SPACING = 0.25           # Minimum spacing between generated waypoints (m)
         self.WAYPOINT_PLAN_CHANGE_THRESHOLD = 0.4  # Distance threshold to treat a plan as new
 

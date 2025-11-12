@@ -166,11 +166,16 @@ private:
 
     void nmpc_status_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg)
     {
-        // msg.data: [person_detected, tracking_distance, tracking_altitude, ...]
+        // msg.data: [person_detected, desired_distance, tracking_altitude, ..., current_distance?]
         if (msg->data.size() >= 3) {
             person_detected_ = (msg->data[0] > 0.5);
-            tracking_distance_ = msg->data[1];
+            desired_tracking_distance_ = msg->data[1];
             tracking_altitude_ = msg->data[2];
+        }
+        if (msg->data.size() >= 7) {
+            current_tracking_distance_ = msg->data[6];
+        } else {
+            current_tracking_distance_ = desired_tracking_distance_;
         }
     }
 
@@ -218,11 +223,12 @@ private:
     {
         if (odom_received_ && offboard_counter_ % 10 == 0) {
             RCLCPP_INFO(this->get_logger(),
-                "📊 State: %s | PX4: %s%s | Tracking: %.2fm | Alt: %.2fm",
+                "📊 State: %s | PX4: %s%s | Tracking XY: %.2fm(desired)/%.2fm(current) | Alt: %.2fm",
                 current_state_.c_str(),
                 px4_armed_ ? "ARMED" : "DISARMED",
                 px4_offboard_ ? "+OFFBOARD" : "",
-                tracking_distance_,
+                desired_tracking_distance_,
+                current_tracking_distance_,
                 tracking_altitude_);
         }
     }
@@ -324,7 +330,8 @@ private:
     rclcpp::Time last_attitude_time_;
 
     // Monitoring
-    double tracking_distance_ = 0.0;
+    double desired_tracking_distance_ = 0.0;
+    double current_tracking_distance_ = 0.0;
     double tracking_altitude_ = 0.0;
     uint64_t offboard_counter_ = 0;
 };

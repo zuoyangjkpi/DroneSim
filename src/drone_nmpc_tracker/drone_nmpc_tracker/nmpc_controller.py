@@ -69,10 +69,7 @@ class DroneNMPCController:
         self.person_detected = False
         self.last_detection_time: float = 0.0
         self.tracking_height_offset = nmpc_config.TRACKING_HEIGHT_OFFSET
-        self._desired_phase = 0.0
-        self._phase_initialized = False
-        self._last_target_update_time: Optional[float] = None
-        self._distance_error_integral = 0.0
+        self._last_horizontal_direction = np.array([1.0, 0.0], dtype=np.float64)
         self._last_target_attitude = None
 
         # Control history for warm start
@@ -143,124 +140,62 @@ class DroneNMPCController:
         *,
         allow_phase_change: bool = True,
     ):
-        """Advance desired tracking target using elapsed time"""
+        """Advance desired tracking target - now simply enforces fixed horizontal spacing."""
+        if not self.person_detected:
+            return
+        # keep signature for compatibility with callers; allow_phase_change is unused
+        _ = allow_phase_change
+        self._update_tracking_target()
+
+    def _update_tracking_target(self):
+        """Update target position to maintain a fixed horizontal distance while facing the person."""
         if not self.person_detected:
             return
 
-        now = current_time if current_time is not None else time.time()
-        if self._last_target_update_time is None:
-            dt = self.dt if allow_phase_change else 0.0
-        else:
-            dt = now - self._last_target_update_time if allow_phase_change else 0.0
-            if dt <= 0.0 and allow_phase_change:
-                dt = self.dt
-
-        if allow_phase_change:
-            # Clamp integration step to avoid very small or very large jumps
-            dt = float(np.clip(dt, self.config.MIN_PHASE_STEP_TIME, self.config.MAX_PHASE_STEP_TIME))
-
-        self._update_tracking_target(dt, allow_phase_change)
-        self._last_target_update_time = now
-
-    def _update_tracking_target(self, dt: float, allow_phase_change: bool):
-        """Update target position based on person location with circular tracking behavior"""
-        if not self.person_detected:
-            return
-
+        desired_distance = self.config.DESIRED_TRACKING_DISTANCE_XY
         person_pos = self.person_position
-
-        # Circular tracking behavior - drone maintains fixed phase relative to person
-        # Calculate current phase angle relative to person
         drone_pos = self.current_state.data[self.config.STATE_X:self.config.STATE_Z+1]
-        relative_pos = drone_pos[:2] - person_pos[:2]
 
-        if np.linalg.norm(relative_pos) > 0.1:  # Avoid singularity
-            current_phase = math.atan2(relative_pos[1], relative_pos[0])
+        horizontal_delta = drone_pos[:2] - person_pos[:2]
+        horizontal_distance = np.linalg.norm(horizontal_delta)
+
+        if horizontal_distance > 1e-3:
+            direction = horizontal_delta / horizontal_distance
+            self._last_horizontal_direction = direction
         else:
-            current_phase = self._desired_phase if hasattr(self, '_desired_phase') else 0.0
+            direction = self._last_horizontal_direction
 
-        # Calculate current distance to person
-        current_distance = np.linalg.norm(relative_pos)
-
-        # Always align desired phase with current relative bearing
-        self._desired_phase = current_phase
-        self._phase_initialized = True
-
-        # Adaptive radius based on current distance
-        # When person is too close (< MIN), allow drone to move outward beyond optimal
-        # When person is too far (> MAX), allow drone to move inward toward optimal
-        optimal_distance = self.config.OPTIMAL_TRACKING_DISTANCE
-        min_distance = self.config.MIN_TRACKING_DISTANCE
-        max_distance = self.config.MAX_TRACKING_DISTANCE
-
-        if current_distance < min_distance:
-            # Person too close! URGENT: move away aggressively
-            # Use a much larger radius to push drone outward quickly
-            error_magnitude = min_distance - current_distance
-            radius = optimal_distance + error_magnitude * 1.5  # Aggressive: 1.5x multiplier
-            radius = min(radius, max_distance)  # Cap at max distance
-        elif current_distance > max_distance:
-            # Person too far! Priority: move closer
-            error_magnitude = current_distance - max_distance
-            radius = optimal_distance - error_magnitude * 1.0
-            radius = max(radius, min_distance)  # Don't go below min
-        else:
-            # Within acceptable range, use optimal distance
-            radius = optimal_distance
-
-        # Distance error relative to desired radius
-        distance_error = current_distance - radius
-
-        if allow_phase_change:
-            # Integrate distance error to remove steady-state bias in radius
-            self._distance_error_integral += distance_error * dt
-            self._distance_error_integral = float(np.clip(
-                self._distance_error_integral,
-                -self.config.MAX_RADIAL_INTEGRAL,
-                self.config.MAX_RADIAL_INTEGRAL,
-            ))
-
-        target_x = person_pos[0] + radius * math.cos(self._desired_phase)
-        target_y = person_pos[1] + radius * math.sin(self._desired_phase)
+        target_xy = person_pos[:2] + desired_distance * direction
         target_z = self.config.TRACKING_FIXED_ALTITUDE
 
-        new_target = np.array([target_x, target_y, target_z])
-        # Apply exponential smoothing with adaptive alpha based on distance error
+        new_target = np.array([target_xy[0], target_xy[1], target_z])
+        alpha = self.config.TARGET_POSITION_SMOOTHING
         if self._last_target_position is not None:
-            # When person is very close, use faster response (higher alpha)
-            if abs(distance_error) > 0.7:
-                alpha = 0.9  # Emergency: 90% new, 10% old
-            elif abs(distance_error) > 0.4:
-                alpha = 0.8  # Urgent: 80% new, 20% old
-            else:
-                alpha = 0.7  # Normal: 70% new, 30% old
             new_target = alpha * new_target + (1.0 - alpha) * self._last_target_position
+        else:
+            alpha = 1.0
         self.target_position = new_target
         self._last_target_position = new_target.copy()
 
-        # Ensure drone always faces the person (yaw control)
-        to_person = person_pos - np.array([target_x, target_y, target_z])
+        to_person = person_pos - np.array([new_target[0], new_target[1], target_z])
         desired_yaw = math.atan2(to_person[1], to_person[0])
-        desired_yaw = self._wrap_angle(desired_yaw)
+        self._desired_yaw = self._wrap_angle(desired_yaw)
 
-        # Store desired yaw for use in cost function
-        self._desired_yaw = desired_yaw
-
-    def reset_phase(self, phase: float):
-        self._desired_phase = phase
-        self._phase_initialized = True
-        self._last_target_update_time = None
-        self._distance_error_integral = 0.0
-        self._last_target_attitude = None
+        if not hasattr(self, '_last_debug_log_time'):
+            self._last_debug_log_time = 0.0
+        now = time.time()
+        if now - self._last_debug_log_time > 1.0:
+            print(f"[NMPC] desired_xy={desired_distance:.2f}m, "
+                  f"current_xy={horizontal_distance:.2f}m, "
+                  f"target_pos=[{new_target[0]:.2f}, {new_target[1]:.2f}, {target_z:.2f}]")
+            self._last_debug_log_time = now
 
     def clear_detection(self):
         self.person_detected = False
         self._last_target_position = None
         self.person_velocity = np.zeros(3)
-        self._phase_initialized = False
-        self._last_target_update_time = None
-        self._distance_error_integral = 0.0
         self._last_target_attitude = None
+        self._last_horizontal_direction = np.array([1.0, 0.0], dtype=np.float64)
 
     def set_tracking_height_offset(self, offset: float):
         self.tracking_height_offset = offset
@@ -401,8 +336,9 @@ class DroneNMPCController:
         if self.person_detected:
             # Distance to person cost - with adaptive weight based on error magnitude
             drone_pos = state.data[self.config.STATE_X:self.config.STATE_Z+1]
-            distance_to_person = np.linalg.norm(drone_pos - self.person_position)
-            distance_error = abs(distance_to_person - self.config.OPTIMAL_TRACKING_DISTANCE)
+            delta = drone_pos - self.person_position
+            horizontal_distance = np.linalg.norm(delta[:2])
+            distance_error = abs(horizontal_distance - self.config.DESIRED_TRACKING_DISTANCE_XY)
 
             # Adaptive weight: increase penalty when far from optimal distance
             # This helps prevent person from leaving camera view
@@ -459,10 +395,11 @@ class DroneNMPCController:
                 accel = (vel_next - vel_curr) / self.dt
                 total_cost += np.sum(self.config.W_ACCELERATION * accel**2)
 
-                # Camera tilt penalty removed per user request
-                # lateral_acc = np.linalg.norm(accel[:2])
-                # tilt = math.atan2(lateral_acc, self.config.GRAVITY)
-                # total_cost += self.config.W_CAMERA_TILT * tilt**2
+                # Camera tilt penalty - keep person steady in frame
+                # Lateral acceleration causes pitch/roll which moves person up/down in camera view
+                lateral_acc = np.linalg.norm(accel[:2])  # XY acceleration magnitude
+                tilt = math.atan2(lateral_acc, self.config.GRAVITY)  # Resulting tilt angle
+                total_cost += self.config.W_CAMERA_TILT * tilt**2
         
         return total_cost
     
@@ -541,9 +478,9 @@ class DroneNMPCController:
 
         # Extract desired attitude from predicted trajectory
         if len(trajectory) > 1:
-            desired_attitude = trajectory[1].data[self.config.STATE_ROLL:self.config.STATE_YAW+1].copy()
+            desired_attitude = np.array(trajectory[1].data[self.config.STATE_ROLL:self.config.STATE_YAW+1])
         else:
-            desired_attitude = trajectory[0].data[self.config.STATE_ROLL:self.config.STATE_YAW+1].copy()
+            desired_attitude = np.array(trajectory[0].data[self.config.STATE_ROLL:self.config.STATE_YAW+1])
 
         desired_attitude[2] = self._wrap_angle(desired_attitude[2])
         smoothing = float(np.clip(self.config.TARGET_ATTITUDE_SMOOTHING, 0.0, 1.0))
@@ -567,7 +504,7 @@ class DroneNMPCController:
         waypoints: List[np.ndarray] = []
         last_point = None
         for state in trajectory[1:]:
-            waypoint = state.data[self.config.STATE_X:self.config.STATE_Z+1].copy()
+            waypoint = np.array(state.data[self.config.STATE_X:self.config.STATE_Z+1])
             if last_point is not None:
                 if np.linalg.norm(waypoint - last_point) < self.config.MIN_WAYPOINT_SPACING:
                     continue
@@ -597,11 +534,17 @@ class DroneNMPCController:
     
     def get_status(self) -> dict:
         """Get controller status"""
+        if self.person_detected:
+            delta = self.current_state.data[self.config.STATE_X:self.config.STATE_Z+1] - self.person_position
+            horizontal_distance = float(np.linalg.norm(delta[:2]))
+        else:
+            horizontal_distance = 0.0
+
         status = {
             'person_detected': self.person_detected,
-            'tracking_distance': np.linalg.norm(
-                self.current_state.data[self.config.STATE_X:self.config.STATE_Z+1] - self.person_position
-            ) if self.person_detected else 0.0,
+            'current_tracking_distance': horizontal_distance,
+            'tracking_distance': horizontal_distance,  # Legacy alias for downstream nodes
+            'desired_tracking_distance': self.config.DESIRED_TRACKING_DISTANCE_XY,
             'optimization_time': self.optimization_time,
             'iterations_used': float(self.iterations_used),
             'cost_value': self.cost_value
