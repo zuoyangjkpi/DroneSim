@@ -3,14 +3,12 @@
 import rclpy
 from rclpy.node import Node
 from visualization_msgs.msg import Marker, MarkerArray
-from geometry_msgs.msg import Point
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped
 from neural_network_msgs.msg import NeuralNetworkDetectionArray
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PoseArray
 from std_msgs.msg import Float64MultiArray
-import math
 
 class VisualizationNode(Node):
     def __init__(self):
@@ -173,69 +171,31 @@ class VisualizationNode(Node):
             self.person_marker_pub.publish(marker_array)
 
     def publish_trajectory(self):
-        """Publish desired circular trajectory around person"""
+        """Highlight the drone position with a simple shape (no text or circular path)."""
         marker_array = MarkerArray()
 
-        # Create circular trajectory markers
-        num_points = 32
-        if self.current_person_position is None:
-            return
-        person_x, person_y, person_z = self.current_person_position
-
-        # Create trajectory circle
         marker = Marker()
         marker.header.frame_id = "world"
         marker.header.stamp = self.get_clock().now().to_msg()
-        marker.ns = "trajectory"
+        marker.ns = "drone_indicator"
         marker.id = 0
-        marker.type = Marker.LINE_STRIP
+        marker.type = Marker.SPHERE
         marker.action = Marker.ADD
 
+        marker.pose.position.x = float(self.current_drone_position[0])
+        marker.pose.position.y = float(self.current_drone_position[1])
+        marker.pose.position.z = float(self.current_drone_position[2])
         marker.pose.orientation.w = 1.0
 
-        # Set marker properties
-        marker.scale.x = 0.1  # Line width
-        marker.color.r = 0.0
-        marker.color.g = 1.0
+        marker.scale.x = 0.5
+        marker.scale.y = 0.5
+        marker.scale.z = 0.5
+        marker.color.r = 0.2
+        marker.color.g = 0.6
         marker.color.b = 1.0
-        marker.color.a = 0.8
-
-        # Generate circular points
-        # Use tracking_altitude from NMPC instead of person_z + orbit_height
-        for i in range(num_points + 1):  # +1 to close the circle
-            angle = 2.0 * math.pi * i / num_points
-            point = Point()
-            point.x = person_x + self.orbit_radius * math.cos(angle)
-            point.y = person_y + self.orbit_radius * math.sin(angle)
-            point.z = self.tracking_altitude  # Use NMPC's fixed altitude
-            marker.points.append(point)
+        marker.color.a = 0.9
 
         marker_array.markers.append(marker)
-
-        # Add text markers showing desired vs current horizontal distance (stacked vertically)
-        text_base_height = self.tracking_altitude + 0.6
-        for idx, (label, value, z_offset) in enumerate([
-            ("Desired Distance", self.desired_tracking_distance, 0.0),
-            ("Current Distance", self.current_tracking_distance, -0.25),
-        ], start=1):
-            text_marker = Marker()
-            text_marker.header.frame_id = "world"
-            text_marker.header.stamp = self.get_clock().now().to_msg()
-            text_marker.ns = "tracking_distance_text"
-            text_marker.id = idx
-            text_marker.type = Marker.TEXT_VIEW_FACING
-            text_marker.action = Marker.ADD
-            text_marker.pose.position.x = person_x
-            text_marker.pose.position.y = person_y
-            text_marker.pose.position.z = text_base_height + z_offset
-            text_marker.scale.z = 0.35
-            text_marker.color.r = 1.0
-            text_marker.color.g = 1.0
-            text_marker.color.b = 0.0
-            text_marker.color.a = 0.9
-            text_marker.text = f"{label}: {value:.2f} m"
-            marker_array.markers.append(text_marker)
-
         self.trajectory_marker_pub.publish(marker_array)
 
     def publish_drone_marker(self):

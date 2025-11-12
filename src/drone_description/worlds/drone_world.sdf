@@ -527,11 +527,11 @@
         <commandSubTopic>cmd_vel</commandSubTopic>
         <enableSubTopic>enable</enableSubTopic>
         <comLinkName>X3/base_link</comLinkName>
-        <!-- 平衡调参：响应速度与稳定性兼顾 -->
-        <velocityGain>3.2 3.2 4.5</velocityGain>  <!-- 提高XY到3.2，支持快速响应 -->
-        <attitudeGain>5.5 5.5 0.90</attitudeGain>  <!-- Yaw提高到0.90（2倍），支持快速转向 -->
-        <angularRateGain>3.8 3.8 1.80</angularRateGain>  <!-- Yaw提高到1.80（2倍），ratio=2.0保持阻尼 -->
-        <maximumLinearAcceleration>3.0 3.0 2.0</maximumLinearAcceleration>  <!-- 提高XY到3.0，支持快速避让 -->
+        <!-- 折中调参：平衡响应速度和稳定性 -->
+        <velocityGain>2.6 2.6 3.8</velocityGain>  <!-- 折中XY增益 -->
+        <attitudeGain>5.0 5.0 0.75</attitudeGain>  <!-- 折中姿态增益 -->
+        <angularRateGain>3.5 3.5 1.50</angularRateGain>  <!-- 折中角速度增益，Yaw ratio=2.0 -->
+        <maximumLinearAcceleration>2.5 2.5 1.8</maximumLinearAcceleration>  <!-- 折中加速度限制 -->
         <actuatorsTopic>command/motor_speed</actuatorsTopic>
         <rotorConfiguration>
           <rotor>

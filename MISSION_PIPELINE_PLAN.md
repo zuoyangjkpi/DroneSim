@@ -31,6 +31,18 @@ YAML Mission → Mission Planner ─┬─ Scene Graph Queries
    - `mission/get_relationships` service/topic for filtered relationship sets.
    - Cached object registry for quick lookups during planning.
 
+### 2.1 semantic_slam_ws interface highlights
+- `semantic_octomap_bridge` publishes `/semantic/objects`, `/semantic/attributes`, `/semantic/octomap`, `/tracked_objects`, etc., all using `semantic_slam_msgs` (e.g., `ObjectInstanceArray`). `ObjectInstance` exposes `instance_id`, `class_name`, `centroid`, `velocity`, `is_moving`, `color`, `material`, `size_category`, so our blackboard keys must mirror those fields.
+- All SQL lookups are handled by `semantic_octomap/sql_query_engine.py`, callable via the Python API or the planned `semantic_octomap_msgs/srv/QueryScene` service (`/scene_graph/query`, demoed with `ros2 run semantic_octomap_bridge query_scene`). The allowed columns and `FIND` shortcuts are documented in `config/SQL_QUERY_REFERENCE.md`.
+- Relationship reasoning and Octomap live in the same workspace, meaning `/semantic/octomap` and `/global_octomap` topics (backed by `octomap_server`) are ready for us to subscribe to or request via standard services.
+
+### 2.2 drone_safety service contract
+- The `drone_safety` package exposes three primary services:
+  - `/safety/check_landing` (`drone_safety/srv/CheckLandingSafety`): request carries `landing_point` and `clearance_radius`; response returns `is_safe`, `reason`, `threats[]`, `recommended_wait_time`.
+  - `/safety/check_path` (`drone_safety/srv/CheckPathSafety`): request includes `start_point`, `goal_point`, `drone_speed`; response contains `is_safe`, `reason`, `collision_points[]`, `collision_times[]`, `recommended_wait_time`.
+  - `/safety/find_safe_zone` (`drone_safety/srv/FindSafeZone`): request takes `search_center`, `search_radius`, `num_candidates`; response is a list of `SafeZone` messages (`position`, `safety_score`, `clearance_radius`, `nearby_objects`, `num_approaching`).
+- The Mission Planner / Executor must forward YAML parameters such as `clearance`, `moving_object_radius`, and `speed_hint` when calling these services, and log the returned `reason` / `threats` so the Behavior Tree can pick an appropriate fallback.
+
 ## 3. YAML Mission Specification
 
 The upstream repository now ships a reference schema (`semantic_slam_ws/src/drone_safety/config/YAML_STRUCTURE_REFERENCE.md`) that mirrors the structure we proposed. We should adopt the exact field names and enumerations to stay compatible.
@@ -112,7 +124,13 @@ Subsequent stages follow the same structure; the reference file also demonstrate
 
 The upstream YAML examples also distinguish `TERMINAL` and `EMERGENCY` states—ensure our definitions for `mission_complete`, `mission_failed`, and emergency fallbacks match those terminologies.
 
-### 3.3 Edge Scenarios To Cover
+### 3.3 Transition & blackboard requirements (from YAML_STRUCTURE_REFERENCE.md)
+- Missions are wrapped in `stages.initial` + `stage_list[]`; each stage must define `id`, `type`, `params`, `transitions`, plus explicit `outputs.*` or `result_variable` entries so the Mission Planner blackboard knows where every value originates.
+- Stage `type` must use the upstream uppercase enums (`QUERY_OBJECT`, `NAVIGATE_TO_TARGET`, `COMPUTE_OFFSET_TARGET`, `VALIDATE_SAFETY`, `SEARCH_AREA`, `TRACK_TARGET`, `INSPECT_OBJECT`, `WAIT_OR_HOLD`, `LAND_AT_POINT`, `ABORT_MISSION`, `TERMINAL`, etc.).
+- `transitions` should include semantic keys seen in the upstream examples: `success`, `failure`, `no_results`, `unsafe`, `path_blocked`, `target_lost`, `timeout`, etc., which the Behavior Tree will map directly.
+- `TERMINAL` and `ABORT_MISSION` stages may carry `exit_code` or `reason`; the Mission Executor is expected to forward those details to the ground control station.
+
+### 3.4 Edge Scenarios To Cover
 - Multiple candidate objects (choose nearest, highest confidence, or fallback order).
 - Missing attributes (color unknown, orientation invalid).
 - Dynamic targets (target is moving; specify re-query cadence).
@@ -208,13 +226,15 @@ Each module implements a standard interface (`configure`, `start`, `cancel`, `up
 - Subscribe to upstream safety topics or call services for every critical action.
 - Mission Executor listens on `/mission/interrupts` (our safety supervisor publishes) to pre-empt current action.
 - Planner enforces margins from YAML (`clearance_radius`, `approach_timeout`).
+- Align with the `semantic_slam_ws` `drone_safety` services: `VALIDATE_SAFETY` should default to `/safety/check_landing` or `/safety/check_path`, while `WAIT_OR_HOLD` / `LAND_AT_POINT` may call `/safety/find_safe_zone` on failure, store the returned `SafeZone` in a `result_variable`, and propagate `reason/threats` to Mission Executor logs.
 
 ## 9. Required Deliverables for Upstream Coordination
 1. **Message & Service Definitions**: Provide `.msg`/`.srv` or interface doc for mission plan exchange, scene queries, and safety interrupts.
-2. **YAML Schema**: Complete enumeration of stage types, mandatory/optional parameters, default behaviors.
+   - Map everything to `semantic_slam_msgs/ObjectInstance`, `ObjectInstanceArray`, `RelationshipArray` so our DTO / blackboard fields are one-to-one with upstream messages.
+2. **YAML Schema**: Complete enumeration of stage types, required / optional params, and default behaviors, kept in sync with `src/drone_safety/config/YAML_STRUCTURE_REFERENCE.md`.
 3. **Coordinate Frames**: Confirm world frame conventions (likely ENU), altitude reference, and orientation semantics.
-4. **Octomap Access**: API or topic for retrieving current occupancy map (e.g., `/semantic/octomap` message type).
-5. **Sample Missions**: Curated YAML files covering each stage type and edge case to validate integration.
+4. **Octomap Access**: APIs or topics for retrieving occupancy data (e.g., `/semantic/octomap`, `/global_octomap`) plus notes on how to call the `semantic_octomap_bridge` query utilities.
+5. **Sample Missions**: Curated YAML examples covering every stage type and edge case, along with the SQL templates they reference (see `config/SQL_QUERY_REFERENCE.md`).
 
 ## 10. Open Points for Discussion
 - Preferred transport for scene graph queries (service vs. action vs. direct Python API).

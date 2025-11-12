@@ -178,7 +178,7 @@ cleanup_zombie_processes() {
 
 # Unified cleanup function called before starting any test
 startup_cleanup() {
-    print_status $BLUE "🔧 执行启动前统一清理"
+    print_status $BLUE "🔧 Performing pre-launch cleanup"
     echo "=========================="
 
     # Step 1: Kill all ROS processes
@@ -187,21 +187,187 @@ startup_cleanup() {
     # Step 2: Clean up zombie processes
     cleanup_zombie_processes
 
-    print_status $GREEN "✅ 启动前清理完成"
+    print_status $GREEN "✅ Pre-launch cleanup completed"
     echo ""
+}
+
+# Ensure that a background ROS2 node is running, launching it if necessary
+ensure_background_node() {
+    local node_name=$1
+    local launch_cmd=$2
+    local log_file=$3
+
+    if ros2 node list 2>/dev/null | grep -q "$node_name"; then
+        return 0
+    fi
+
+    print_status $YELLOW "🚀 Starting $node_name (log: $log_file)"
+    bash -c "$launch_cmd > \"$log_file\" 2>&1 &"
+    sleep 2
+
+    if ros2 node list 2>/dev/null | grep -q "$node_name"; then
+        print_status $GREEN "✅ $node_name is running"
+        return 0
+    fi
+
+    print_status $RED "❌ Unable to start $node_name, check $log_file"
+    return 1
+}
+
+text_prompt_test() {
+    print_status $BLUE "📝 Text mission test (LLM → Mission Executor)"
+    echo "============================================"
+    echo "Enter any mission description to let the LLM generate a YAML plan automatically. Enter 0 to return."
+    read -p "Mission description: " mission_prompt
+
+    if [ "$mission_prompt" = "0" ]; then
+        print_status $YELLOW "↩️ Returned to main menu"
+        return 0
+    fi
+
+    if [ -z "$mission_prompt" ]; then
+        print_status $RED "❌ Mission description cannot be empty"
+        return 1
+    fi
+
+    # Clean environment before launching
+    print_status $YELLOW "🧹 Cleaning environment and launching full stack..."
+    startup_cleanup
+    sleep 2
+
+    # Step 1: Launch Gazebo
+    print_status $YELLOW "Step 1/12: Launching Gazebo simulation..."
+    if ! launch_gazebo; then
+        print_status $RED "❌ Gazebo launch failed, aborting"
+        return 1
+    fi
+
+    # Step 2: Start YOLO detector
+    print_status $YELLOW "Step 2/12: Starting YOLO detector..."
+    if ! test_yolo_detector; then
+        print_status $YELLOW "⚠️  YOLO detector reported issues, continuing anyway..."
+    fi
+
+    # Step 3: Detection visualization
+    print_status $YELLOW "Step 3/12: Starting detection visualizer..."
+    ros2 run neural_network_detector detection_visualizer_node > /tmp/detection_visualizer.log 2>&1 &
+    sleep 2
+
+    # Step 4-5: TF + visualization
+    print_status $YELLOW "Step 4/12: Starting TF publisher..."
+    python3 drone_tf_publisher.py > /tmp/drone_tf.log 2>&1 &
+    sleep 1
+
+    print_status $YELLOW "Step 5/12: Launching RViz visualization..."
+    python3 visualization_node.py > /tmp/visualization.log 2>&1 &
+    sleep 2
+
+    # Step 6-9: State estimation chain
+    print_status $YELLOW "Step 6/12: Starting drone_state_publisher..."
+    ros2 run drone_state_publisher drone_state_publisher_node \
+        --ros-args -p use_sim_time:=False > /tmp/drone_state_publisher.log 2>&1 &
+    sleep 2
+
+    print_status $YELLOW "Step 7/12: Starting tf_from_uav_pose..."
+    ros2 run tf_from_uav_pose tf_from_uav_pose_node \
+        --ros-args \
+        -p use_sim_time:=False \
+        -p poseTopicName:="/machine_1/pose" \
+        -p machineFrameID:="machine_1" \
+        -p worldFrameID:="world" \
+        > /tmp/tf_from_uav_pose.log 2>&1 &
+    sleep 3
+
+    print_status $YELLOW "Step 8/12: Starting projection_model..."
+    ros2 run projection_model projection_model_node \
+        --ros-args \
+        -p topics.robot:="/X3/pose_with_covariance" \
+        -p topics.camera:="/machine_1/camera/pose" \
+        -p detections_topic:="/person_detections" \
+        > /tmp/projection_model.log 2>&1 &
+    sleep 3
+
+    print_status $YELLOW "Step 9/12: Starting pose_cov_ops_interface..."
+    ros2 run pose_cov_ops_interface pose_cov_ops_interface_node \
+        --ros-args \
+        -p input_pose_topic:="/X3/odometry" \
+        -p output_pose_topic:="/X3/pose_with_covariance" \
+        > /tmp/pose_cov_ops_interface.log 2>&1 &
+    sleep 3
+
+    # Step 10: NMPC tracker
+    print_status $YELLOW "Step 10/12: Starting NMPC tracker..."
+    ros2 run drone_nmpc_tracker nmpc_tracker_node > /tmp/nmpc_tracker.log 2>&1 &
+    sleep 3
+
+    # Step 11: Low-level controllers
+    local guidance_params="$PWD/src/drone_guidance_controllers/config/controllers.yaml"
+    local velocity_params="$PWD/src/drone_low_level_controllers/config/controllers.yaml"
+
+    print_status $YELLOW "Step 11/12: Starting controller stack..."
+    ros2 run drone_guidance_controllers waypoint_controller \
+        --ros-args --params-file "$guidance_params" \
+        > /tmp/waypoint_controller.log 2>&1 &
+    sleep 2
+
+    ros2 run drone_guidance_controllers yaw_controller \
+        --ros-args --params-file "$guidance_params" \
+        > /tmp/yaw_controller.log 2>&1 &
+    sleep 2
+
+    ros2 run drone_low_level_controllers multicopter_velocity_control_adapter.py \
+        --ros-args --params-file "$velocity_params" \
+        > /tmp/multicopter_velocity_control_adapter.log 2>&1 &
+    sleep 2
+
+    # Step 11b: Mission action manager
+    print_status $YELLOW "Step 11/12: Starting mission action manager..."
+    ros2 run mission_action_modules action_manager > /tmp/mission_action_manager.log 2>&1 &
+    if ! wait_for_node "/mission_action_manager" 10; then
+        print_status $RED "❌ Mission action manager failed to start"
+        return 1
+    fi
+
+    # Step 12: Mission executor
+    print_status $YELLOW "Step 12/12: Starting mission executor..."
+    ros2 run mission_executor mission_executor_node > /tmp/mission_executor.log 2>&1 &
+    if ! wait_for_node "/mission_executor" 10; then
+        print_status $RED "❌ Mission executor failed to start"
+        return 1
+    fi
+
+    # Enable control
+    print_status $YELLOW "🎮 Enabling drone control..."
+    ros2 topic pub --once /X3/enable std_msgs/msg/Bool "{data: true}" > /tmp/x3_enable.log 2>&1
+    sleep 2
+
+    # Trigger LLM
+    print_status $GREEN "✅ Full system is running!"
+    print_status $YELLOW "🧠 Requesting YAML plan from Qwen..."
+    if ros2 run manual_mission_planner manual_prompt_runner --prompt "$mission_prompt"; then
+        print_status $GREEN "✅ Mission published to /mission_executor/plan"
+        print_status $YELLOW "ℹ️ Plan stored at ~/.ros/manual_mission_plan.yaml"
+        print_status $YELLOW "📊 Monitor mission execution:"
+        print_status $YELLOW "   - tail -f /tmp/mission_executor.log"
+        print_status $YELLOW "   - tail -f /tmp/mission_action_manager.log"
+        print_status $YELLOW "   - tail -f /tmp/nmpc_tracker.log"
+    else
+        print_status $RED "❌ Mission generation failed, check logs or network"
+    fi
 }
 
 # Main menu function
 show_menu() {
     echo ""
-    print_status $BLUE "📋 测试选项:"
-    echo "1) 🤖 自动测试（完整链路）"
-    echo "2) 🧭 路径点控制测试（Takeoff→Fly→Hold）"
-    echo "3) 🎮 手动速度控制测试（绕过PID，直接测试Gazebo插件）"
-    echo "4) 🧹 终止所有 ROS 进程"
-    echo "0) 🚪 退出"
+    print_status $BLUE "📋 Test Options:"
+    echo "1) 📝 Text mission test (LLM → Mission Executor)"
+    echo "2) 🤖 Full integration test"
+    echo "3) 🧭 Waypoint controller test (Takeoff → Fly → Hold)"
+    echo "4) 🎮 Manual velocity control test (bypass PID/Gazebo plugin check)"
+    echo "5) 🧹 Kill all ROS processes"
+    echo "0) 🚪 Exit"
     echo ""
-    read -p "请选择 (0-4): " choice
+    read -p "Select (0-5): " choice
 }
 
 # System status check
@@ -734,7 +900,7 @@ full_integration_test() {
     #     print_status $RED "  ❌ Drone control commands not available"
     # fi
     
-    # # 添加检测图像话题检查
+    # # Add detection image topic check
     # if wait_for_topic "/detection_image" 5; then
     #     print_status $GREEN "  ✅ Detection image available"
     # else
@@ -776,7 +942,7 @@ full_integration_test() {
     #     print_status $YELLOW "  ⚠️  NMPC control command data rate is low"
     # fi
     
-    # # 添加检测图像话题数据速率检查
+    # # Add detection image topic rate check
     # if check_topic_rate "/detection_image" 1.0; then
     #     print_status $GREEN "  ✅ Detection images are being published"
     # else
@@ -1097,7 +1263,7 @@ waypoint_controller_test() {
         print_status $GREEN "✅ Waypoint test orchestrator is running (PID $runner_pid)"
         print_status $YELLOW "📄 Control log aggregate: $control_log"
         print_status $YELLOW "📄 Raw orchestrator log: /tmp/waypoint_test_runner.log"
-        print_status $YELLOW "🛎️ 完成后无人机会在目标点悬停，如需停止请选择菜单 3) 杀掉进程"
+        print_status $YELLOW "🛎️ The drone will hover at the target when finished; select menu option 5 to stop everything."
         log_control_msg "Waypoint test orchestrator running (PID $runner_pid)"
     else
         print_status $RED "❌ Failed to detect waypoint test orchestrator node"
@@ -1110,9 +1276,9 @@ waypoint_controller_test() {
 manual_velocity_test() {
     print_status $BLUE "🎮 Manual Velocity Control Test (Direct Gazebo Plugin Test)"
     echo "================================================================"
-    print_status $YELLOW "⚠️  此测试完全绕过所有PID控制器和Action模块"
-    print_status $YELLOW "使用最简单的比例控制（v=k*error）直接发送速度指令"
-    print_status $YELLOW "用于诊断Gazebo MulticopterVelocityControl插件和坐标转换是否正常"
+    print_status $YELLOW "⚠️  This test bypasses all PID controllers and action modules."
+    print_status $YELLOW "It uses simple proportional control (v = k * error) to send velocity commands."
+    print_status $YELLOW "Purpose: diagnose the Gazebo MulticopterVelocityControl plugin and frame transforms."
     echo ""
 
     # Unified startup cleanup
@@ -1171,12 +1337,12 @@ manual_velocity_test() {
         print_status $GREEN "✅ Manual velocity tester is running (PID $test_pid)"
         print_status $YELLOW "📄 Monitor progress: tail -f /tmp/manual_velocity_test.log"
         print_status $YELLOW "📊 Watch adapter: tail -f /tmp/multicopter_velocity_control_adapter.log"
-        print_status $BLUE "🔍 测试流程（完全手动控制）："
-        echo "   1. 手动起飞：发送 vz=dz*0.5 直到到达3m高度"
-        echo "   2. 水平飞行：发送 vx=dx*0.5, vy=dy*0.5, yaw_rate=dyaw*1.0"
-        echo "   3. 飞向相对位置 (10m @ 45°)"
+        print_status $BLUE "🔍 Test steps (fully manual control):"
+        echo "   1. Manual takeoff: command vz = dz * 0.5 until altitude reaches 3 m."
+        echo "   2. Horizontal flight: command vx = dx * 0.5, vy = dy * 0.5, yaw_rate = dyaw * 1.0."
+        echo "   3. Fly to relative target (10 m @ 45°)."
         echo ""
-        print_status $YELLOW "🛎️ 完成后按任意键返回菜单，选择选项4) 终止所有进程"
+        print_status $YELLOW "🛎️ When done, press any key to return and choose option 5 to stop all processes."
     else
         print_status $RED "❌ Failed to detect manual velocity tester node"
         return 1
@@ -1276,6 +1442,9 @@ kill_all_processes() {
     pkill -f "mission_action_modules.*action_manager" 2>/dev/null
     pkill -f "mission_sequence_controller" 2>/dev/null
     pkill -f "mission_action_modules/.*/mission_sequence_controller" 2>/dev/null
+    pkill -f "mission_executor_node" 2>/dev/null
+    pkill -f "manual_mission_planner" 2>/dev/null
+    pkill -f "manual_prompt_runner" 2>/dev/null
 
     # Option 2 specific nodes (waypoint test)
     pkill -f "waypoint_test_runner" 2>/dev/null
@@ -1322,6 +1491,7 @@ kill_all_processes() {
     pkill -9 -f "waypoint_test_runner" 2>/dev/null
     pkill -9 -f "waypoint_test_orchestrator" 2>/dev/null
     pkill -9 -f "manual_velocity_test" 2>/dev/null
+    pkill -9 -f "mission_executor_node" 2>/dev/null
     pkill -9 -f "nmpc_tracker_node" 2>/dev/null
     pkill -9 -f "waypoint_controller" 2>/dev/null
     pkill -9 -f "yaw_controller" 2>/dev/null
@@ -1427,20 +1597,23 @@ main() {
         
         case $choice in
             1)
-                full_integration_test
+                text_prompt_test
                 ;;
             2)
-                waypoint_controller_test
+                full_integration_test
                 ;;
             3)
-                manual_velocity_test
+                waypoint_controller_test
                 ;;
             4)
+                manual_velocity_test
+                ;;
+            5)
                 kill_all_processes
                 ;;
             0)
                 print_status $GREEN "👋 Goodbye!"
-                print_status $YELLOW "🧹 退出前清理所有相关进程..."
+                print_status $YELLOW "🧹 Cleaning up all related processes before exiting..."
                 kill_all_processes
                 exit 0
                 ;;

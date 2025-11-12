@@ -62,7 +62,7 @@ class SearchGoal:
 
 @dataclass
 class LostHoldGoal:
-    duration: float = 60.0  # seconds
+    duration: float = 5.0  # seconds, wait for target reacquisition
     hold_position: Optional[Sequence[float]] = None  # xyz
     yaw: Optional[float] = None  # radians
     detection_confirmations: int = 3
@@ -164,7 +164,7 @@ class TakeoffModule(ActionModule):
         elapsed = self.context.now() - self._start_time
         tolerance = self.context.defaults.altitude_tolerance
         stable_required = max(
-            0.0, getattr(self.context.defaults, "takeoff_stable_duration", 5.0)
+            0.0, getattr(self.context.defaults, "takeoff_stable_duration", 3.0)
         )
 
         if altitude_error <= tolerance:
@@ -225,7 +225,7 @@ class HoverModule(ActionModule):
         duration = (
             goal.duration
             if goal.duration is not None
-            else self.context.defaults.hover_duration
+            else getattr(self.context.defaults, "hover_duration", 10.0)
         )
         if duration is None or duration <= 0.0:
             self._duration = None  # hold indefinitely until canceled
@@ -274,8 +274,9 @@ class FlyToTargetModule(ActionModule):
         self._yaw_targets: Optional[List[Optional[float]]] = None
         self._current_idx = 0
         self._start_time = 0.0
-        self._timeout_per_leg = 15.0
+        self._timeout_per_leg = -1.0  # 默认无限时间
         self._tolerance = 0.3
+        self._last_waypoint_refresh = 0.0
 
     def on_start(self, goal: FlyToTargetGoal) -> None:
         if not goal.waypoints:
@@ -293,9 +294,11 @@ class FlyToTargetModule(ActionModule):
             if goal.tolerance is not None
             else self.context.defaults.position_tolerance
         )
+        # 默认无超时限制，依赖 mission_executor 的 stage timeout
         self._timeout_per_leg = (
-            goal.timeout_per_leg if goal.timeout_per_leg is not None else 15.0
+            goal.timeout_per_leg if goal.timeout_per_leg is not None else -1.0  # -1 表示无限时长
         )
+        self._last_waypoint_refresh = self.context.now()
         self._current_idx = 0
         self._start_time = self.context.now()
 
@@ -353,9 +356,11 @@ class FlyToTargetModule(ActionModule):
             )
             return
 
-        # Refresh waypoint periodically for robustness
-        if elapsed % 1.0 < 0.2:
+        # 定期刷新waypoint（每0.5秒），避免控制器超时
+        now = self.context.now()
+        if now - self._last_waypoint_refresh >= 0.5:
             self.context.send_waypoint(target)
+            self._last_waypoint_refresh = now
 
 
 class TrackTargetModule(ActionModule):
@@ -410,10 +415,9 @@ class TrackTargetModule(ActionModule):
         self._set_nmpc_enabled(True)
 
         if goal.target_class:
+            stand_off = f"{goal.stand_off_distance:.2f} m" if goal.stand_off_distance else "default"
             self.context.node.get_logger().info(
-                "[TrackTargetModule] Engage tracking for class '%s' (stand-off: %s)",
-                goal.target_class,
-                f"{goal.stand_off_distance:.2f} m" if goal.stand_off_distance else "default",
+                f"[TrackTargetModule] Engage tracking for class '{goal.target_class}' (stand-off: {stand_off})"
             )
         else:
             self.context.node.get_logger().info(
@@ -682,47 +686,16 @@ class LostHoldModule(ActionModule):
             self.context.send_waypoint(self._hold_position)
         self.context.send_yaw(0.0, 0.0, self._hold_yaw)
 
-        # 检查是否重新检测到目标（优先级最高）
+        # ✅ 唯一成功条件：检测到目标
         if self._detection_streak >= self._confirmations_required:
             self.succeed("Target reacquired during hold", data={"reacquired": True})
             return
 
-        # 验证高度稳定性（类似TakeoffModule的逻辑）
-        position = self.context.get_position()
-        elapsed = self.context.now() - self._start_time
-        tolerance = self.context.defaults.altitude_tolerance
-        stable_required = max(
-            0.0, getattr(self.context.defaults, "takeoff_stable_duration", 5.0)
-        )
-
-        # 检查高度是否在容差范围内
-        stable = False
-        if (
-            position is not None
-            and self._hold_position is not None
-            and abs(position[2] - self._hold_position[2]) <= tolerance
-        ):
-            if self._stable_start_time is None:
-                self._stable_start_time = self.context.now()
-            stable_elapsed = self.context.now() - self._stable_start_time
-            if stable_elapsed >= stable_required:
-                stable = True
-        else:
-            # 高度超出容差，重置稳定计时器
-            self._stable_start_time = None
-
-        # 如果高度稳定，说明无人机已经恢复到目标位置
-        if stable:
-            self.succeed(
-                f"Held altitude {self._hold_position[2]:.2f} m for {stable_required:.1f}s"
-            )
-            return
-
-        # ❌ 移除超时检查 - LOSTHOLD必须等到成功条件满足才能退出
-        # 成功条件：
-        # 1. 重新检测到目标 → 转入 TRACK
-        # 2. 高度稳定 → 转入 SEARCH
-        # 如果无人机坠落，LOSTHOLD会无限期尝试恢复高度，直到稳定为止
+        # ℹ️ 如果未检测到目标，继续hold直到：
+        # 1. 检测到目标 → succeed → transitions["success"] → back to TRACK
+        # 2. Stage timeout → transitions["timeout"] → go to SEARCH
+        #
+        # 持续刷新waypoint保持位置（已在函数开头处理）
 
     def _status_callback(self, msg: Float64MultiArray) -> None:
         detected = bool(int(msg.data[0])) if msg.data else False

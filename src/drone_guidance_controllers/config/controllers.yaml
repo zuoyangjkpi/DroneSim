@@ -3,33 +3,34 @@
 waypoint_controller:
   ros__parameters:
     control_frequency: 100.0
-    position_tolerance: 0.035
+    position_tolerance: 0.5       # 提高到0.5m，避免过于严格
     velocity_tolerance: 0.05
     waypoint_timeout: 4.0
 
-    kp_xy: 1.5                    # 提高到1.5，快速响应位置误差
-    ki_xy: 0.003                  # 适当提高积分增益
-    kd_xy: 4.5                    # 提高到4.5，保持Kd/Kp=3.0阻尼比
-    kp_z: 1.2                     # 保持Z轴稳定
-    ki_z: 0.1                   # 积分增益
-    kd_z: 3.0                     # 适度阻尼
+    # 平衡配置：适度响应 + 高阻尼
+    kp_xy: 0.8                    # 适中的P增益
+    ki_xy: 0.001                  # 低积分增益
+    kd_xy: 5.0                    # 高阻尼，Kd/Kp=6.25
+    kp_z: 1.0                     # Z轴稍高，加快起飞/降落
+    ki_z: 0.05                    # 适度积分
+    kd_z: 5.0                     # 高阻尼，Kd/Kp=5.0
 
-    max_velocity_xy: 4.0          # 提高到4.0，允许更快避让
-    max_velocity_z: 2.5           # 保持Z轴稳定
+    max_velocity_xy: 2.5          # 适中速度
+    max_velocity_z: 1.5           # Z轴适中速度
 
     max_vertical_error: 2.0
-    integral_limit_xy: 3.0        # 降低从5.0到3.0
-    integral_limit_z: 1.0
+    integral_limit_xy: 1.5
+    integral_limit_z: 0.8
 
 yaw_controller:
   ros__parameters:
     control_frequency: 100.0
     yaw_tolerance: 0.030
-    kp_yaw: 1.6                # 提高2倍，快速响应
-    ki_yaw: 0.001              # 适当提高积分增益
-    kd_yaw: 4.0                # 提高2倍，保持Kd/Kp=2.5阻尼比
-    max_angular_velocity_yaw: 4.0  # 提高到4.0 rad/s
-    max_yaw_step: 0.55        # 提高到0.55，允许更快的目标变化
-    derivative_filter_alpha: 0.95  # 降低滤波，更快响应
-    yaw_integral_limit: 0.3   # 提高到0.3
+    kp_yaw: 1.0                # 降低到1.0，减少转向振荡
+    ki_yaw: 0.0005             # 降低积分增益
+    kd_yaw: 4.0                # 保持高阻尼，Kd/Kp=4.0
+    max_angular_velocity_yaw: 2.5  # 降低到2.5 rad/s
+    max_yaw_step: 0.4          # 降低到0.4，避免突变
+    derivative_filter_alpha: 0.9   # 适当滤波，减少噪声
+    yaw_integral_limit: 0.2    # 降低积分限幅
     attitude_command_timeout: 3.0

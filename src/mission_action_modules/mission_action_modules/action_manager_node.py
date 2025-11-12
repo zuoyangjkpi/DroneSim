@@ -61,6 +61,9 @@ class ActionManagerNode(Node):
         # 全局互斥：同一时间只能有一个active module
         self._current_active_module: Optional[str] = None
 
+        # Cache for latest action params from mission_executor
+        self._latest_params: Optional[Dict[str, Any]] = None
+
         # Subscriptions
         self.odom_sub = self.create_subscription(
             Odometry, "/X3/odometry", self._odometry_callback, 10
@@ -69,6 +72,14 @@ class ActionManagerNode(Node):
             NeuralNetworkDetectionArray,
             "/person_detections",
             self._detection_callback,
+            10
+        )
+
+        # Subscribe to action params from mission_executor
+        self.params_sub = self.create_subscription(
+            String,
+            "/mission_executor/action_params",
+            self._params_callback,
             10
         )
 
@@ -105,49 +116,92 @@ class ActionManagerNode(Node):
 
         # Basic services for manual testing / bring-up
         self.create_service(Trigger, "mission_actions/takeoff", self._srv_takeoff)
+        self.create_service(Trigger, "mission_actions/fly_to", self._srv_fly_to)
         self.create_service(Trigger, "mission_actions/hover", self._srv_hover)
         self.create_service(Trigger, "mission_actions/search", self._srv_search)
         self.create_service(Trigger, "mission_actions/land", self._srv_land)
         self.create_service(Trigger, "mission_actions/track_target", self._srv_track_target)
         self.create_service(Trigger, "mission_actions/lost_hold", self._srv_lost_hold)
 
-        self.get_logger().info("Mission action manager ready")
+        self.get_logger().info(f"Mission action manager ready with {len(self.modules)} modules")
 
     # ------------------------------------------------------------------
     # Service callbacks
     # ------------------------------------------------------------------
+    def _params_callback(self, msg: String) -> None:
+        """Cache the latest action params from mission_executor."""
+        try:
+            self._latest_params = json.loads(msg.data)
+            self.get_logger().debug(
+                f"Received params for stage {self._latest_params.get('stage_id')}: "
+                f"{self._latest_params.get('params')}"
+            )
+        except json.JSONDecodeError as exc:
+            self.get_logger().error(f"Failed to parse action params: {exc}")
+            self._latest_params = None
+
+    def _create_goal_from_params(self, goal_class, default_goal):
+        """Create a goal object from cached params, or use default."""
+        if not self._latest_params or not self._latest_params.get("params"):
+            return default_goal
+
+        params = self._latest_params["params"]
+        try:
+            # Create goal with params from YAML
+            goal = goal_class(**params)
+            self.get_logger().info(f"Created goal with params: {params}")
+            return goal
+        except (TypeError, ValueError) as exc:
+            self.get_logger().warn(
+                f"Failed to create goal from params {params}: {exc}. Using defaults."
+            )
+            return default_goal
+
     def _srv_takeoff(self, _req, res):
-        started = self._start_action("takeoff", TakeoffGoal())
+        goal = self._create_goal_from_params(TakeoffGoal, TakeoffGoal())
+        started = self._start_action("takeoff", goal)
         res.success = started
         res.message = "Takeoff command started" if started else "Takeoff already running"
         return res
 
+    def _srv_fly_to(self, _req, res):
+        goal = self._create_goal_from_params(FlyToTargetGoal, FlyToTargetGoal(waypoints=[]))
+        started = self._start_action("fly_to", goal)
+        res.success = started
+        res.message = "FlyTo command started" if started else "FlyTo already running"
+        return res
+
     def _srv_hover(self, _req, res):
-        started = self._start_action("hover", HoverGoal())
+        goal = self._create_goal_from_params(HoverGoal, HoverGoal())
+        started = self._start_action("hover", goal)
         res.success = started
         res.message = "Hover command started" if started else "Hover already running"
         return res
 
     def _srv_search(self, _req, res):
-        started = self._start_action("search", SearchGoal())
+        goal = self._create_goal_from_params(SearchGoal, SearchGoal())
+        started = self._start_action("search", goal)
         res.success = started
         res.message = "Search command started" if started else "Search already running"
         return res
 
     def _srv_land(self, _req, res):
-        started = self._start_action("land", LandGoal())
+        goal = self._create_goal_from_params(LandGoal, LandGoal())
+        started = self._start_action("land", goal)
         res.success = started
         res.message = "Landing command started" if started else "Landing already running"
         return res
-    
+
     def _srv_track_target(self, _req, res):
-        started = self._start_action("track_target", TrackTargetGoal())
+        goal = self._create_goal_from_params(TrackTargetGoal, TrackTargetGoal())
+        started = self._start_action("track_target", goal)
         res.success = started
         res.message = "TrackTarget command started" if started else "TrackTarget already running"
         return res
 
     def _srv_lost_hold(self, _req, res):
-        started = self._start_action("lost_hold", LostHoldGoal())
+        goal = self._create_goal_from_params(LostHoldGoal, LostHoldGoal())
+        started = self._start_action("lost_hold", goal)
         res.success = started
         res.message = "LostHold command started" if started else "LostHold already running"
         return res
