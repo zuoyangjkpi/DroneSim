@@ -7,20 +7,20 @@ waypoint_controller:
     velocity_tolerance: 0.05
     waypoint_timeout: 4.0
 
-    # 平衡配置：适度响应 + 高阻尼
-    kp_xy: 0.8                    # 适中的P增益
-    ki_xy: 0.001                  # 低积分增益
-    kd_xy: 5.0                    # 高阻尼，Kd/Kp=6.25
-    kp_z: 1.0                     # Z轴稍高，加快起飞/降落
-    ki_z: 0.05                    # 适度积分
-    kd_z: 5.0                     # 高阻尼，Kd/Kp=5.0
+    # 优化配置：降低P增益 + 增加阻尼 → 减少超调
+    kp_xy: 0.5                    # 降低P增益，减缓响应速度
+    ki_xy: 0.0                    # 暂时禁用积分，避免累积误差
+    kd_xy: 6.0                    # 增加阻尼，Kd/Kp=12（高阻尼比）
+    kp_z: 0.8                     # Z轴也降低，保持平稳
+    ki_z: 0.02                    # 降低Z轴积分
+    kd_z: 6.0                     # 增加Z轴阻尼
 
-    max_velocity_xy: 2.5          # 适中速度
-    max_velocity_z: 1.5           # Z轴适中速度
+    max_velocity_xy: 2.0          # 降低最大速度，减少冲量
+    max_velocity_z: 1.2           # Z轴也降低一些
 
     max_vertical_error: 2.0
-    integral_limit_xy: 1.5
-    integral_limit_z: 0.8
+    integral_limit_xy: 1.0        # 降低积分限幅
+    integral_limit_z: 0.5
 
 yaw_controller:
   ros__parameters:

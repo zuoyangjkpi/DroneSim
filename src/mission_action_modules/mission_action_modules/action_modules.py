@@ -762,6 +762,7 @@ class LandModule(ActionModule):
             else self.context.defaults.land_timeout
         )
         self._start_time = self.context.now()
+        self._timeout_warned = False  # 初始化超时警告标志
 
         self._target = np.array([target_xy[0], target_xy[1], target_alt], dtype=float)
 
@@ -788,9 +789,16 @@ class LandModule(ActionModule):
             self.succeed("Landed successfully")
             return
 
+        # 移除超时失败逻辑，改为持续尝试（像TakeoffModule一样）
         if elapsed > self._timeout:
-            self.fail(f"Landing timeout after {elapsed:.1f}s (alt {altitude:.2f} m)")
-            return
+            if not getattr(self, "_timeout_warned", False):
+                self.context.node.get_logger().warn(
+                    f"[LandModule] Timeout after {elapsed:.1f}s (alt {altitude:.2f} m). "
+                    f"Continuing descent to {self._final_altitude:.2f} m."
+                )
+                self._timeout_warned = True
+            # 重置计时器避免日志刷屏
+            self._start_time = self.context.now()
 
         # Refresh landing waypoint every second to keep controller engaged
         if elapsed % 1.0 < 0.2:
