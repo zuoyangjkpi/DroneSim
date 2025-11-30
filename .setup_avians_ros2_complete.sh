@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # ============================================================================
-# AVIANS ROS2 PORT1 - Complete One-Click Setup Script
+# AVIANS ROS2 - Complete One-Click Setup Script
 # For New Computer Installation (Ubuntu 24.04 + ROS2 Jazzy + Gazebo Harmonic)
 # Author: Soja the First
-# Date: 2025.09.12
+# Date: 2025-01-30 (Updated)
 # ============================================================================
 
 set -e  # Exit on any error
@@ -39,9 +39,10 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-print_header "AVIANS ROS2 PORT1 - Complete Setup"
+print_header "AVIANS ROS2 - Complete Setup"
 echo -e "${CYAN}Ubuntu 24.04 + ROS2 Jazzy + Gazebo Harmonic${NC}"
-echo -e "${CYAN}This script will install EVERYTHING needed to run the drone system${NC}"
+echo -e "${CYAN}This script will install EVERYTHING needed to run the autonomous drone system${NC}"
+echo -e "${CYAN}Includes: Mission Planning, Execution, PX4 Bridge, NMPC Control, YOLO Detection${NC}"
 
 # Check if running as root
 if [[ $EUID -eq 0 ]]; then
@@ -312,18 +313,18 @@ fi
 source /opt/ros/jazzy/setup.bash
 
 # ===========================================================================
-# STEP 8: Clone and Setup AVIANS_ROS2_PORT1 Repository
+# STEP 8: Clone and Setup AVIANS_ROS2 Repository
 # ===========================================================================
-print_header "STEP 8: Setting up AVIANS_ROS2_PORT1 Repository"
+print_header "STEP 8: Setting up AVIANS_ROS2 Repository"
 
 # Navigate to home directory
 cd ~
 
 # Clone or update repository
-REPO_DIR="AVIANS_ROS2_PORT1"
+REPO_DIR="AVIANS_ROS2"
 if [ ! -d "$REPO_DIR" ]; then
-    print_status "Cloning AVIANS_ROS2_PORT1 repository..."
-    git clone https://github.com/zuoyangjkpi/AVIANS_ROS2_PORT1.git $REPO_DIR
+    print_status "Cloning AVIANS_ROS2 repository..."
+    git clone https://github.com/zuoyangjkpi/AVIANS_ROS2.git $REPO_DIR
     cd $REPO_DIR
 else
     print_status "Repository already exists, updating..."
@@ -508,7 +509,7 @@ print_header "STEP 11: Building AVIANS ROS2 Workspace"
 source /opt/ros/jazzy/setup.bash
 
 print_status "Building custom message packages first..."
-colcon build --packages-select neural_network_msgs uav_msgs --symlink-install || {
+colcon build --packages-select neural_network_msgs uav_msgs px4_msgs --symlink-install || {
     print_warning "Message packages build had issues, continuing..."
 }
 
@@ -517,6 +518,8 @@ colcon build --packages-select \
     ros2_utils \
     pose_cov_ops_interface \
     projection_model \
+    tf_from_uav_pose \
+    drone_state_publisher \
     --symlink-install || {
     print_warning "Core packages build had issues, continuing..."
 }
@@ -526,12 +529,28 @@ colcon build --packages-select neural_network_detector --symlink-install || {
     print_warning "Neural network detector build had issues, continuing..."
 }
 
-print_status "Building drone packages..."
+print_status "Building drone control packages..."
 colcon build --packages-select \
     drone_description \
     drone_nmpc_tracker \
+    drone_low_level_controllers \
+    drone_guidance_controllers \
     --symlink-install || {
-    print_warning "Drone packages build had issues, continuing..."
+    print_warning "Drone control packages build had issues, continuing..."
+}
+
+print_status "Building mission execution packages..."
+colcon build --packages-select \
+    mission_action_modules \
+    mission_executor \
+    manual_mission_planner \
+    --symlink-install || {
+    print_warning "Mission execution packages build had issues, continuing..."
+}
+
+print_status "Building PX4 bridge..."
+colcon build --packages-select px4_bridge --symlink-install || {
+    print_warning "PX4 bridge build had issues, continuing..."
 }
 
 print_status "Building remaining packages..."
@@ -754,9 +773,15 @@ SECONDS=$((DURATION % 60))
 print_status "Verifying installation..."
 EXPECTED_DIRS=(
     "src/neural_network_detector"
-    "src/drone_description" 
+    "src/drone_description"
     "src/drone_nmpc_tracker"
     "src/custom_msgs/neural_network_msgs"
+    "src/mission_executor"
+    "src/mission_action_modules"
+    "src/manual_mission_planner"
+    "src/px4_bridge"
+    "src/drone_guidance_controllers"
+    "src/drone_low_level_controllers"
 )
 
 MISSING_DIRS=()
@@ -767,7 +792,7 @@ for dir in "${EXPECTED_DIRS[@]}"; do
 done
 
 # Final summary
-print_header "🎉 AVIANS ROS2 PORT1 Setup Complete!"
+print_header "🎉 AVIANS ROS2 Setup Complete!"
 
 if [ ${#MISSING_DIRS[@]} -eq 0 ]; then
     print_success "✅ All core directories found"
@@ -789,7 +814,9 @@ echo "✅ Gazebo Harmonic"
 echo "✅ ROS2-Gazebo integration"
 echo "✅ Python packages (numpy, scipy, ultralytics, etc.)"
 echo "✅ ONNX Runtime and YOLO models"
-echo "✅ AVIANS ROS2 workspace built"
+echo "✅ AVIANS ROS2 workspace built (18 packages)"
+echo "✅ Mission planning and execution modules"
+echo "✅ PX4 hardware integration bridge"
 echo "✅ Odometry fix for drone movement"
 echo "✅ Test and launch scripts created"
 
@@ -821,5 +848,6 @@ echo -e "${YELLOW}• For help: Run ./comprehensive_test_suite.sh and choose opt
 echo ""
 echo -e "${CYAN}======================== ======================== ========================${NC}"
 
-print_success "🎯 AVIANS ROS2 PORT1 is now ready for drone person tracking!"
+print_success "🎯 AVIANS ROS2 is now ready for autonomous drone missions!"
+print_success "Features: Person Tracking | Mission Planning | PX4 HITL | LLM Integration"
 print_success "🔥 Happy flying! 🚁"

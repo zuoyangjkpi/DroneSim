@@ -1,18 +1,22 @@
-# 🚁 AVIANS ROS2 PORT1: Autonomous Drone Person Tracking System
+# 🚁 AVIANS ROS2: Autonomous Drone Mission Planning & Tracking System
 
-![ROS2](https://img.shields.io/badge/ROS2-Jazzy-blue) ![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04%20LTS-orange) ![Gazebo](https://img.shields.io/badge/Gazebo-Harmonic-green) ![Python](https://img.shields.io/badge/Python-3.12-blue) ![License](https://img.shields.io/badge/License-Apache%202.0-yellow)
+![ROS2](https://img.shields.io/badge/ROS2-Jazzy-blue) ![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04%20LTS-orange) ![Gazebo](https://img.shields.io/badge/Gazebo-Harmonic-green) ![Python](https://img.shields.io/badge/Python-3.12-blue) ![License](https://img.shields.io/badge/License-Apache%202.0-yellow) ![PX4](https://img.shields.io/badge/PX4-v1.16-red)
 
 ## 📖 项目简介
 
-AVIANS ROS2 PORT1 是一个基于ROS2 Jazzy的**自主无人机人员跟踪系统**。该系统集成了YOLO目标检测、NMPC非线性模型预测控制和Gazebo物理仿真，实现了无人机对人员的智能跟踪和圆周轨迹飞行。
+AVIANS ROS2 是一个基于ROS2 Jazzy的**自主无人机任务规划、执行与跟踪系统**。该系统集成了LLM大语言模型任务规划、YOLO目标检测、NMPC非线性模型预测控制、PX4硬件集成和Gazebo物理仿真，实现了从任务规划到执行的全栈自主飞行能力。
 
 ### 🎯 核心功能
-- **🔍 实时人员检测**: 基于YOLO v12的深度学习目标检测
-- **🎮 智能跟踪**: NMPC控制器实现圆周轨迹跟踪
+- **🤖 LLM任务规划**: 基于大语言模型的自然语言任务规划
+- **📋 任务执行引擎**: 行为树风格的YAML任务编排系统
+- **🛸 高级任务模块**: 起飞、盘旋、搜索、检查、降落等高级动作
+- **🔍 实时目标检测**: 基于YOLO v12的深度学习目标检测
+- **🎮 NMPC智能控制**: 非线性模型预测控制器实现精准轨迹跟踪
+- **🔗 PX4硬件集成**: 通过uXRCE-DDS桥接真实Pixhawk 6X飞控
 - **📹 视觉导航**: 摄像头始终对准跟踪目标
 - **🌍 物理仿真**: Gazebo Harmonic高精度仿真环境
-- **🔄 搜索模式**: 未检测到人员时自动旋转搜索
-- **📊 可视化**: RViz2实时状态显示和轨迹可视化
+- **🔄 智能搜索**: 未检测到目标时自动旋转搜索
+- **📊 实时可视化**: RViz2状态显示和轨迹可视化
 
 ## 🖥️ 系统要求
 
@@ -37,8 +41,8 @@ AVIANS ROS2 PORT1 是一个基于ROS2 Jazzy的**自主无人机人员跟踪系�
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/zuoyangjkpi/AVIANS_ROS2_PORT1.git
-cd AVIANS_ROS2_PORT1
+git clone https://github.com/zuoyangjkpi/AVIANS_ROS2.git
+cd AVIANS_ROS2
 
 # 2. 运行一键安装脚本
 chmod +x .setup_avians_ros2_complete.sh
@@ -53,14 +57,15 @@ source ~/.bashrc
 
 ### 安装内容包括：
 - ✅ Ubuntu 24.04 系统更新和基础工具
-- ✅ Miniconda 和 airship_ros2 环境
+- ✅ Miniconda 和 airship_ros2 环境（Python 3.12）
 - ✅ ROS2 Jazzy Desktop 完整安装
 - ✅ Gazebo Harmonic 仿真环境
 - ✅ ROS2-Gazebo 集成包
-- ✅ Python 依赖 (numpy, scipy, opencv, ultralytics 等)
+- ✅ Python 依赖 (numpy, scipy, opencv, ultralytics, pyyaml, requests 等)
 - ✅ ONNX Runtime 1.20.1
 - ✅ YOLO 模型和标签文件
-- ✅ 项目构建和环境配置
+- ✅ 18个ROS2功能包构建（含任务规划、执行、PX4桥接）
+- ✅ 项目环境自动配置
 - ✅ 无人机运动问题修复
 
 ## 🎮 快速开始
@@ -70,7 +75,7 @@ source ~/.bashrc
 1. **激活环境**:
 ```bash
 source ~/.bashrc
-cd ~/AVIANS_ROS2_PORT1
+cd ~/AVIANS_ROS2
 ```
 
 2. **运行综合测试系统**:
@@ -99,7 +104,7 @@ cd ~/AVIANS_ROS2_PORT1
 
 ```bash
 # 终端1: 运行pose转换器（解决odometry数据问题）
-cd ~/AVIANS_ROS2_PORT1
+cd ~/AVIANS_ROS2
 python3 ./pose_to_odom.py &
 
 # 终端2: 运行主程序
@@ -112,27 +117,45 @@ python3 ./pose_to_odom.py &
 ### 核心包结构
 
 ```
-AVIANS_ROS2_PORT1/
+AVIANS_ROS2/
 ├── 📁 src/
-│   ├── 🤖 neural_network_detector/     # YOLO检测器
-│   ├── 🚁 drone_description/           # 无人机模型和仿真
-│   ├── 🎯 drone_nmpc_tracker/          # NMPC控制器
-│   ├── 📨 custom_msgs/                 # 自定义消息类型
-│   ├── 📊 target_tracker_distributed_kf/ # 卡尔曼滤波跟踪
-│   ├── 📐 projection_model/            # 投影模型
-│   └── 🔧 ros2_utils/                  # ROS2工具包
-├── 📄 comprehensive_test_suite.sh      # 主测试脚本
-├── 🔧 .setup_avians_ros2_complete.sh  # 一键安装脚本
-├── 🐍 pose_to_odom.py                  # Odometry修复脚本
-└── 📖 README.md                        # 本文档
+│   ├── 🤖 neural_network_detector/        # YOLO检测器
+│   ├── 🚁 drone_description/              # 无人机模型和仿真
+│   ├── 🎯 drone_nmpc_tracker/             # NMPC控制器
+│   ├── 🎮 drone_guidance_controllers/     # 航点和偏航控制器
+│   ├── ⚙️ drone_low_level_controllers/    # 底层速度控制适配器
+│   ├── 📊 drone_state_publisher/          # 状态发布器
+│   ├── 🧠 manual_mission_planner/         # LLM任务规划器
+│   ├── 📋 mission_executor/               # 任务执行引擎
+│   ├── 🛸 mission_action_modules/         # 高级任务动作模块
+│   ├── 🔗 px4_bridge/                     # PX4硬件桥接
+│   ├── 📨 custom_msgs/                    # 自定义消息类型
+│   │   ├── neural_network_msgs/          # 神经网络消息
+│   │   ├── uav_msgs/                     # 无人机消息
+│   │   └── px4_msgs/                     # PX4消息
+│   ├── 📊 target_tracker_distributed_kf/  # 卡尔曼滤波跟踪
+│   ├── 📐 projection_model/               # 投影模型
+│   ├── 🔄 tf_from_uav_pose/               # TF转换
+│   ├── 📦 pose_cov_ops_interface/         # 协方差操作接口
+│   └── 🔧 ros2_utils/                     # ROS2工具包
+├── 📄 comprehensive_test_suite.sh         # 主测试脚本
+├── 🔧 .setup_avians_ros2_complete.sh     # 一键安装脚本
+├── 🐍 pose_to_odom.py                     # Odometry修复脚本
+├── 📖 README.md                           # 本文档
+└── 📖 README_SIMULATION.md                # 仿真详细指南
 ```
 
 ### 关键组件
 
 | 组件 | 功能 | 状态 |
 |------|------|------|
-| **YOLO检测器** | 实时人员检测和边界框生成 | ✅ 工作 |
-| **NMPC控制器** | 非线性模型预测控制，实现圆周跟踪 | ✅ 工作 |
+| **LLM任务规划器** | 自然语言转YAML任务计划 | ✅ 工作 |
+| **任务执行引擎** | 行为树风格的任务调度和执行 | ✅ 工作 |
+| **任务动作模块** | 起飞、搜索、检查、降落等高级动作 | ✅ 工作 |
+| **YOLO检测器** | 实时目标检测和边界框生成 | ✅ 工作 |
+| **NMPC控制器** | 非线性模型预测控制，实现精准轨迹跟踪 | ✅ 工作 |
+| **PX4桥接** | 通过uXRCE-DDS连接Pixhawk硬件 | ✅ 工作 |
+| **航点控制器** | 航点导航和偏航角控制 | ✅ 工作 |
 | **Gazebo仿真** | 3D物理仿真环境 | ✅ 工作 |
 | **RViz可视化** | 实时状态和轨迹显示 | ✅ 工作 |
 | **Odometry桥接** | 位置数据转换（修复无人机不动问题） | ✅ 工作 |
@@ -382,17 +405,18 @@ src/package_name/
 
 ## 📞 支持与联系
 
-- **GitHub Issues**: [提交问题](https://github.com/zuoyangjkpi/AVIANS_ROS2_PORT1/issues)
-- **GitHub Discussions**: [讨论交流](https://github.com/zuoyangjkpi/AVIANS_ROS2_PORT1/discussions)
-- **技术文档**: 查看`docs/`目录获取详细技术文档
+- **GitHub Issues**: [提交问题](https://github.com/zuoyangjkpi/AVIANS_ROS2/issues)
+- **GitHub Discussions**: [讨论交流](https://github.com/zuoyangjkpi/AVIANS_ROS2/discussions)
+- **技术文档**: 查看仓库中的技术文档（MISSION_PIPELINE_PLAN.md、PX4_INTEGRATION_GUIDE.md等）
 
 ## 🎯 未来计划
 
-- [ ] 多无人机协同跟踪
+- [ ] 多无人机协同任务执行
 - [ ] 深度学习轨迹预测
-- [ ] 实际硬件平台适配
+- [ ] 更多PX4实际硬件平台测试
 - [ ] Web界面控制台
 - [ ] 移动端监控应用
+- [ ] 增强LLM任务规划能力
 
 ---
 
@@ -410,16 +434,26 @@ src/package_name/
 
 ## 📈 版本历史
 
-### v1.0.0 (当前版本)
+### v2.0.0 (当前版本)
 - ✅ 完整的ROS2 Jazzy移植
 - ✅ Gazebo Harmonic集成
 - ✅ YOLO v12目标检测
-- ✅ NMPC圆周轨迹跟踪
-- ✅ 一键安装脚本
+- ✅ NMPC精准轨迹跟踪
+- ✅ LLM任务规划器（支持千问API）
+- ✅ 任务执行引擎和高级动作模块
+- ✅ PX4硬件集成（Pixhawk 6X HITL）
+- ✅ 航点导航和偏航控制
+- ✅ 一键安装脚本（18个包）
 - ✅ 完整的测试套件
+
+### v1.0.0 (初始版本)
+- ✅ 基础人员跟踪功能
+- ✅ NMPC圆周轨迹跟踪
+- ✅ 仿真环境搭建
 
 ### 即将发布的功能
 - 🔄 实时轨迹优化
 - 🔄 多目标跟踪支持
 - 🔄 机器学习轨迹预测
+- 🔄 多无人机协同
 - 🔄 云端部署支持
