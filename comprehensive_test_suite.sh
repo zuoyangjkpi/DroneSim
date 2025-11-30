@@ -365,6 +365,7 @@ show_menu() {
     echo "3) 🧭 Waypoint controller test (Takeoff → Fly → Hold)"
     echo "4) 🎮 Manual velocity control test (bypass PID/Gazebo plugin check)"
     echo "5) 🧹 Kill all ROS processes"
+    echo "6) 🗺️  Octomap Planning Mode (New)"
     echo "0) 🚪 Exit"
     echo ""
     read -p "Select (0-5): " choice
@@ -1610,6 +1611,9 @@ main() {
                 ;;
             5)
                 kill_all_processes
+                ;;
+            6)
+                octomap_planning_test
                 ;;
             0)
                 print_status $GREEN "👋 Goodbye!"

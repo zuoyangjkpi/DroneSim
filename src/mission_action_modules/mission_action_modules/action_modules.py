@@ -37,6 +37,7 @@ class FlyToTargetGoal:
     yaw_targets: Optional[Sequence[float]] = None  # radians, optional per waypoint
     tolerance: Optional[float] = None  # meters
     timeout_per_leg: Optional[float] = None  # seconds
+    use_planner: bool = False  # If True, treat waypoints[0] as goal and plan path
 
 
 @dataclass
@@ -277,6 +278,10 @@ class FlyToTargetModule(ActionModule):
         self._timeout_per_leg = -1.0  # 默认无限时间
         self._tolerance = 0.3
         self._last_waypoint_refresh = 0.0
+        
+        # Path planning client
+        from uav_msgs.srv import PlanPath
+        self._plan_client = context.node.create_client(PlanPath, 'mission_planner/plan_path')
 
     def on_start(self, goal: FlyToTargetGoal) -> None:
         if not goal.waypoints:
@@ -306,6 +311,68 @@ class FlyToTargetModule(ActionModule):
         self.context.enable_velocity_control(True)
         self.context.enable_yaw_control(True)
 
+        if goal.use_planner and len(self._waypoints) > 0:
+            self._request_path_plan(self._waypoints[-1])
+        else:
+            self._command_current_waypoint()
+            self.create_timer(0.2, self._monitor_progress)
+
+    def _request_path_plan(self, goal_pos: np.ndarray) -> None:
+        from uav_msgs.srv import PlanPath
+        from geometry_msgs.msg import Pose
+        
+        if not self._plan_client.wait_for_service(timeout_sec=1.0):
+            self.fail("Path planner service unavailable")
+            return
+            
+        current_pos = self.context.get_position()
+        if current_pos is None:
+            self.fail("No odometry for planning")
+            return
+            
+        req = PlanPath.Request()
+        req.start.position.x = float(current_pos[0])
+        req.start.position.y = float(current_pos[1])
+        req.start.position.z = float(current_pos[2])
+        
+        req.goal.position.x = float(goal_pos[0])
+        req.goal.position.y = float(goal_pos[1])
+        req.goal.position.z = float(goal_pos[2])
+        
+        future = self._plan_client.call_async(req)
+        future.add_done_callback(self._on_plan_received)
+        self.context.node.get_logger().info(f"Requested path to {goal_pos}")
+
+    def _on_plan_received(self, future) -> None:
+        try:
+            resp = future.result()
+        except Exception as e:
+            self.fail(f"Planning failed: {e}")
+            return
+            
+        if not resp.success:
+            self.fail("Planner returned failure")
+            return
+            
+        # Convert path to waypoints
+        new_waypoints = []
+        for pose in resp.path:
+            new_waypoints.append(np.array([
+                pose.position.x,
+                pose.position.y,
+                pose.position.z
+            ]))
+            
+        if not new_waypoints:
+            self.fail("Planner returned empty path")
+            return
+            
+        self.context.node.get_logger().info(f"Received path with {len(new_waypoints)} waypoints")
+        self._waypoints = new_waypoints
+        self._current_idx = 0
+        self._start_time = self.context.now()
+        
+        # Start execution
         self._command_current_waypoint()
         self.create_timer(0.2, self._monitor_progress)
 

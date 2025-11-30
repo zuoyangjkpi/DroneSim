@@ -76,7 +76,8 @@ FLY_TO (uses FlyToTargetGoal):
   - yaw_targets: [yaw1, yaw2, ...] (ONLY if user mentions heading/orientation)
   - tolerance: float (ONLY if user mentions precision/accuracy requirement)
   - timeout_per_leg: float (ONLY if user mentions time limit per waypoint)
-  Default: Unlimited time, 0.3m tolerance
+  - use_planner: bool (Set to true if user asks to "plan a path" or "avoid obstacles")
+  Default: Unlimited time, 0.3m tolerance, use_planner=False
 
 SEARCH_AREA (uses SearchGoal):
   - pattern: "rotate" or "lawnmower" (ONLY if user specifies search pattern)
