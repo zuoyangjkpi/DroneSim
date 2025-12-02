@@ -163,7 +163,8 @@ pip install --no-deps \
     fsspec \
     catkin_pkg \
     empy \
-    docutils
+    docutils \
+    lark
 
 # ===========================================================================
 # STEP 4: Install ROS2 Jazzy
@@ -231,14 +232,14 @@ sudo apt install -y \
     python3-colcon-common-extensions \
     python3-rosdep \
     python3-vcstool \
-    python3-ament-package \
-    python3-ament-cmake \
+    ros-jazzy-ament-package \
+    ros-jazzy-ament-cmake \
     ros-jazzy-rclcpp \
     ros-jazzy-rclpy \
-    ros-jazzy-ament-cmake \
     ros-jazzy-ament-cmake-python \
     ros-jazzy-rosidl-default-generators \
-    ros-jazzy-rosidl-default-runtime
+    ros-jazzy-rosidl-default-runtime \
+    python3-lark
 
 print_status "Installing message and interface packages..."
 sudo apt install -y \
@@ -321,28 +322,52 @@ print_header "STEP 8: Setting up AVIANS_ROS2 Repository"
 cd ~
 
 # Clone or update repository
-REPO_DIR="AVIANS_ROS2"
+REPO_DIR="$HOME/AVIANS_ROS2"
 if [ ! -d "$REPO_DIR" ]; then
     print_status "Cloning AVIANS_ROS2 repository..."
     git clone https://github.com/zuoyangjkpi/AVIANS_ROS2.git $REPO_DIR
-    cd $REPO_DIR
+    cd "$REPO_DIR"
 else
     print_status "Repository already exists, updating..."
-    cd $REPO_DIR
+    cd "$REPO_DIR"
     git pull origin main || git pull origin master || true
 fi
 
 print_status "Updating git submodules..."
 git submodule update --init --recursive
 
+# Ensure px4_msgs exists (clone if directory empty)
+PX4_MSGS_DIR="$REPO_DIR/src/custom_msgs/px4_msgs"
+if [ -d "$PX4_MSGS_DIR" ] && [ -z "$(ls -A "$PX4_MSGS_DIR")" ]; then
+    print_status "px4_msgs is empty, cloning from PX4 upstream..."
+    git clone --depth 1 https://github.com/PX4/px4_msgs.git "$PX4_MSGS_DIR"
+elif [ ! -d "$PX4_MSGS_DIR" ]; then
+    print_status "px4_msgs missing, cloning from PX4 upstream..."
+    git clone --depth 1 https://github.com/PX4/px4_msgs.git "$PX4_MSGS_DIR"
+else
+    print_status "px4_msgs already present."
+fi
+
+# Ensure px4_bridge config directory exists to avoid CMake install error
+PX4_CONFIG_DIR="$REPO_DIR/src/px4_bridge/config"
+if [ ! -d "$PX4_CONFIG_DIR" ]; then
+    print_status "Creating px4_bridge config directory..."
+    mkdir -p "$PX4_CONFIG_DIR"
+    cat > "$PX4_CONFIG_DIR/px4_bridge_params.yaml" <<'EOF'
+px4_bridge_node:
+  ros__parameters:
+    publish_rate_hz: 50.0
+EOF
+fi
+
 # ===========================================================================
 # STEP 9: Setup ONNX Runtime and YOLO Models
 # ===========================================================================
 print_header "STEP 9: Setting up ONNX Runtime and YOLO Models"
 
-ONNX_DIR="src/neural_network_detector/third_party/YOLOs-CPP"
+ONNX_DIR="$REPO_DIR/src/neural_network_detector/third_party/YOLOs-CPP"
 if [ -d "$ONNX_DIR" ]; then
-    cd $ONNX_DIR
+    cd "$ONNX_DIR"
     
     # Download ONNX Runtime if not present
     if [ ! -f "onnxruntime-linux-x64-1.20.1/lib/libonnxruntime.so.1.20.1" ]; then
@@ -356,6 +381,12 @@ if [ -d "$ONNX_DIR" ]; then
         print_success "ONNX Runtime setup completed"
     else
         print_success "ONNX Runtime already setup"
+    fi
+
+    # Create stable symlink expected by the CMake (third_party/YOLOs-CPP/onnxruntime -> onnxruntime-linux-x64-1.20.1)
+    if [ ! -L "onnxruntime" ]; then
+        ln -s onnxruntime-linux-x64-1.20.1 onnxruntime
+        print_status "Created onnxruntime symlink -> onnxruntime-linux-x64-1.20.1"
     fi
     
     # Setup YOLO models

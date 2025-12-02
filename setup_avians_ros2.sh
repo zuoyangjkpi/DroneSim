@@ -142,14 +142,14 @@ fi
 source /opt/ros/jazzy/setup.bash
 
 # 8. Clone repository if not already present
-REPO_DIR="AVIANS_ROS2_PORT1"
+REPO_DIR="$HOME/AVIANS_ROS2_PORT1"
 if [ ! -d "$REPO_DIR" ]; then
     print_status "Cloning AVIANS_ROS2_PORT1 repository..."
     git clone https://github.com/zuoyangjkpi/Edited_PORT1.git $REPO_DIR
-    cd $REPO_DIR
+    cd "$REPO_DIR"
 else
     print_status "Repository already exists, updating..."
-    cd $REPO_DIR
+    cd "$REPO_DIR"
     git pull origin main
 fi
 
@@ -159,9 +159,9 @@ git submodule update --init --recursive
 
 # 10. Download ONNX Runtime
 print_status "Setting up ONNX Runtime..."
-ONNX_DIR="src/neural_network_detector/third_party/YOLOs-CPP"
+ONNX_DIR="$REPO_DIR/src/neural_network_detector/third_party/YOLOs-CPP"
 if [ ! -f "$ONNX_DIR/onnxruntime-linux-x64-1.20.1/lib/libonnxruntime.so.1.20.1" ]; then
-    cd $ONNX_DIR
+    cd "$ONNX_DIR"
     if [ ! -f "onnxruntime-linux-x64-1.20.1.tgz" ]; then
         print_status "Downloading ONNX Runtime..."
         wget https://github.com/microsoft/onnxruntime/releases/download/v1.20.1/onnxruntime-linux-x64-1.20.1.tgz

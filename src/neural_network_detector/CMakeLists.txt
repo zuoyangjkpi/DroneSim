@@ -97,6 +97,7 @@ ament_target_dependencies(detection_visualizer_node
 )
 
 target_link_libraries(detection_visualizer_node
+  curl
   ${OpenCV_LIBS}
 )
 
