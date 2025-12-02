@@ -1592,6 +1592,13 @@ main() {
     if [ -f "install/setup.bash" ]; then
         source install/setup.bash
     fi
+
+    # Gazebo rendering/env defaults (avoid Wayland EGL崩溃，确保模型可见)
+    local WS_ROOT="$(pwd)"
+    export GZ_SIM_RESOURCE_PATH="$WS_ROOT/install/drone_description/share/drone_description/models:$WS_ROOT/install/drone_description/share/drone_description:$WS_ROOT/install:${GZ_SIM_RESOURCE_PATH}"
+    export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb}"
+    unset WAYLAND_DISPLAY
+    export EGL_PLATFORM="${EGL_PLATFORM:-x11}"
     
     while true; do
         show_menu

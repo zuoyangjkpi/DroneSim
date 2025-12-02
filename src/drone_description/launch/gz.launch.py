@@ -23,8 +23,9 @@ def generate_launch_description():
     urdf_file = os.path.join(drone_description, "urdf", "x3_drone.urdf")
 
     # Environment variables
-    libgl_env = SetEnvironmentVariable(name="LIBGL_ALWAYS_SOFTWARE", value="1")
-    gallium_env = SetEnvironmentVariable(name="GALLIUM_DRIVER", value="llvmpipe")
+    # Environment variables - DISABLED to fix crash with hardware drivers
+    # libgl_env = SetEnvironmentVariable(name="LIBGL_ALWAYS_SOFTWARE", value="1")
+    # gallium_env = SetEnvironmentVariable(name="GALLIUM_DRIVER", value="llvmpipe")
 
     gazebo_resource_path = SetEnvironmentVariable(
         name="GZ_SIM_RESOURCE_PATH",
@@ -131,8 +132,8 @@ def generate_launch_description():
     # We'll use the existing odometry from Gazebo plugins instead
 
     return LaunchDescription([
-        libgl_env,
-        gallium_env,
+        # libgl_env,
+        # gallium_env,
         gazebo_resource_path,
         set_gazebo_model_path,
         yolo_node,
