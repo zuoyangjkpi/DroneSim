@@ -52,30 +52,30 @@ class ActionModuleServer(Node):
     def __init__(self):
         super().__init__("action_module_server")
 
-        # Create action context
-        self.context = ActionContext(self)
+        # Create action context (renamed to avoid conflict with Node.context property)
+        self.action_context = ActionContext(self)
 
         # Subscribe to odometry
         self.create_subscription(
             Odometry,
             "/X3/odometry",
-            self.context.update_odometry,
+            self.action_context.update_odometry,
             10,
         )
 
         # Initialize all modules
         self.modules = {
-            "TAKEOFF": TakeoffModule(self.context),
-            "HOVER": HoverModule(self.context),
-            "FLY_TO": FlyToTargetModule(self.context),
-            "TRACK": TrackTargetModule(self.context),
-            "SEARCH": SearchModule(self.context),
-            "INSPECT": InspectModule(self.context),
-            "LOST_HOLD": LostHoldModule(self.context),
-            "LAND": LandModule(self.context),
-            "DELIVERY": DeliveryModule(self.context),
-            "SEARCH_AREA": SearchAreaModule(self.context),
-            "AVOIDANCE": AvoidanceModule(self.context),
+            "TAKEOFF": TakeoffModule(self.action_context),
+            "HOVER": HoverModule(self.action_context),
+            "FLY_TO": FlyToTargetModule(self.action_context),
+            "TRACK": TrackTargetModule(self.action_context),
+            "SEARCH": SearchModule(self.action_context),
+            "INSPECT": InspectModule(self.action_context),
+            "LOST_HOLD": LostHoldModule(self.action_context),
+            "LAND": LandModule(self.action_context),
+            "DELIVERY": DeliveryModule(self.action_context),
+            "SEARCH_AREA": SearchAreaModule(self.action_context),
+            "AVOIDANCE": AvoidanceModule(self.action_context),
         }
 
         # Create Action Server with reentrant callback group
