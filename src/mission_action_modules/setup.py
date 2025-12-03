@@ -24,6 +24,7 @@ setup(
             'mission_sequence_controller = mission_action_modules.mission_sequence_controller:main',
             'waypoint_test_runner = mission_action_modules.waypoint_test_runner:main',
             'manual_velocity_test = mission_action_modules.manual_velocity_test:main',
+            'action_server = mission_action_modules.action_server_node:main',
         ],
     },
 )

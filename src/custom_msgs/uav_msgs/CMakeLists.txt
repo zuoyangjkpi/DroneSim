@@ -23,6 +23,7 @@ install(
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/UAVPose.msg"
   "srv/PlanPath.srv"
+  "action/ExecuteModule.action"
   DEPENDENCIES std_msgs geometry_msgs
 )
 

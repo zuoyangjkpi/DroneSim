@@ -1,0 +1,16 @@
+# ExecuteModule.action - Unified Action interface for all AVIANS Action Modules
+# Goal: Parameters for the module to execute
+string module_name                # Name of the module: "TAKEOFF", "FLY_TO", "LAND", "TRACK", "HOVER", "SEARCH", "INSPECT", "LOST_HOLD", "DELIVERY", "SEARCH_AREA", "AVOIDANCE"
+string goal_json                  # Goal parameters as JSON string (flexible for all module types)
+
+---
+# Result: Outcome of the module execution
+bool success                      # Whether the module completed successfully
+string message                    # Status message
+string result_json                # Result data as JSON string (if any)
+
+---
+# Feedback: Progress updates during execution
+float32 progress                  # Progress percentage (0.0 - 1.0)
+string status                     # Current status message
+string state                      # Current module state
