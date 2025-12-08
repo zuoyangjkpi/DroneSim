@@ -83,7 +83,7 @@ class DroneTfPublisher(Node):
             cam_optical = TransformStamped()
             cam_optical.header.stamp = stamp
             cam_optical.header.frame_id = 'X3/camera_link'
-            cam_optical.child_frame_id = 'X3/camera_rgb_optical_frame'
+            cam_optical.child_frame_id = 'X3/camera_optical_frame'
             cam_optical.transform.translation.x = 0.0
             cam_optical.transform.translation.y = 0.0
             cam_optical.transform.translation.z = 0.0
