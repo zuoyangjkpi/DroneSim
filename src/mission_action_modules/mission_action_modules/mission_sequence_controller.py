@@ -156,6 +156,11 @@ class MissionSequenceController(Node):
                 return
             self._ensure_action_running("takeoff")
         elif self.state == SequenceState.TAKEOFF_HOLD:
+            if self._elapsed_in_state() % 2.0 < 0.1:  # Log every ~2 seconds
+                self.get_logger().info(
+                    f"TAKEOFF_HOLD: Alt={self._current_altitude:.2f}m, Ready={self._altitude_ready}, "
+                    f"Elapsed={self._elapsed_in_state():.1f}s"
+                )
             if self._altitude_ready and self._elapsed_in_state() >= self.takeoff_hold_time:
                 self._transition(SequenceState.SEARCH)
         elif self.state == SequenceState.SEARCH:

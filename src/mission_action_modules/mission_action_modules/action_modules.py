@@ -181,6 +181,16 @@ class TakeoffModule(ActionModule):
         else:
             self._stable_start_time = None
 
+        # Debug logging every 1s
+        if elapsed % 1.0 < 0.2:
+            stable_t = 0.0
+            if self._stable_start_time is not None:
+                stable_t = self.context.now() - self._stable_start_time
+            self.context.node.get_logger().info(
+                f"[TakeoffDebug] Alt={position[2]:.2f}m, Target={self._target[2]:.2f}m, "
+                f"Error={altitude_error:.3f}m, StableTime={stable_t:.1f}s"
+            )
+
         if elapsed > self._timeout:
             # Do not abort control; keep publishing so the vehicle keeps climbing
             if not getattr(self, "_timeout_warned", False):
