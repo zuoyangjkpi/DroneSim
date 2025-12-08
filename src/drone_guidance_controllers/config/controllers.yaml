@@ -7,30 +7,30 @@ waypoint_controller:
     velocity_tolerance: 0.05
     waypoint_timeout: 4.0
 
-    # 优化配置：降低P增益 + 增加阻尼 → 减少超调
-    kp_xy: 0.5                    # 降低P增益，减缓响应速度
-    ki_xy: 0.0                    # 暂时禁用积分，避免累积误差
-    kd_xy: 6.0                    # 增加阻尼，Kd/Kp=12（高阻尼比）
-    kp_z: 0.8                     # Z轴也降低，保持平稳
-    ki_z: 0.02                    # 降低Z轴积分
-    kd_z: 6.0                     # 增加Z轴阻尼
+    # Reverted to previous "Optimized" tuning
+    kp_xy: 1.5                    
+    ki_xy: 0.0                    
+    kd_xy: 3.0                    
+    kp_z: 0.8                     # Keep Z conservative
+    ki_z: 0.02                    
+    kd_z: 6.0                     
 
-    max_velocity_xy: 2.0          # 降低最大速度，减少冲量
-    max_velocity_z: 1.2           # Z轴也降低一些
-
+    max_velocity_xy: 4.0          # Reverted to 4.0
+    max_velocity_z: 1.2           
+    
     max_vertical_error: 2.0
-    integral_limit_xy: 1.0        # 降低积分限幅
+    integral_limit_xy: 2.0        # Increased limit
     integral_limit_z: 0.5
 
 yaw_controller:
   ros__parameters:
     control_frequency: 100.0
     yaw_tolerance: 0.030
-    kp_yaw: 1.0                # 降低到1.0，减少转向振荡
-    ki_yaw: 0.0005             # 降低积分增益
-    kd_yaw: 4.0                # 保持高阻尼，Kd/Kp=4.0
-    max_angular_velocity_yaw: 2.5  # 降低到2.5 rad/s
-    max_yaw_step: 0.4          # 降低到0.4，避免突变
-    derivative_filter_alpha: 0.9   # 适当滤波，减少噪声
-    yaw_integral_limit: 0.2    # 降低积分限幅
+    kp_yaw: 2.0                # Increased from 1.0 to 2.0
+    ki_yaw: 0.0005             
+    kd_yaw: 1.0                # Reduced from 4.0 to 1.0
+    max_angular_velocity_yaw: 3.5  # Increased from 2.5 to 3.5
+    max_yaw_step: 0.8          # Increased from 0.4 to 0.8
+    derivative_filter_alpha: 0.9   
+    yaw_integral_limit: 0.5    # Increased limit
     attitude_command_timeout: 3.0
