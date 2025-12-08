@@ -24,7 +24,7 @@ def generate_launch_description():
     
     # File paths
     models_path = os.path.join(drone_description, "models")
-    world_file = os.path.join(drone_description, "worlds", "drone_world.sdf")
+    default_world_file = os.path.join(drone_description, "worlds", "drone_world.sdf")
     config_file = os.path.join(drone_description, "config", "bridge.yaml")
     rviz_config = os.path.join(drone_description, "config", "drone.rviz")
     urdf_file = os.path.join(drone_description, "urdf", "x3_drone.urdf")
@@ -49,6 +49,11 @@ def generate_launch_description():
     declare_num_robots = DeclareLaunchArgument(
         'num_robots', default_value='1',
         description='Total number of robots'
+    )
+    
+    declare_world_file = DeclareLaunchArgument(
+        'world_file', default_value='drone_world.sdf',
+        description='World file to load (e.g., drone_world.sdf or city_drone_world.sdf)'
     )
 
     # Environment variables for Gazebo
@@ -93,11 +98,14 @@ def generate_launch_description():
     # 2. GAZEBO SIMULATION
     # =============================================================================
     
+    # Build world file path from argument
+    world_file_path = [drone_description, '/worlds/', LaunchConfiguration('world_file')]
+    
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(get_package_share_directory("ros_gz_sim"), "launch", "gz_sim.launch.py")
         ),
-        launch_arguments=[("gz_args", f"-v 4 -r {world_file}")]
+        launch_arguments=[('gz_args', ['-v 4 -r ', drone_description, '/worlds/', LaunchConfiguration('world_file')])]
     )
 
     # ROS-Gazebo bridge
@@ -477,6 +485,7 @@ def generate_launch_description():
         declare_use_sim_time,
         declare_robot_id,
         declare_num_robots,
+        declare_world_file,
         
         # Environment
         libgl_env,
