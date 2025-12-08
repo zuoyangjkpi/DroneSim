@@ -25,55 +25,556 @@
       <update_frequency>50</update_frequency>
     </plugin>
 
+    <!-- Sunlight -->
     <light type="directional" name="sun">
       <cast_shadows>true</cast_shadows>
       <pose>0 0 100 0 0 0</pose>
-      <diffuse>0.8 0.8 0.8 1</diffuse>
-      <specular>0.2 0.2 0.2 1</specular>
+      <diffuse>0.85 0.85 0.8 1</diffuse>
+      <specular>0.3 0.3 0.3 1</specular>
       <attenuation>
         <range>1000</range>
         <constant>0.9</constant>
         <linear>0.01</linear>
         <quadratic>0.001</quadratic>
       </attenuation>
-      <direction>-0.5 0.1 -0.9</direction>
+      <direction>-0.4 0.2 -0.9</direction>
     </light>
 
-    <!-- Include City world from Gazebo Fuel -->
-    <include>
-      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/City</uri>
-      <pose>0 0 0 0 0 0</pose>
-    </include>
+    <!-- =====================================================
+         REALISTIC URBAN ENVIRONMENT - Full City Block
+         ===================================================== -->
 
-    <!-- Ground plane (backup in case City doesn't have one) -->
-    <model name="ground_plane">
+    <!-- ==================== GROUND & ROADS ==================== -->
+    
+    <!-- Base ground - grass/earth -->
+    <model name="ground_base">
       <static>true</static>
       <link name="link">
         <collision name="collision">
           <geometry>
-            <plane>
-              <normal>0 0 1</normal>
-              <size>500 500</size>
-            </plane>
+            <plane><normal>0 0 1</normal><size>300 300</size></plane>
           </geometry>
         </collision>
         <visual name="visual">
           <geometry>
-            <plane>
-              <normal>0 0 1</normal>
-              <size>500 500</size>
-            </plane>
+            <plane><normal>0 0 1</normal><size>300 300</size></plane>
           </geometry>
           <material>
-            <ambient>0.3 0.3 0.3 1</ambient>
-            <diffuse>0.4 0.4 0.4 1</diffuse>
-            <specular>0.05 0.05 0.05 1</specular>
+            <ambient>0.25 0.35 0.2 1</ambient>
+            <diffuse>0.3 0.4 0.25 1</diffuse>
           </material>
         </visual>
       </link>
     </model>
 
-    <!-- Walking person - irregular spline path -->
+    <!-- Main East-West Road -->
+    <model name="road_ew">
+      <static>true</static>
+      <pose>0 0 0.005 0 0 0</pose>
+      <link name="link">
+        <visual name="asphalt">
+          <geometry><box><size>200 12 0.01</size></box></geometry>
+          <material>
+            <ambient>0.15 0.15 0.15 1</ambient>
+            <diffuse>0.2 0.2 0.2 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Main North-South Road -->
+    <model name="road_ns">
+      <static>true</static>
+      <pose>0 0 0.005 0 0 0</pose>
+      <link name="link">
+        <visual name="asphalt">
+          <geometry><box><size>12 200 0.01</size></box></geometry>
+          <material>
+            <ambient>0.15 0.15 0.15 1</ambient>
+            <diffuse>0.2 0.2 0.2 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Road markings - center lines -->
+    <model name="marking_ew_center">
+      <static>true</static>
+      <pose>0 0 0.015 0 0 0</pose>
+      <link name="link">
+        <visual name="line"><geometry><box><size>200 0.15 0.001</size></box></geometry>
+          <material><ambient>1 1 0.3 1</ambient><diffuse>1 1 0.4 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="marking_ns_center">
+      <static>true</static>
+      <pose>0 0 0.015 0 0 0</pose>
+      <link name="link">
+        <visual name="line"><geometry><box><size>0.15 200 0.001</size></box></geometry>
+          <material><ambient>1 1 0.3 1</ambient><diffuse>1 1 0.4 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Sidewalks - NE quadrant -->
+    <model name="sidewalk_ne">
+      <static>true</static>
+      <pose>35 35 0.05 0 0 0</pose>
+      <link name="link">
+        <visual name="visual"><geometry><box><size>60 60 0.1</size></box></geometry>
+          <material><ambient>0.6 0.6 0.55 1</ambient><diffuse>0.7 0.7 0.65 1</diffuse></material>
+        </visual>
+        <collision name="collision"><geometry><box><size>60 60 0.1</size></box></geometry></collision>
+      </link>
+    </model>
+
+    <!-- Sidewalks - NW quadrant -->
+    <model name="sidewalk_nw">
+      <static>true</static>
+      <pose>-35 35 0.05 0 0 0</pose>
+      <link name="link">
+        <visual name="visual"><geometry><box><size>60 60 0.1</size></box></geometry>
+          <material><ambient>0.6 0.6 0.55 1</ambient><diffuse>0.7 0.7 0.65 1</diffuse></material>
+        </visual>
+        <collision name="collision"><geometry><box><size>60 60 0.1</size></box></geometry></collision>
+      </link>
+    </model>
+
+    <!-- Sidewalks - SE quadrant -->
+    <model name="sidewalk_se">
+      <static>true</static>
+      <pose>35 -35 0.05 0 0 0</pose>
+      <link name="link">
+        <visual name="visual"><geometry><box><size>60 60 0.1</size></box></geometry>
+          <material><ambient>0.6 0.6 0.55 1</ambient><diffuse>0.7 0.7 0.65 1</diffuse></material>
+        </visual>
+        <collision name="collision"><geometry><box><size>60 60 0.1</size></box></geometry></collision>
+      </link>
+    </model>
+
+    <!-- Sidewalks - SW quadrant -->
+    <model name="sidewalk_sw">
+      <static>true</static>
+      <pose>-35 -35 0.05 0 0 0</pose>
+      <link name="link">
+        <visual name="visual"><geometry><box><size>60 60 0.1</size></box></geometry>
+          <material><ambient>0.6 0.6 0.55 1</ambient><diffuse>0.7 0.7 0.65 1</diffuse></material>
+        </visual>
+        <collision name="collision"><geometry><box><size>60 60 0.1</size></box></geometry></collision>
+      </link>
+    </model>
+
+    <!-- Crosswalks -->
+    <model name="crosswalk_n">
+      <static>true</static>
+      <pose>0 8 0.02 0 0 0</pose>
+      <link name="link">
+        <visual name="v1"><geometry><box><size>3 0.4 0.001</size></box></geometry><pose>0 0 0 0 0 0</pose>
+          <material><ambient>0.9 0.9 0.9 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="v2"><geometry><box><size>3 0.4 0.001</size></box></geometry><pose>0 0.8 0 0 0 0</pose>
+          <material><ambient>0.9 0.9 0.9 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="v3"><geometry><box><size>3 0.4 0.001</size></box></geometry><pose>0 1.6 0 0 0 0</pose>
+          <material><ambient>0.9 0.9 0.9 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ==================== BUILDINGS - NE QUADRANT ==================== -->
+    
+    <!-- Modern Office Tower -->
+    <model name="bldg_office_tower">
+      <static>true</static>
+      <pose>25 25 0.1 0 0 0</pose>
+      <link name="link">
+        <visual name="base"><geometry><box><size>15 12 35</size></box></geometry><pose>0 0 17.5 0 0 0</pose>
+          <material><ambient>0.35 0.4 0.5 1</ambient><diffuse>0.45 0.5 0.6 1</diffuse><specular>0.4 0.4 0.4 1</specular></material>
+        </visual>
+        <visual name="windows">
+          <geometry><box><size>15.1 12.1 0.5</size></box></geometry><pose>0 0 10 0 0 0</pose>
+          <material><ambient>0.2 0.3 0.4 1</ambient><diffuse>0.3 0.4 0.5 1</diffuse><specular>0.6 0.6 0.6 1</specular></material>
+        </visual>
+        <visual name="windows2">
+          <geometry><box><size>15.1 12.1 0.5</size></box></geometry><pose>0 0 20 0 0 0</pose>
+          <material><ambient>0.2 0.3 0.4 1</ambient><diffuse>0.3 0.4 0.5 1</diffuse><specular>0.6 0.6 0.6 1</specular></material>
+        </visual>
+        <visual name="windows3">
+          <geometry><box><size>15.1 12.1 0.5</size></box></geometry><pose>0 0 30 0 0 0</pose>
+          <material><ambient>0.2 0.3 0.4 1</ambient><diffuse>0.3 0.4 0.5 1</diffuse><specular>0.6 0.6 0.6 1</specular></material>
+        </visual>
+        <collision name="collision"><geometry><box><size>15 12 35</size></box></geometry><pose>0 0 17.5 0 0 0</pose></collision>
+      </link>
+    </model>
+
+    <!-- Hotel -->
+    <model name="bldg_hotel">
+      <static>true</static>
+      <pose>50 30 0.1 0 0 0.2</pose>
+      <link name="link">
+        <visual name="main"><geometry><box><size>18 14 28</size></box></geometry><pose>0 0 14 0 0 0</pose>
+          <material><ambient>0.7 0.6 0.5 1</ambient><diffuse>0.8 0.7 0.6 1</diffuse></material>
+        </visual>
+        <visual name="roof"><geometry><box><size>20 16 2</size></box></geometry><pose>0 0 29 0 0 0</pose>
+          <material><ambient>0.4 0.35 0.3 1</ambient><diffuse>0.5 0.45 0.4 1</diffuse></material>
+        </visual>
+        <collision name="collision"><geometry><box><size>18 14 28</size></box></geometry><pose>0 0 14 0 0 0</pose></collision>
+      </link>
+    </model>
+
+    <!-- Small shops row -->
+    <model name="bldg_shops_1">
+      <static>true</static>
+      <pose>25 50 0.1 0 0 0</pose>
+      <link name="link">
+        <visual name="main"><geometry><box><size>25 8 5</size></box></geometry><pose>0 0 2.5 0 0 0</pose>
+          <material><ambient>0.8 0.75 0.65 1</ambient><diffuse>0.9 0.85 0.75 1</diffuse></material>
+        </visual>
+        <visual name="awning"><geometry><box><size>26 2 0.3</size></box></geometry><pose>0 5 4.5 0.2 0 0</pose>
+          <material><ambient>0.8 0.2 0.2 1</ambient><diffuse>0.9 0.3 0.3 1</diffuse></material>
+        </visual>
+        <collision name="collision"><geometry><box><size>25 8 5</size></box></geometry><pose>0 0 2.5 0 0 0</pose></collision>
+      </link>
+    </model>
+
+    <!-- ==================== BUILDINGS - NW QUADRANT ==================== -->
+    
+    <!-- Apartment complex -->
+    <model name="bldg_apartment_1">
+      <static>true</static>
+      <pose>-30 25 0.1 0 0 0</pose>
+      <link name="link">
+        <visual name="main"><geometry><box><size>20 15 22</size></box></geometry><pose>0 0 11 0 0 0</pose>
+          <material><ambient>0.75 0.7 0.6 1</ambient><diffuse>0.85 0.8 0.7 1</diffuse></material>
+        </visual>
+        <visual name="balconies">
+          <geometry><box><size>21 1 18</size></box></geometry><pose>0 8 10 0 0 0</pose>
+          <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+        <collision name="collision"><geometry><box><size>20 15 22</size></box></geometry><pose>0 0 11 0 0 0</pose></collision>
+      </link>
+    </model>
+
+    <!-- School -->
+    <model name="bldg_school">
+      <static>true</static>
+      <pose>-50 40 0.1 0 0 0</pose>
+      <link name="link">
+        <visual name="main"><geometry><box><size>30 20 12</size></box></geometry><pose>0 0 6 0 0 0</pose>
+          <material><ambient>0.85 0.8 0.7 1</ambient><diffuse>0.95 0.9 0.8 1</diffuse></material>
+        </visual>
+        <visual name="entrance"><geometry><box><size>6 3 8</size></box></geometry><pose>0 11.5 4 0 0 0</pose>
+          <material><ambient>0.5 0.45 0.4 1</ambient><diffuse>0.6 0.55 0.5 1</diffuse></material>
+        </visual>
+        <collision name="collision"><geometry><box><size>30 20 12</size></box></geometry><pose>0 0 6 0 0 0</pose></collision>
+      </link>
+    </model>
+
+    <!-- Church -->
+    <model name="bldg_church">
+      <static>true</static>
+      <pose>-25 55 0.1 0 0 0</pose>
+      <link name="link">
+        <visual name="main"><geometry><box><size>12 20 10</size></box></geometry><pose>0 0 5 0 0 0</pose>
+          <material><ambient>0.9 0.9 0.85 1</ambient><diffuse>0.95 0.95 0.9 1</diffuse></material>
+        </visual>
+        <visual name="tower"><geometry><box><size>4 4 18</size></box></geometry><pose>0 -8 9 0 0 0</pose>
+          <material><ambient>0.85 0.85 0.8 1</ambient><diffuse>0.9 0.9 0.85 1</diffuse></material>
+        </visual>
+        <visual name="spire"><geometry><cylinder><radius>0.8</radius><length>6</length></cylinder></geometry><pose>0 -8 21 0 0 0</pose>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.4 0.4 0.45 1</diffuse></material>
+        </visual>
+        <collision name="collision"><geometry><box><size>12 20 10</size></box></geometry><pose>0 0 5 0 0 0</pose></collision>
+      </link>
+    </model>
+
+    <!-- ==================== BUILDINGS - SE QUADRANT ==================== -->
+    
+    <!-- Shopping Mall -->
+    <model name="bldg_mall">
+      <static>true</static>
+      <pose>40 -35 0.1 0 0 0</pose>
+      <link name="link">
+        <visual name="main"><geometry><box><size>35 25 8</size></box></geometry><pose>0 0 4 0 0 0</pose>
+          <material><ambient>0.6 0.6 0.55 1</ambient><diffuse>0.7 0.7 0.65 1</diffuse></material>
+        </visual>
+        <visual name="entrance_canopy"><geometry><box><size>15 5 1</size></box></geometry><pose>0 15 7 0.1 0 0</pose>
+          <material><ambient>0.3 0.35 0.4 1</ambient><diffuse>0.4 0.45 0.5 1</diffuse></material>
+        </visual>
+        <collision name="collision"><geometry><box><size>35 25 8</size></box></geometry><pose>0 0 4 0 0 0</pose></collision>
+      </link>
+    </model>
+
+    <!-- Gas Station -->
+    <model name="bldg_gas_station">
+      <static>true</static>
+      <pose>25 -55 0.1 0 0 0</pose>
+      <link name="link">
+        <visual name="shop"><geometry><box><size>8 6 4</size></box></geometry><pose>0 0 2 0 0 0</pose>
+          <material><ambient>0.9 0.9 0.85 1</ambient><diffuse>0.95 0.95 0.9 1</diffuse></material>
+        </visual>
+        <visual name="canopy"><geometry><box><size>20 15 0.5</size></box></geometry><pose>0 12 5 0 0 0</pose>
+          <material><ambient>0.9 0.9 0.9 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual>
+        <visual name="pillar1"><geometry><cylinder><radius>0.3</radius><length>5</length></cylinder></geometry><pose>-8 6 2.5 0 0 0</pose>
+          <material><ambient>0.3 0.3 0.3 1</ambient><diffuse>0.4 0.4 0.4 1</diffuse></material>
+        </visual>
+        <visual name="pillar2"><geometry><cylinder><radius>0.3</radius><length>5</length></cylinder></geometry><pose>8 6 2.5 0 0 0</pose>
+          <material><ambient>0.3 0.3 0.3 1</ambient><diffuse>0.4 0.4 0.4 1</diffuse></material>
+        </visual>
+        <collision name="collision"><geometry><box><size>8 6 4</size></box></geometry><pose>0 0 2 0 0 0</pose></collision>
+      </link>
+    </model>
+
+    <!-- ==================== BUILDINGS - SW QUADRANT ==================== -->
+    
+    <!-- Factory -->
+    <model name="bldg_factory">
+      <static>true</static>
+      <pose>-40 -30 0.1 0 0 0</pose>
+      <link name="link">
+        <visual name="main"><geometry><box><size>30 20 10</size></box></geometry><pose>0 0 5 0 0 0</pose>
+          <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+        <visual name="chimney"><geometry><cylinder><radius>1.5</radius><length>12</length></cylinder></geometry><pose>-10 -5 11 0 0 0</pose>
+          <material><ambient>0.4 0.35 0.35 1</ambient><diffuse>0.5 0.45 0.45 1</diffuse></material>
+        </visual>
+        <collision name="collision"><geometry><box><size>30 20 10</size></box></geometry><pose>0 0 5 0 0 0</pose></collision>
+      </link>
+    </model>
+
+    <!-- Warehouse -->
+    <model name="bldg_warehouse">
+      <static>true</static>
+      <pose>-30 -55 0.1 0 0 0</pose>
+      <link name="link">
+        <visual name="main"><geometry><box><size>25 18 8</size></box></geometry><pose>0 0 4 0 0 0</pose>
+          <material><ambient>0.55 0.5 0.45 1</ambient><diffuse>0.65 0.6 0.55 1</diffuse></material>
+        </visual>
+        <visual name="door"><geometry><box><size>6 0.5 6</size></box></geometry><pose>0 9.25 3 0 0 0</pose>
+          <material><ambient>0.3 0.35 0.4 1</ambient><diffuse>0.4 0.45 0.5 1</diffuse></material>
+        </visual>
+        <collision name="collision"><geometry><box><size>25 18 8</size></box></geometry><pose>0 0 4 0 0 0</pose></collision>
+      </link>
+    </model>
+
+    <!-- Houses row -->
+    <model name="house_1">
+      <static>true</static>
+      <pose>-55 -25 0.1 0 0 0</pose>
+      <link name="link">
+        <visual name="main"><geometry><box><size>10 8 6</size></box></geometry><pose>0 0 3 0 0 0</pose>
+          <material><ambient>0.8 0.75 0.65 1</ambient><diffuse>0.9 0.85 0.75 1</diffuse></material>
+        </visual>
+        <visual name="roof"><geometry><box><size>11 9 1</size></box></geometry><pose>0 0 6.5 0.15 0 0</pose>
+          <material><ambient>0.5 0.25 0.2 1</ambient><diffuse>0.6 0.3 0.25 1</diffuse></material>
+        </visual>
+        <collision name="collision"><geometry><box><size>10 8 6</size></box></geometry><pose>0 0 3 0 0 0</pose></collision>
+      </link>
+    </model>
+
+    <model name="house_2">
+      <static>true</static>
+      <pose>-55 -40 0.1 0 0 0</pose>
+      <link name="link">
+        <visual name="main"><geometry><box><size>10 8 6</size></box></geometry><pose>0 0 3 0 0 0</pose>
+          <material><ambient>0.85 0.8 0.7 1</ambient><diffuse>0.95 0.9 0.8 1</diffuse></material>
+        </visual>
+        <visual name="roof"><geometry><box><size>11 9 1</size></box></geometry><pose>0 0 6.5 0.15 0 0</pose>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.4 0.4 0.45 1</diffuse></material>
+        </visual>
+        <collision name="collision"><geometry><box><size>10 8 6</size></box></geometry><pose>0 0 3 0 0 0</pose></collision>
+      </link>
+    </model>
+
+    <!-- ==================== PARKED CARS ==================== -->
+    
+    <model name="car_1">
+      <static>true</static>
+      <pose>15 -8 0.1 0 0 0</pose>
+      <link name="link">
+        <visual name="body"><geometry><box><size>4.5 1.8 1.2</size></box></geometry><pose>0 0 0.6 0 0 0</pose>
+          <material><ambient>0.6 0.1 0.1 1</ambient><diffuse>0.8 0.2 0.2 1</diffuse></material>
+        </visual>
+        <visual name="cabin"><geometry><box><size>2.5 1.6 0.8</size></box></geometry><pose>0.3 0 1.4 0 0 0</pose>
+          <material><ambient>0.2 0.25 0.3 1</ambient><diffuse>0.3 0.35 0.4 1</diffuse><specular>0.5 0.5 0.5 1</specular></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="car_2">
+      <static>true</static>
+      <pose>22 -8 0.1 0 0 0</pose>
+      <link name="link">
+        <visual name="body"><geometry><box><size>4.5 1.8 1.2</size></box></geometry><pose>0 0 0.6 0 0 0</pose>
+          <material><ambient>0.1 0.2 0.5 1</ambient><diffuse>0.2 0.3 0.7 1</diffuse></material>
+        </visual>
+        <visual name="cabin"><geometry><box><size>2.5 1.6 0.8</size></box></geometry><pose>0.3 0 1.4 0 0 0</pose>
+          <material><ambient>0.15 0.2 0.25 1</ambient><diffuse>0.25 0.3 0.35 1</diffuse><specular>0.5 0.5 0.5 1</specular></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="car_3">
+      <static>true</static>
+      <pose>-20 8 0.1 0 0 3.14</pose>
+      <link name="link">
+        <visual name="body"><geometry><box><size>4.5 1.8 1.2</size></box></geometry><pose>0 0 0.6 0 0 0</pose>
+          <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.9 0.9 0.9 1</diffuse></material>
+        </visual>
+        <visual name="cabin"><geometry><box><size>2.5 1.6 0.8</size></box></geometry><pose>0.3 0 1.4 0 0 0</pose>
+          <material><ambient>0.1 0.1 0.15 1</ambient><diffuse>0.2 0.2 0.25 1</diffuse><specular>0.5 0.5 0.5 1</specular></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="truck_1">
+      <static>true</static>
+      <pose>-8 -18 0.1 0 0 1.57</pose>
+      <link name="link">
+        <visual name="cabin"><geometry><box><size>3 2.2 2</size></box></geometry><pose>-3 0 1.2 0 0 0</pose>
+          <material><ambient>0.2 0.4 0.2 1</ambient><diffuse>0.3 0.5 0.3 1</diffuse></material>
+        </visual>
+        <visual name="cargo"><geometry><box><size>6 2.4 2.5</size></box></geometry><pose>1.5 0 1.35 0 0 0</pose>
+          <material><ambient>0.7 0.65 0.6 1</ambient><diffuse>0.8 0.75 0.7 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ==================== TREES ==================== -->
+
+    <model name="tree_1">
+      <static>true</static>
+      <pose>18 18 0 0 0 0</pose>
+      <link name="link">
+        <visual name="trunk"><geometry><cylinder><radius>0.3</radius><length>4</length></cylinder></geometry><pose>0 0 2 0 0 0</pose>
+          <material><ambient>0.35 0.25 0.15 1</ambient><diffuse>0.45 0.35 0.2 1</diffuse></material>
+        </visual>
+        <visual name="foliage"><geometry><sphere><radius>3</radius></sphere></geometry><pose>0 0 5.5 0 0 0</pose>
+          <material><ambient>0.15 0.4 0.15 1</ambient><diffuse>0.2 0.5 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="tree_2">
+      <static>true</static>
+      <pose>-18 18 0 0 0 0</pose>
+      <link name="link">
+        <visual name="trunk"><geometry><cylinder><radius>0.35</radius><length>5</length></cylinder></geometry><pose>0 0 2.5 0 0 0</pose>
+          <material><ambient>0.4 0.3 0.15 1</ambient><diffuse>0.5 0.4 0.2 1</diffuse></material>
+        </visual>
+        <visual name="foliage"><geometry><sphere><radius>3.5</radius></sphere></geometry><pose>0 0 6.5 0 0 0</pose>
+          <material><ambient>0.12 0.35 0.12 1</ambient><diffuse>0.18 0.45 0.18 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="tree_3">
+      <static>true</static>
+      <pose>-18 -18 0 0 0 0</pose>
+      <link name="link">
+        <visual name="trunk"><geometry><cylinder><radius>0.25</radius><length>3.5</length></cylinder></geometry><pose>0 0 1.75 0 0 0</pose>
+          <material><ambient>0.3 0.22 0.12 1</ambient><diffuse>0.4 0.32 0.18 1</diffuse></material>
+        </visual>
+        <visual name="foliage"><geometry><sphere><radius>2.5</radius></sphere></geometry><pose>0 0 4.8 0 0 0</pose>
+          <material><ambient>0.18 0.42 0.15 1</ambient><diffuse>0.25 0.52 0.22 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="tree_4">
+      <static>true</static>
+      <pose>18 -18 0 0 0 0</pose>
+      <link name="link">
+        <visual name="trunk"><geometry><cylinder><radius>0.28</radius><length>4.2</length></cylinder></geometry><pose>0 0 2.1 0 0 0</pose>
+          <material><ambient>0.32 0.24 0.14 1</ambient><diffuse>0.42 0.34 0.2 1</diffuse></material>
+        </visual>
+        <visual name="foliage"><geometry><sphere><radius>2.8</radius></sphere></geometry><pose>0 0 5.2 0 0 0</pose>
+          <material><ambient>0.14 0.38 0.14 1</ambient><diffuse>0.2 0.48 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ==================== STREET LIGHTS ==================== -->
+    
+    <model name="streetlight_1">
+      <static>true</static>
+      <pose>-10 8 0 0 0 0</pose>
+      <link name="link">
+        <visual name="pole"><geometry><cylinder><radius>0.08</radius><length>7</length></cylinder></geometry><pose>0 0 3.5 0 0 0</pose>
+          <material><ambient>0.25 0.25 0.25 1</ambient><diffuse>0.35 0.35 0.35 1</diffuse></material>
+        </visual>
+        <visual name="arm"><geometry><box><size>2 0.1 0.1</size></box></geometry><pose>1 0 7 0 0 0</pose>
+          <material><ambient>0.25 0.25 0.25 1</ambient><diffuse>0.35 0.35 0.35 1</diffuse></material>
+        </visual>
+        <visual name="lamp"><geometry><box><size>0.4 0.25 0.15</size></box></geometry><pose>2 0 6.9 0 0 0</pose>
+          <material><ambient>1 0.95 0.8 1</ambient><diffuse>1 0.98 0.9 1</diffuse><emissive>0.6 0.55 0.4 1</emissive></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="streetlight_2">
+      <static>true</static>
+      <pose>10 8 0 0 0 3.14</pose>
+      <link name="link">
+        <visual name="pole"><geometry><cylinder><radius>0.08</radius><length>7</length></cylinder></geometry><pose>0 0 3.5 0 0 0</pose>
+          <material><ambient>0.25 0.25 0.25 1</ambient><diffuse>0.35 0.35 0.35 1</diffuse></material>
+        </visual>
+        <visual name="arm"><geometry><box><size>2 0.1 0.1</size></box></geometry><pose>1 0 7 0 0 0</pose>
+          <material><ambient>0.25 0.25 0.25 1</ambient><diffuse>0.35 0.35 0.35 1</diffuse></material>
+        </visual>
+        <visual name="lamp"><geometry><box><size>0.4 0.25 0.15</size></box></geometry><pose>2 0 6.9 0 0 0</pose>
+          <material><ambient>1 0.95 0.8 1</ambient><diffuse>1 0.98 0.9 1</diffuse><emissive>0.6 0.55 0.4 1</emissive></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ==================== TRAFFIC LIGHTS ==================== -->
+    
+    <model name="traffic_light_1">
+      <static>true</static>
+      <pose>8 10 0 0 0 0</pose>
+      <link name="link">
+        <visual name="pole"><geometry><cylinder><radius>0.1</radius><length>4</length></cylinder></geometry><pose>0 0 2 0 0 0</pose>
+          <material><ambient>0.2 0.2 0.2 1</ambient><diffuse>0.3 0.3 0.3 1</diffuse></material>
+        </visual>
+        <visual name="box"><geometry><box><size>0.4 0.3 1</size></box></geometry><pose>0 0 4.5 0 0 0</pose>
+          <material><ambient>0.15 0.15 0.15 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
+        </visual>
+        <visual name="red"><geometry><sphere><radius>0.12</radius></sphere></geometry><pose>0 0.2 4.8 0 0 0</pose>
+          <material><ambient>0.8 0.1 0.1 1</ambient><diffuse>1 0.2 0.2 1</diffuse><emissive>0.5 0 0 1</emissive></material>
+        </visual>
+        <visual name="yellow"><geometry><sphere><radius>0.12</radius></sphere></geometry><pose>0 0.2 4.5 0 0 0</pose>
+          <material><ambient>0.8 0.7 0.1 1</ambient><diffuse>1 0.9 0.2 1</diffuse></material>
+        </visual>
+        <visual name="green"><geometry><sphere><radius>0.12</radius></sphere></geometry><pose>0 0.2 4.2 0 0 0</pose>
+          <material><ambient>0.1 0.6 0.1 1</ambient><diffuse>0.2 0.8 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ==================== BENCHES ==================== -->
+    
+    <model name="bench_1">
+      <static>true</static>
+      <pose>12 12 0.1 0 0 0.785</pose>
+      <link name="link">
+        <visual name="seat"><geometry><box><size>1.8 0.4 0.08</size></box></geometry><pose>0 0 0.45 0 0 0</pose>
+          <material><ambient>0.4 0.28 0.15 1</ambient><diffuse>0.5 0.35 0.2 1</diffuse></material>
+        </visual>
+        <visual name="back"><geometry><box><size>1.8 0.08 0.5</size></box></geometry><pose>0 -0.18 0.7 0 0 0</pose>
+          <material><ambient>0.4 0.28 0.15 1</ambient><diffuse>0.5 0.35 0.2 1</diffuse></material>
+        </visual>
+        <visual name="leg1"><geometry><box><size>0.08 0.35 0.45</size></box></geometry><pose>0.7 0 0.225 0 0 0</pose>
+          <material><ambient>0.2 0.2 0.2 1</ambient><diffuse>0.3 0.3 0.3 1</diffuse></material>
+        </visual>
+        <visual name="leg2"><geometry><box><size>0.08 0.35 0.45</size></box></geometry><pose>-0.7 0 0.225 0 0 0</pose>
+          <material><ambient>0.2 0.2 0.2 1</ambient><diffuse>0.3 0.3 0.3 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ==================== WALKING PERSON ==================== -->
+    
     <actor name="walking_person">
       <skin>
         <filename>model://actor/meshes/walk.dae</filename>
@@ -88,54 +589,19 @@
         <delay_start>3.0</delay_start>
         <auto_start>true</auto_start>
         <trajectory id="0" type="walking" tension="0.8">
-            <waypoint>
-                <time>0</time>
-                <pose>5 5 1.0 0 0 0</pose>
-            </waypoint>
-            <waypoint>
-                <time>5</time>
-                <pose>7.5 7 1.0 0 0 0.6</pose>
-            </waypoint>
-            <waypoint>
-                <time>10</time>
-                <pose>9 5 1.0 0 0 -0.8</pose>
-            </waypoint>
-            <waypoint>
-                <time>15</time>
-                <pose>8 2 1.0 0 0 -2.2</pose>
-            </waypoint>
-            <waypoint>
-                <time>20</time>
-                <pose>5 1 1.0 0 0 3.0</pose>
-            </waypoint>
-            <waypoint>
-                <time>25</time>
-                <pose>2 2 1.0 0 0 2.4</pose>
-            </waypoint>
-            <waypoint>
-                <time>30</time>
-                <pose>1 5 1.0 0 0 1.6</pose>
-            </waypoint>
-            <waypoint>
-                <time>35</time>
-                <pose>2.5 7.5 1.0 0 0 0.8</pose>
-            </waypoint>
-            <waypoint>
-                <time>40</time>
-                <pose>5 8.5 1.0 0 0 0.2</pose>
-            </waypoint>
-            <waypoint>
-                <time>45</time>
-                <pose>7 7 1.0 0 0 -0.6</pose>
-            </waypoint>
-            <waypoint>
-                <time>50</time>
-                <pose>5 5 1.0 0 0 0</pose>
-            </waypoint>
+            <waypoint><time>0</time><pose>5 8 1.0 0 0 0</pose></waypoint>
+            <waypoint><time>8</time><pose>15 8 1.0 0 0 0</pose></waypoint>
+            <waypoint><time>12</time><pose>18 12 1.0 0 0 0.8</pose></waypoint>
+            <waypoint><time>20</time><pose>18 25 1.0 0 0 1.57</pose></waypoint>
+            <waypoint><time>28</time><pose>12 30 1.0 0 0 2.5</pose></waypoint>
+            <waypoint><time>36</time><pose>-5 30 1.0 0 0 3.14</pose></waypoint>
+            <waypoint><time>44</time><pose>-15 25 1.0 0 0 -2.0</pose></waypoint>
+            <waypoint><time>52</time><pose>-18 15 1.0 0 0 -1.57</pose></waypoint>
+            <waypoint><time>60</time><pose>-15 8 1.0 0 0 -0.5</pose></waypoint>
+            <waypoint><time>68</time><pose>-5 8 1.0 0 0 0</pose></waypoint>
+            <waypoint><time>76</time><pose>5 8 1.0 0 0 0</pose></waypoint>
         </trajectory>
       </script>
-
-      <!-- Actor pose publisher plugin -->
       <plugin filename="gz-sim8-pose-publisher-system" name="gz::sim::systems::PosePublisher">
         <publish_nested_model_pose>true</publish_nested_model_pose>
         <publish_link_pose>true</publish_link_pose>
@@ -143,17 +609,16 @@
         <publish_visual_pose>false</publish_visual_pose>
         <use_pose_vector_msg>true</use_pose_vector_msg>
         <static_publisher>false</static_publisher>
-        <static_update_frequency>50</static_update_frequency>
         <update_frequency>50</update_frequency>
       </plugin>
     </actor>
 
-    <!-- X3 Drone with KITTI Stereo Camera -->
+    <!-- ==================== X3 DRONE WITH STEREO CAMERA ==================== -->
+    
     <include>
       <uri>model://x3_stereo</uri>
-      <pose>5 5 0.2 0 0.2 3.14159</pose>
+      <pose>0 0 0.2 0 0 0</pose>
       
-      <!-- Drone enable trigger -->  
       <plugin filename="gz-sim8-triggered-publisher-system" name="gz::sim::systems::TriggeredPublisher">
         <input type="gz.msgs.StringMsg" topic="/trigger_enable">
           <match field="data">enable_drone</match>
@@ -163,214 +628,92 @@
         </output>
       </plugin>
       
-      <!-- Velocity controller plugin -->
       <plugin filename="gz-sim8-multicopter-control-system" name="gz::sim::systems::MulticopterVelocityControl">
         <robotNamespace>X3</robotNamespace>
         <commandSubTopic>cmd_vel</commandSubTopic>
         <enableSubTopic>enable</enableSubTopic>
         <comLinkName>X3/base_link</comLinkName>
-        <!-- User's tuning parameters - DO NOT MODIFY -->
         <velocityGain>4.0 4.0 4.0</velocityGain> 
         <attitudeGain>8.0 8.0 3.0</attitudeGain> 
         <angularRateGain>4.0 4.0 4.0</angularRateGain> 
         <maximumLinearAcceleration>4.0 4.0 4.0</maximumLinearAcceleration>
         <actuatorsTopic>command/motor_speed</actuatorsTopic>
         <rotorConfiguration>
-          <rotor>
-            <jointName>X3/rotor_0_joint</jointName>
-            <forceConstant>2.85e-05</forceConstant>
-            <momentConstant>0.0533</momentConstant>
-            <direction>1</direction>
-          </rotor>
-          <rotor>
-            <jointName>X3/rotor_1_joint</jointName>
-            <forceConstant>2.85e-05</forceConstant>
-            <momentConstant>0.0533</momentConstant>
-            <direction>-1</direction>
-          </rotor>
-          <rotor>
-            <jointName>X3/rotor_2_joint</jointName>
-            <forceConstant>2.85e-05</forceConstant>
-            <momentConstant>0.0533</momentConstant>
-            <direction>1</direction>
-          </rotor>
-          <rotor>
-            <jointName>X3/rotor_3_joint</jointName>
-            <forceConstant>2.85e-05</forceConstant>
-            <momentConstant>0.0533</momentConstant>
-            <direction>-1</direction>
-          </rotor>
-          <rotor>
-            <jointName>X3/rotor_4_joint</jointName>
-            <forceConstant>2.85e-05</forceConstant>
-            <momentConstant>0.0533</momentConstant>
-            <direction>-1</direction>
-          </rotor>
-          <rotor>
-            <jointName>X3/rotor_5_joint</jointName>
-            <forceConstant>2.85e-05</forceConstant>
-            <momentConstant>0.0533</momentConstant>
-            <direction>1</direction>
-          </rotor>
-          <rotor>
-            <jointName>X3/rotor_6_joint</jointName>
-            <forceConstant>2.85e-05</forceConstant>
-            <momentConstant>0.0533</momentConstant>
-            <direction>-1</direction>
-          </rotor>
-          <rotor>
-            <jointName>X3/rotor_7_joint</jointName>
-            <forceConstant>2.85e-05</forceConstant>
-            <momentConstant>0.0533</momentConstant>
-            <direction>1</direction>
-          </rotor>
+          <rotor><jointName>X3/rotor_0_joint</jointName><forceConstant>2.85e-05</forceConstant><momentConstant>0.0533</momentConstant><direction>1</direction></rotor>
+          <rotor><jointName>X3/rotor_1_joint</jointName><forceConstant>2.85e-05</forceConstant><momentConstant>0.0533</momentConstant><direction>-1</direction></rotor>
+          <rotor><jointName>X3/rotor_2_joint</jointName><forceConstant>2.85e-05</forceConstant><momentConstant>0.0533</momentConstant><direction>1</direction></rotor>
+          <rotor><jointName>X3/rotor_3_joint</jointName><forceConstant>2.85e-05</forceConstant><momentConstant>0.0533</momentConstant><direction>-1</direction></rotor>
+          <rotor><jointName>X3/rotor_4_joint</jointName><forceConstant>2.85e-05</forceConstant><momentConstant>0.0533</momentConstant><direction>-1</direction></rotor>
+          <rotor><jointName>X3/rotor_5_joint</jointName><forceConstant>2.85e-05</forceConstant><momentConstant>0.0533</momentConstant><direction>1</direction></rotor>
+          <rotor><jointName>X3/rotor_6_joint</jointName><forceConstant>2.85e-05</forceConstant><momentConstant>0.0533</momentConstant><direction>-1</direction></rotor>
+          <rotor><jointName>X3/rotor_7_joint</jointName><forceConstant>2.85e-05</forceConstant><momentConstant>0.0533</momentConstant><direction>1</direction></rotor>
         </rotorConfiguration>
       </plugin>
       
       <!-- Motor plugins -->
       <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
-        <robotNamespace>X3</robotNamespace>
-        <jointName>X3/rotor_0_joint</jointName>
-        <linkName>X3/rotor_0</linkName>
-        <turningDirection>ccw</turningDirection>
-        <timeConstantUp>0.0125</timeConstantUp>
-        <timeConstantDown>0.025</timeConstantDown>
-        <maxRotVelocity>800.0</maxRotVelocity>
-        <motorConstant>2.85e-05</motorConstant>
-        <momentConstant>0.0533</momentConstant>
-        <commandSubTopic>command/motor_speed</commandSubTopic>
-        <actuator_number>0</actuator_number>
-        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
-        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
-        <motorSpeedPubTopic>motor_speed/0</motorSpeedPubTopic>
-        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
-        <motorType>velocity</motorType>
+        <robotNamespace>X3</robotNamespace><jointName>X3/rotor_0_joint</jointName><linkName>X3/rotor_0</linkName>
+        <turningDirection>ccw</turningDirection><timeConstantUp>0.0125</timeConstantUp><timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity><motorConstant>2.85e-05</motorConstant><momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic><actuator_number>0</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient><rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/0</motorSpeedPubTopic><rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim><motorType>velocity</motorType>
       </plugin>
       <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
-        <robotNamespace>X3</robotNamespace>
-        <jointName>X3/rotor_1_joint</jointName>
-        <linkName>X3/rotor_1</linkName>
-        <turningDirection>cw</turningDirection>
-        <timeConstantUp>0.0125</timeConstantUp>
-        <timeConstantDown>0.025</timeConstantDown>
-        <maxRotVelocity>800.0</maxRotVelocity>
-        <motorConstant>2.85e-05</motorConstant>
-        <momentConstant>0.0533</momentConstant>
-        <commandSubTopic>command/motor_speed</commandSubTopic>
-        <actuator_number>1</actuator_number>
-        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
-        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
-        <motorSpeedPubTopic>motor_speed/1</motorSpeedPubTopic>
-        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
-        <motorType>velocity</motorType>
+        <robotNamespace>X3</robotNamespace><jointName>X3/rotor_1_joint</jointName><linkName>X3/rotor_1</linkName>
+        <turningDirection>cw</turningDirection><timeConstantUp>0.0125</timeConstantUp><timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity><motorConstant>2.85e-05</motorConstant><momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic><actuator_number>1</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient><rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/1</motorSpeedPubTopic><rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim><motorType>velocity</motorType>
       </plugin>
       <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
-        <robotNamespace>X3</robotNamespace>
-        <jointName>X3/rotor_2_joint</jointName>
-        <linkName>X3/rotor_2</linkName>
-        <turningDirection>ccw</turningDirection>
-        <timeConstantUp>0.0125</timeConstantUp>
-        <timeConstantDown>0.025</timeConstantDown>
-        <maxRotVelocity>800.0</maxRotVelocity>
-        <motorConstant>2.85e-05</motorConstant>
-        <momentConstant>0.0533</momentConstant>
-        <commandSubTopic>command/motor_speed</commandSubTopic>
-        <actuator_number>2</actuator_number>
-        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
-        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
-        <motorSpeedPubTopic>motor_speed/2</motorSpeedPubTopic>
-        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
-        <motorType>velocity</motorType>
+        <robotNamespace>X3</robotNamespace><jointName>X3/rotor_2_joint</jointName><linkName>X3/rotor_2</linkName>
+        <turningDirection>ccw</turningDirection><timeConstantUp>0.0125</timeConstantUp><timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity><motorConstant>2.85e-05</motorConstant><momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic><actuator_number>2</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient><rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/2</motorSpeedPubTopic><rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim><motorType>velocity</motorType>
       </plugin>
       <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
-        <robotNamespace>X3</robotNamespace>
-        <jointName>X3/rotor_3_joint</jointName>
-        <linkName>X3/rotor_3</linkName>
-        <turningDirection>cw</turningDirection>
-        <timeConstantUp>0.0125</timeConstantUp>
-        <timeConstantDown>0.025</timeConstantDown>
-        <maxRotVelocity>800.0</maxRotVelocity>
-        <motorConstant>2.85e-05</motorConstant>
-        <momentConstant>0.0533</momentConstant>
-        <commandSubTopic>command/motor_speed</commandSubTopic>
-        <actuator_number>3</actuator_number>
-        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
-        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
-        <motorSpeedPubTopic>motor_speed/3</motorSpeedPubTopic>
-        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
-        <motorType>velocity</motorType>
+        <robotNamespace>X3</robotNamespace><jointName>X3/rotor_3_joint</jointName><linkName>X3/rotor_3</linkName>
+        <turningDirection>cw</turningDirection><timeConstantUp>0.0125</timeConstantUp><timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity><motorConstant>2.85e-05</motorConstant><momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic><actuator_number>3</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient><rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/3</motorSpeedPubTopic><rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim><motorType>velocity</motorType>
       </plugin>
       <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
-        <robotNamespace>X3</robotNamespace>
-        <jointName>X3/rotor_4_joint</jointName>
-        <linkName>X3/rotor_4</linkName>
-        <turningDirection>cw</turningDirection>
-        <timeConstantUp>0.0125</timeConstantUp>
-        <timeConstantDown>0.025</timeConstantDown>
-        <maxRotVelocity>800.0</maxRotVelocity>
-        <motorConstant>2.85e-05</motorConstant>
-        <momentConstant>0.0533</momentConstant>
-        <commandSubTopic>command/motor_speed</commandSubTopic>
-        <actuator_number>4</actuator_number>
-        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
-        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
-        <motorSpeedPubTopic>motor_speed/4</motorSpeedPubTopic>
-        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
-        <motorType>velocity</motorType>
+        <robotNamespace>X3</robotNamespace><jointName>X3/rotor_4_joint</jointName><linkName>X3/rotor_4</linkName>
+        <turningDirection>cw</turningDirection><timeConstantUp>0.0125</timeConstantUp><timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity><motorConstant>2.85e-05</motorConstant><momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic><actuator_number>4</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient><rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/4</motorSpeedPubTopic><rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim><motorType>velocity</motorType>
       </plugin>
       <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
-        <robotNamespace>X3</robotNamespace>
-        <jointName>X3/rotor_5_joint</jointName>
-        <linkName>X3/rotor_5</linkName>
-        <turningDirection>ccw</turningDirection>
-        <timeConstantUp>0.0125</timeConstantUp>
-        <timeConstantDown>0.025</timeConstantDown>
-        <maxRotVelocity>800.0</maxRotVelocity>
-        <motorConstant>2.85e-05</motorConstant>
-        <momentConstant>0.0533</momentConstant>
-        <commandSubTopic>command/motor_speed</commandSubTopic>
-        <actuator_number>5</actuator_number>
-        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
-        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
-        <motorSpeedPubTopic>motor_speed/5</motorSpeedPubTopic>
-        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
-        <motorType>velocity</motorType>
+        <robotNamespace>X3</robotNamespace><jointName>X3/rotor_5_joint</jointName><linkName>X3/rotor_5</linkName>
+        <turningDirection>ccw</turningDirection><timeConstantUp>0.0125</timeConstantUp><timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity><motorConstant>2.85e-05</motorConstant><momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic><actuator_number>5</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient><rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/5</motorSpeedPubTopic><rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim><motorType>velocity</motorType>
       </plugin>
       <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
-        <robotNamespace>X3</robotNamespace>
-        <jointName>X3/rotor_6_joint</jointName>
-        <linkName>X3/rotor_6</linkName>
-        <turningDirection>cw</turningDirection>
-        <timeConstantUp>0.0125</timeConstantUp>
-        <timeConstantDown>0.025</timeConstantDown>
-        <maxRotVelocity>800.0</maxRotVelocity>
-        <motorConstant>2.85e-05</motorConstant>
-        <momentConstant>0.0533</momentConstant>
-        <commandSubTopic>command/motor_speed</commandSubTopic>
-        <actuator_number>6</actuator_number>
-        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
-        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
-        <motorSpeedPubTopic>motor_speed/6</motorSpeedPubTopic>
-        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
-        <motorType>velocity</motorType>
+        <robotNamespace>X3</robotNamespace><jointName>X3/rotor_6_joint</jointName><linkName>X3/rotor_6</linkName>
+        <turningDirection>cw</turningDirection><timeConstantUp>0.0125</timeConstantUp><timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity><motorConstant>2.85e-05</motorConstant><momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic><actuator_number>6</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient><rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/6</motorSpeedPubTopic><rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim><motorType>velocity</motorType>
       </plugin>
       <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
-        <robotNamespace>X3</robotNamespace>
-        <jointName>X3/rotor_7_joint</jointName>
-        <linkName>X3/rotor_7</linkName>
-        <turningDirection>ccw</turningDirection>
-        <timeConstantUp>0.0125</timeConstantUp>
-        <timeConstantDown>0.025</timeConstantDown>
-        <maxRotVelocity>800.0</maxRotVelocity>
-        <motorConstant>2.85e-05</motorConstant>
-        <momentConstant>0.0533</momentConstant>
-        <commandSubTopic>command/motor_speed</commandSubTopic>
-        <actuator_number>7</actuator_number>
-        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
-        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
-        <motorSpeedPubTopic>motor_speed/7</motorSpeedPubTopic>
-        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
-        <motorType>velocity</motorType>
+        <robotNamespace>X3</robotNamespace><jointName>X3/rotor_7_joint</jointName><linkName>X3/rotor_7</linkName>
+        <turningDirection>ccw</turningDirection><timeConstantUp>0.0125</timeConstantUp><timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity><motorConstant>2.85e-05</motorConstant><momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic><actuator_number>7</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient><rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/7</motorSpeedPubTopic><rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim><motorType>velocity</motorType>
       </plugin>
       
     </include>
