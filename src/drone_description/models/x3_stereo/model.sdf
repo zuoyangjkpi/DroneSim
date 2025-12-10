@@ -1,12 +1,16 @@
 <sdf version='1.6'>
   <model name='X3'>
+    <!-- Model pose in world -->
     <pose>0 0 0.053302 0 0 0</pose>
 
-    
+    <!-- ===================== -->
+    <!-- Base link + visuals   -->
+    <!-- ===================== -->
     <link name='X3/base_link'>
-      <pose frame=''>0 0 0 0 -0 0</pose>
+      <pose>0 0 0 0 0 0</pose>
+
       <inertial>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <mass>4.6</mass>
         <inertia>
           <ixx>0.423</ixx>
@@ -17,16 +21,18 @@
           <izz>0.828</izz>
         </inertia>
       </inertial>
+
       <collision name='X3/base_link_inertia_collision'>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <geometry>
           <box>
             <size>1.2 1.2 0.15</size>
           </box>
         </geometry>
       </collision>
+
       <visual name='X3/base_link_inertia_visual'>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <geometry>
           <mesh>
             <scale>1 1 1</scale>
@@ -48,6 +54,7 @@
           <diffuse>0.1 0.1 0.1 1</diffuse>
         </material>
       </visual>
+
       <visual name='arm_1'>
         <pose>0.2121 0.2121 0 0 1.5708 0.7854</pose>
         <geometry>
@@ -60,6 +67,7 @@
           <diffuse>0.1 0.1 0.1 1</diffuse>
         </material>
       </visual>
+
       <visual name='arm_2'>
         <pose>0.0 0.3 0 0 1.5708 1.5708</pose>
         <geometry>
@@ -72,6 +80,7 @@
           <diffuse>0.1 0.1 0.1 1</diffuse>
         </material>
       </visual>
+
       <visual name='arm_3'>
         <pose>-0.2121 0.2121 0 0 1.5708 2.35619</pose>
         <geometry>
@@ -84,6 +93,7 @@
           <diffuse>0.1 0.1 0.1 1</diffuse>
         </material>
       </visual>
+
       <visual name='arm_4'>
         <pose>-0.3 0.0 0 0 1.5708 3.14159</pose>
         <geometry>
@@ -96,6 +106,7 @@
           <diffuse>0.1 0.1 0.1 1</diffuse>
         </material>
       </visual>
+
       <visual name='arm_5'>
         <pose>-0.2121 -0.2121 0 0 1.5708 -2.35619</pose>
         <geometry>
@@ -108,6 +119,7 @@
           <diffuse>0.1 0.1 0.1 1</diffuse>
         </material>
       </visual>
+
       <visual name='arm_6'>
         <pose>0.0 -0.3 0 0 1.5708 -1.5708</pose>
         <geometry>
@@ -120,6 +132,7 @@
           <diffuse>0.1 0.1 0.1 1</diffuse>
         </material>
       </visual>
+
       <visual name='arm_7'>
         <pose>0.2121 -0.2121 0 0 1.5708 -0.7854</pose>
         <geometry>
@@ -132,24 +145,25 @@
           <diffuse>0.1 0.1 0.1 1</diffuse>
         </material>
       </visual>
-
-     
     </link>
-
 
 
     <!-- ============================================ -->
     <!-- KITTI Stereo Camera Configuration            -->
     <!-- fx=fy=718.856, cx=607.1928, cy=185.2157      -->
     <!-- Resolution: 1241x376, Baseline: 0.53716m     -->
-    <!-- HFOV: 1.4227 rad (calculated from fx/width)  -->
+    <!-- HFOV: 1.4227 rad                             -->
+    <!-- Mount: 10 cm forward of body origin          -->
+    <!--        pitched down 45 deg                   -->
     <!-- ============================================ -->
 
     <!-- Left Camera Link -->
     <link name='stereo_camera_left_link'>
-      <pose frame=''>0.2 0.26858 0 0 0 0</pose>
+      <!-- 10 cm forward, +Y (left), pitched down 45 deg -->
+      <pose relative_to='X3/base_link'>0.10 0.26858 0 0 0.785398 0</pose>
+
       <inertial>
-        <pose frame=''>0 0 0 0 0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <mass>0.001</mass>
         <inertia>
           <ixx>1e-6</ixx>
@@ -166,43 +180,46 @@
         <always_on>1</always_on>
         <update_rate>10</update_rate>
         <topic>/camera/left/image_raw</topic>
-        
+
         <camera>
-            <horizontal_fov>1.4227</horizontal_fov>
-            <distortion>
-                <k1>0.0</k1>
-                <k2>0.0</k2>
-                <k3>0.0</k3>
-                <p1>0.0</p1>
-                <p2>0.0</p2>
-                <center>0.489 0.493</center>
-            </distortion>
-            <image>
-                <width>1241</width>
-                <height>376</height>
-                <format>R8G8B8</format>
-            </image>
-            <clip>
-                <near>0.5</near>
-                <far>300</far>
-            </clip>
-            <noise>
-                <type>gaussian</type>
-                <mean>0</mean>
-                <stddev>0.005</stddev>
-            </noise>
-            
-            <frame_id>X3/stereo_camera_left_optical</frame_id>
-            <camera_info_topic>/camera/left/camera_info</camera_info_topic>
+          <horizontal_fov>1.4227</horizontal_fov>
+          <distortion>
+            <k1>0.0</k1>
+            <k2>0.0</k2>
+            <k3>0.0</k3>
+            <p1>0.0</p1>
+            <p2>0.0</p2>
+            <center>0.489 0.493</center>
+          </distortion>
+          <image>
+            <width>1241</width>
+            <height>376</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>0.5</near>
+            <far>300</far>
+          </clip>
+          <noise>
+            <type>gaussian</type>
+            <mean>0</mean>
+            <stddev>0.005</stddev>
+          </noise>
+
+          <frame_id>X3/stereo_camera_left_optical</frame_id>
+          <camera_info_topic>/camera/left/camera_info</camera_info_topic>
         </camera>
       </sensor>
     </link>
 
+
     <!-- Right Camera Link -->
     <link name='stereo_camera_right_link'>
-      <pose frame=''>0.2 -0.26858 0 0 0 0</pose>
+      <!-- 10 cm forward, -Y (right), pitched down 45 deg -->
+      <pose relative_to='X3/base_link'>0.10 -0.26858 0 0 0.785398 0</pose>
+
       <inertial>
-        <pose frame=''>0 0 0 0 0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <mass>0.001</mass>
         <inertia>
           <ixx>1e-6</ixx>
@@ -219,41 +236,43 @@
         <always_on>1</always_on>
         <update_rate>10</update_rate>
         <topic>/camera/right/image_raw</topic>
-        
+
         <camera>
-            <horizontal_fov>1.4227</horizontal_fov>
-            <distortion>
-                <k1>0.0</k1>
-                <k2>0.0</k2>
-                <k3>0.0</k3>
-                <p1>0.0</p1>
-                <p2>0.0</p2>
-                <center>0.489 0.493</center>
-            </distortion>
-            <image>
-                <width>1241</width>
-                <height>376</height>
-                <format>R8G8B8</format>
-            </image>
-            <clip>
-                <near>0.5</near>
-                <far>300</far>
-            </clip>
-            <noise>
-                <type>gaussian</type>
-                <mean>0</mean>
-                <stddev>0.005</stddev>
-            </noise>
-            
-            <frame_id>X3/stereo_camera_right_optical</frame_id>
-            <camera_info_topic>/camera/right/camera_info</camera_info_topic>
+          <horizontal_fov>1.4227</horizontal_fov>
+          <distortion>
+            <k1>0.0</k1>
+            <k2>0.0</k2>
+            <k3>0.0</k3>
+            <p1>0.0</p1>
+            <p2>0.0</p2>
+            <center>0.489 0.493</center>
+          </distortion>
+          <image>
+            <width>1241</width>
+            <height>376</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>0.5</near>
+            <far>300</far>
+          </clip>
+          <noise>
+            <type>gaussian</type>
+            <mean>0</mean>
+            <stddev>0.005</stddev>
+          </noise>
+
+          <frame_id>X3/stereo_camera_right_optical</frame_id>
+          <camera_info_topic>/camera/right/camera_info</camera_info_topic>
         </camera>
       </sensor>
     </link>
 
+
     <!-- Optical frames for ROS convention -->
+    <!-- Keep these as a pure transform relative to the camera links -->
     <link name='stereo_camera_left_optical'>
-      <pose frame=''>0.2 0.26858 0 -1.5708 0 -1.5708</pose>
+      <pose relative_to='stereo_camera_left_link'>0 0 0 -1.5708 0 -1.5708</pose>
       <inertial>
         <mass>0.001</mass>
         <inertia>
@@ -264,7 +283,7 @@
     </link>
 
     <link name='stereo_camera_right_optical'>
-      <pose frame=''>0.2 -0.26858 0 -1.5708 0 -1.5708</pose>
+      <pose relative_to='stereo_camera_right_link'>0 0 0 -1.5708 0 -1.5708</pose>
       <inertial>
         <mass>0.001</mass>
         <inertia>
@@ -273,6 +292,7 @@
         </inertia>
       </inertial>
     </link>
+
 
     <!-- Fixed joints for stereo cameras -->
     <joint name='stereo_camera_left_joint' type='fixed'>
@@ -295,12 +315,15 @@
       <parent>stereo_camera_right_link</parent>
     </joint>
 
-    <!-- Octocopter rotor layout (radius 1.2 m) -->
-    <!-- rotor_index, pose(x y z), propeller direction alternates CCW/CW -->
+
+    <!-- ===================== -->
+    <!-- Rotors (0..7)         -->
+    <!-- ===================== -->
+
     <link name='X3/rotor_0'>
-      <pose frame=''>0.6 0.0 0.03 0 -0 0</pose>
+      <pose relative_to='X3/base_link'>0.6 0.0 0.03 0 0 0</pose>
       <inertial>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <mass>0.05</mass>
         <inertia>
           <ixx>9.75e-06</ixx>
@@ -312,7 +335,7 @@
         </inertia>
       </inertial>
       <collision name='X3/rotor_0_collision'>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <geometry>
           <cylinder>
             <length>0.01</length>
@@ -321,7 +344,7 @@
         </geometry>
       </collision>
       <visual name='X3/rotor_0_visual'>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <geometry>
           <mesh>
             <scale>0.12 0.12 0.12</scale>
@@ -349,10 +372,11 @@
       </axis>
     </joint>
 
+
     <link name='X3/rotor_1'>
-      <pose frame=''>0.4243 0.4243 0.03 0 -0 0</pose>
+      <pose relative_to='X3/base_link'>0.4243 0.4243 0.03 0 0 0</pose>
       <inertial>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <mass>0.05</mass>
         <inertia>
           <ixx>9.75e-06</ixx>
@@ -364,7 +388,7 @@
         </inertia>
       </inertial>
       <collision name='X3/rotor_1_collision'>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <geometry>
           <cylinder>
             <length>0.01</length>
@@ -373,7 +397,7 @@
         </geometry>
       </collision>
       <visual name='X3/rotor_1_visual'>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <geometry>
           <mesh>
             <scale>0.12 0.12 0.12</scale>
@@ -401,10 +425,11 @@
       </axis>
     </joint>
 
+
     <link name='X3/rotor_2'>
-      <pose frame=''>0.0 0.6 0.03 0 -0 0</pose>
+      <pose relative_to='X3/base_link'>0.0 0.6 0.03 0 0 0</pose>
       <inertial>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <mass>0.05</mass>
         <inertia>
           <ixx>9.75e-06</ixx>
@@ -416,7 +441,7 @@
         </inertia>
       </inertial>
       <collision name='X3/rotor_2_collision'>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <geometry>
           <cylinder>
             <length>0.01</length>
@@ -425,7 +450,7 @@
         </geometry>
       </collision>
       <visual name='X3/rotor_2_visual'>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <geometry>
           <mesh>
             <scale>0.12 0.12 0.12</scale>
@@ -453,10 +478,11 @@
       </axis>
     </joint>
 
+
     <link name='X3/rotor_3'>
-      <pose frame=''>-0.4243 0.4243 0.03 0 -0 0</pose>
+      <pose relative_to='X3/base_link'>-0.4243 0.4243 0.03 0 0 0</pose>
       <inertial>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <mass>0.05</mass>
         <inertia>
           <ixx>9.75e-06</ixx>
@@ -468,7 +494,7 @@
         </inertia>
       </inertial>
       <collision name='X3/rotor_3_collision'>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <geometry>
           <cylinder>
             <length>0.01</length>
@@ -477,7 +503,7 @@
         </geometry>
       </collision>
       <visual name='X3/rotor_3_visual'>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <geometry>
           <mesh>
             <scale>0.12 0.12 0.12</scale>
@@ -505,10 +531,11 @@
       </axis>
     </joint>
 
+
     <link name='X3/rotor_4'>
-      <pose frame=''>-0.6 0.0 0.03 0 -0 0</pose>
+      <pose relative_to='X3/base_link'>-0.6 0.0 0.03 0 0 0</pose>
       <inertial>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <mass>0.05</mass>
         <inertia>
           <ixx>9.75e-06</ixx>
@@ -520,7 +547,7 @@
         </inertia>
       </inertial>
       <collision name='X3/rotor_4_collision'>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <geometry>
           <cylinder>
             <length>0.01</length>
@@ -529,7 +556,7 @@
         </geometry>
       </collision>
       <visual name='X3/rotor_4_visual'>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <geometry>
           <mesh>
             <scale>0.12 0.12 0.12</scale>
@@ -557,10 +584,11 @@
       </axis>
     </joint>
 
+
     <link name='X3/rotor_5'>
-      <pose frame=''>-0.4243 -0.4243 0.03 0 -0 0</pose>
+      <pose relative_to='X3/base_link'>-0.4243 -0.4243 0.03 0 0 0</pose>
       <inertial>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <mass>0.05</mass>
         <inertia>
           <ixx>9.75e-06</ixx>
@@ -572,7 +600,7 @@
         </inertia>
       </inertial>
       <collision name='X3/rotor_5_collision'>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <geometry>
           <cylinder>
             <length>0.01</length>
@@ -581,7 +609,7 @@
         </geometry>
       </collision>
       <visual name='X3/rotor_5_visual'>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <geometry>
           <mesh>
             <scale>0.12 0.12 0.12</scale>
@@ -609,10 +637,11 @@
       </axis>
     </joint>
 
+
     <link name='X3/rotor_6'>
-      <pose frame=''>0.0 -0.6 0.03 0 -0 0</pose>
+      <pose relative_to='X3/base_link'>0.0 -0.6 0.03 0 0 0</pose>
       <inertial>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <mass>0.05</mass>
         <inertia>
           <ixx>9.75e-06</ixx>
@@ -624,7 +653,7 @@
         </inertia>
       </inertial>
       <collision name='X3/rotor_6_collision'>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <geometry>
           <cylinder>
             <length>0.01</length>
@@ -633,7 +662,7 @@
         </geometry>
       </collision>
       <visual name='X3/rotor_6_visual'>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <geometry>
           <mesh>
             <scale>0.12 0.12 0.12</scale>
@@ -661,10 +690,11 @@
       </axis>
     </joint>
 
+
     <link name='X3/rotor_7'>
-      <pose frame=''>0.4243 -0.4243 0.03 0 -0 0</pose>
+      <pose relative_to='X3/base_link'>0.4243 -0.4243 0.03 0 0 0</pose>
       <inertial>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <mass>0.05</mass>
         <inertia>
           <ixx>9.75e-06</ixx>
@@ -676,7 +706,7 @@
         </inertia>
       </inertial>
       <collision name='X3/rotor_7_collision'>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <geometry>
           <cylinder>
             <length>0.01</length>
@@ -685,7 +715,7 @@
         </geometry>
       </collision>
       <visual name='X3/rotor_7_visual'>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <geometry>
           <mesh>
             <scale>0.12 0.12 0.12</scale>
@@ -713,17 +743,18 @@
       </axis>
     </joint>
 
-    <!-- VelocityControl removed - using MulticopterVelocityControl from world file instead -->
 
-    <!-- Odometry publisher plugin -->
-    <plugin filename="gz-sim8-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">
+    <!-- ===================== -->
+    <!-- Odometry publisher    -->
+    <!-- ===================== -->
+    <plugin filename="gz-sim8-odometry-publisher-system"
+            name="gz::sim::systems::OdometryPublisher">
       <odom_frame>world</odom_frame>
       <robot_base_frame>X3/base_link</robot_base_frame>
       <dimensions>3</dimensions>
       <odom_topic>/X3/odometry</odom_topic>
       <odom_publish_frequency>50</odom_publish_frequency>
     </plugin>
-
 
   </model>
 </sdf>

@@ -403,7 +403,7 @@ ros2 topic hz /X3/cmd_vel
 - **Default**: `drone_world_stereo.sdf` (stereo testing scene with vegetation + obstacles)
 - **Lake**: `x3_lake_world.sdf` (Fortress lakeside scene with water and mixed robots)
 - **Factory**: `x3_factory_world.sdf` (indoor depot / warehouse scene with shelves and pallets)
-- **House**: `x3_house_world.sdf` (harmonic outdoor scene with buildings and roads)
+- **Factory (RC)**: `x3_factory_rc_world.sdf` (MovAi depot / shelves scene with walking actors)
 
 ### Camera Configuration
 - **Stereo Baseline**: Defined in `x3_stereo` model

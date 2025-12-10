@@ -16,16 +16,16 @@ case "$1" in
     WORLD_MODE="factory"
     echo "🏭 Using X3 factory world with stereo camera"
     ;;
-  "--house")
-    WORLD_MODE="house"
-    echo "🏠 Using X3 house world with stereo camera"
+  "--factory_rc")
+    WORLD_MODE="factory_rc"
+    echo "🏭 Using X3 factory_rc world with stereo camera"
     ;;
   "" )
     echo "Using default stereo test world"
     ;;
   *)
     echo "Unknown argument: $1"
-    echo "Usage: $0 [--lake|--factory|--house]"
+    echo "Usage: $0 [--lake|--factory|--factory_rc]"
     ;;
 esac
 
@@ -64,9 +64,9 @@ case "$WORLD_MODE" in
     WORLD_PATH="$DRONE_DESC_PATH/worlds/x3_factory_world.sdf"
     WORLD_TOPIC_NAME="world_demo"
     ;;
-  house)
-    WORLD_PATH="$DRONE_DESC_PATH/worlds/x3_house_world.sdf"
-    WORLD_TOPIC_NAME="harmonic"
+  factory_rc)
+    WORLD_PATH="$DRONE_DESC_PATH/worlds/x3_factory_rc_world.sdf"
+    WORLD_TOPIC_NAME="world_demo"
     ;;
   *)
     WORLD_PATH="$DRONE_DESC_PATH/worlds/$WORLD_FILE"
