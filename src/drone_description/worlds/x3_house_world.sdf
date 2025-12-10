@@ -285,6 +285,17 @@
       <render_engine>ogre2</render_engine>
     </plugin>
     <plugin
+      filename="gz-sim8-pose-publisher-system"
+      name="gz::sim::systems::PosePublisher">
+      <publish_nested_model_pose>true</publish_nested_model_pose>
+      <publish_link_pose>false</publish_link_pose>
+      <publish_collision_pose>false</publish_collision_pose>
+      <publish_visual_pose>false</publish_visual_pose>
+      <use_pose_vector_msg>true</use_pose_vector_msg>
+      <static_publisher>false</static_publisher>
+      <update_frequency>50</update_frequency>
+    </plugin>
+    <plugin
       filename="gz-sim-user-commands-system"
       name="gz::sim::systems::UserCommands">
     </plugin>
@@ -775,43 +786,268 @@
           <pose>0.02 0 0 0.0 1.57 0</pose>
           <geometry>
             <sphere>
-              <radius>0.04</radius>
-            </sphere>
-          </geometry>
-          <material>
-            <diffuse>0.2 0.2 0.2</diffuse>
-          </material>
-        </visual>
-        <sensor name="wide_angle_camera" type="wideanglecamera">
-          <camera>
-            <horizontal_fov>3.14159</horizontal_fov>
-            <image>
-              <width>640</width>
-              <height>480</height>
-            </image>
-            <clip>
-              <near>0.1</near>
-              <far>100</far>
-            </clip>
-            <lens>
-              <type>equidistant</type>
-              <scale_to_hfov>true</scale_to_hfov>
-              <cutoff_angle>1.5707</cutoff_angle>
-              <env_texture_size>512</env_texture_size>
-            </lens>
-          </camera>
-          <always_on>1</always_on>
-          <update_rate>30</update_rate>
-          <visualize>true</visualize>
-          <topic>wide_angle_camera</topic>
-          <plugin
-              filename="gz-sim-lens-flare-system"
-              name="gz::sim::systems::LensFlare">
-            <light_name>sun</light_name>
-          </plugin>
-        </sensor>
-      </link>
+        <radius>0.04</radius>
+      </sphere>
+    </geometry>
+    <material>
+      <diffuse>0.2 0.2 0.2</diffuse>
+    </material>
+  </visual>
+  <sensor name="wide_angle_camera" type="wideanglecamera">
+    <camera>
+      <horizontal_fov>3.14159</horizontal_fov>
+      <image>
+        <width>640</width>
+        <height>480</height>
+      </image>
+      <clip>
+        <near>0.1</near>
+        <far>100</far>
+      </clip>
+      <lens>
+        <type>equidistant</type>
+        <scale_to_hfov>true</scale_to_hfov>
+        <cutoff_angle>1.5707</cutoff_angle>
+        <env_texture_size>512</env_texture_size>
+      </lens>
+    </camera>
+    <always_on>1</always_on>
+    <update_rate>30</update_rate>
+    <visualize>true</visualize>
+    <topic>wide_angle_camera</topic>
+    <plugin
+        filename="gz-sim-lens-flare-system"
+        name="gz::sim::systems::LensFlare">
+      <light_name>sun</light_name>
+    </plugin>
+  </sensor>
+</link>
     </model>
+
+    <!-- X3 stereo multicopter -->
+    <include>
+      <uri>model://x3_stereo</uri>
+      <pose>3 0 0.2 0 0.2 3.14159</pose>
+
+      <!-- Drone startup script -->
+      <plugin filename="gz-sim8-triggered-publisher-system" name="gz::sim::systems::TriggeredPublisher">
+        <input type="gz.msgs.StringMsg" topic="/trigger_enable">
+          <match field="data">enable_drone</match>
+        </input>
+        <output type="gz.msgs.Boolean" topic="X3/enable">
+          data: true
+        </output>
+      </plugin>
+
+      <!-- Velocity controller plugin -->
+      <plugin filename="gz-sim8-multicopter-control-system" name="gz::sim::systems::MulticopterVelocityControl">
+        <robotNamespace>X3</robotNamespace>
+        <commandSubTopic>cmd_vel</commandSubTopic>
+        <enableSubTopic>enable</enableSubTopic>
+        <comLinkName>X3/base_link</comLinkName>
+        <velocityGain>4.0 4.0 4.0</velocityGain>
+        <attitudeGain>8.0 8.0 3.0</attitudeGain>
+        <angularRateGain>4.0 4.0 4.0</angularRateGain>
+        <maximumLinearAcceleration>4.0 4.0 4.0</maximumLinearAcceleration>
+        <actuatorsTopic>command/motor_speed</actuatorsTopic>
+        <rotorConfiguration>
+          <rotor>
+            <jointName>X3/rotor_0_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_1_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>-1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_2_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_3_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>-1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_4_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>-1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_5_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_6_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>-1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_7_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>1</direction>
+          </rotor>
+        </rotorConfiguration>
+      </plugin>
+
+      <!-- Motor plugins -->
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_0_joint</jointName>
+        <linkName>X3/rotor_0</linkName>
+        <turningDirection>ccw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>0</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/0</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_4_joint</jointName>
+        <linkName>X3/rotor_4</linkName>
+        <turningDirection>cw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>4</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/4</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_5_joint</jointName>
+        <linkName>X3/rotor_5</linkName>
+        <turningDirection>ccw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>5</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/5</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_6_joint</jointName>
+        <linkName>X3/rotor_6</linkName>
+        <turningDirection>cw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>6</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/6</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_7_joint</jointName>
+        <linkName>X3/rotor_7</linkName>
+        <turningDirection>ccw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>7</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/7</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_1_joint</jointName>
+        <linkName>X3/rotor_1</linkName>
+        <turningDirection>cw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>1</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/1</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_2_joint</jointName>
+        <linkName>X3/rotor_2</linkName>
+        <turningDirection>ccw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>2</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/2</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_3_joint</jointName>
+        <linkName>X3/rotor_3</linkName>
+        <turningDirection>cw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>3</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/3</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+    </include>
 
   </world>
 </sdf>

@@ -6,13 +6,28 @@
 # Parse arguments
 WORLD_FILE="drone_world_stereo.sdf"
 WORLD_MODE="default"
-if [[ "$1" == "--city" ]]; then
-    WORLD_MODE="city"
-    echo "🏙️  Using X3 city block world with stereo camera"
-elif [[ "$1" == "--lake" ]]; then
+
+case "$1" in
+  "--lake")
     WORLD_MODE="lake"
     echo "🌊 Using X3 lakeside world with stereo camera"
-fi
+    ;;
+  "--factory")
+    WORLD_MODE="factory"
+    echo "🏭 Using X3 factory world with stereo camera"
+    ;;
+  "--house")
+    WORLD_MODE="house"
+    echo "🏠 Using X3 house world with stereo camera"
+    ;;
+  "" )
+    echo "Using default stereo test world"
+    ;;
+  *)
+    echo "Unknown argument: $1"
+    echo "Usage: $0 [--lake|--factory|--house]"
+    ;;
+esac
 
 # Source ROS2 Jazzy first
 if [ -f "/opt/ros/jazzy/setup.bash" ]; then
@@ -39,25 +54,28 @@ export GZ_SIM_SYSTEM_PLUGIN_PATH="/opt/ros/jazzy/opt/gz_sim_vendor/lib:${GZ_SIM_
 export GZ_RENDER_ENGINE_PATH="/opt/ros/jazzy/opt/gz_rendering_vendor/lib/gz-rendering-8/engine-plugins:${GZ_RENDER_ENGINE_PATH}"
 export GZ_GUI_PLUGIN_PATH="/opt/ros/jazzy/opt/gz_gui_vendor/lib/gz-gui-8/plugins:${GZ_GUI_PLUGIN_PATH}"
 
-# Use stereo RViz config for city/lake modes, regular config otherwise
+# Use stereo RViz config for all modes
 case "$WORLD_MODE" in
-  city)
-    WORLD_PATH="$DRONE_DESC_PATH/worlds/x3_city_world.sdf"
-    RVIZ_CONFIG="$DRONE_DESC_PATH/config/drone_stereo.rviz"
-    export GZ_SIM_RESOURCE_PATH="$BASE_RESOURCE_PATH:$DRONE_DESC_PATH/models"
-    ;;
   lake)
     WORLD_PATH="$DRONE_DESC_PATH/worlds/x3_lake_world.sdf"
-    RVIZ_CONFIG="$DRONE_DESC_PATH/config/drone_stereo.rviz"
-    export GZ_SIM_RESOURCE_PATH="$BASE_RESOURCE_PATH:$DRONE_DESC_PATH/models"
+    WORLD_TOPIC_NAME="Fortress"
+    ;;
+  factory)
+    WORLD_PATH="$DRONE_DESC_PATH/worlds/x3_factory_world.sdf"
+    WORLD_TOPIC_NAME="world_demo"
+    ;;
+  house)
+    WORLD_PATH="$DRONE_DESC_PATH/worlds/x3_house_world.sdf"
+    WORLD_TOPIC_NAME="harmonic"
     ;;
   *)
     WORLD_PATH="$DRONE_DESC_PATH/worlds/$WORLD_FILE"
-    # Use the richer stereo RViz layout even in mono world
-    RVIZ_CONFIG="$DRONE_DESC_PATH/config/drone_stereo.rviz"
-    export GZ_SIM_RESOURCE_PATH="$BASE_RESOURCE_PATH:$DRONE_DESC_PATH/models"
+    WORLD_TOPIC_NAME="multicopter"
     ;;
 esac
+
+RVIZ_CONFIG="$DRONE_DESC_PATH/config/drone_stereo.rviz"
+export GZ_SIM_RESOURCE_PATH="$BASE_RESOURCE_PATH:$DRONE_DESC_PATH/models"
 
 # Check if world file exists
 if [ ! -f "$WORLD_PATH" ]; then
@@ -93,7 +111,7 @@ ros2 run ros_gz_bridge parameter_bridge \
     /imu/data@sensor_msgs/msg/Imu@gz.msgs.IMU \
     /X3/cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist \
     /X3/enable@std_msgs/msg/Bool@gz.msgs.Boolean \
-    /world/city_multicopter/dynamic_pose/info@geometry_msgs/msg/PoseArray@gz.msgs.Pose_V &
+    /world/${WORLD_TOPIC_NAME}/dynamic_pose/info@geometry_msgs/msg/PoseArray@gz.msgs.Pose_V &
 BRIDGE_PID=$!
 sleep 2
 

@@ -1,172 +1,1005 @@
-<?xml version="1.0"?>
+<?xml version="1.0" ?>
 <sdf version="1.9">
-  <world name="city_multicopter">
+  <world name="Fortress">
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.005</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
 
-    <!-- Simple lake-side style environment with solid ground and a water patch -->
-
-    <gravity>0 0 -9.81</gravity>
+    <plugin
+      filename="ignition-gazebo-physics-system"
+      name="ignition::gazebo::systems::Physics">
+    </plugin>
+    <plugin
+      filename="ignition-gazebo-sensors-system"
+      name="ignition::gazebo::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin
+      filename="gz-sim8-pose-publisher-system"
+      name="gz::sim::systems::PosePublisher">
+      <publish_nested_model_pose>true</publish_nested_model_pose>
+      <publish_link_pose>false</publish_link_pose>
+      <publish_collision_pose>false</publish_collision_pose>
+      <publish_visual_pose>false</publish_visual_pose>
+      <use_pose_vector_msg>true</use_pose_vector_msg>
+      <static_publisher>false</static_publisher>
+      <update_frequency>50</update_frequency>
+    </plugin>
+    <plugin
+      filename="ignition-gazebo-user-commands-system"
+      name="ignition::gazebo::systems::UserCommands">
+    </plugin>
+    <plugin
+      filename="ignition-gazebo-scene-broadcaster-system"
+      name="ignition::gazebo::systems::SceneBroadcaster">
+    </plugin>
+    <plugin
+      filename="ignition-gazebo-buoyancy-system"
+      name="ignition::gazebo::systems::Buoyancy">
+      <graded_buoyancy>
+        <default_density>1000</default_density>
+        <density_change>
+          <above_depth>-1.7</above_depth>
+          <density>1</density>
+        </density_change>
+      </graded_buoyancy>
+      <enable>tethys</enable>
+      <enable>Buoy</enable>
+    </plugin>
 
     <scene>
-      <ambient>0.45 0.45 0.45 1</ambient>
-      <background>0.3 0.35 0.4 1</background>
       <grid>false</grid>
-      <origin_visual>false</origin_visual>
+      <ambient>1 1 1</ambient>
     </scene>
+
+    <!-- Saint-Guillhem-le-Désert -->
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <world_frame_orientation>ENU</world_frame_orientation>
+      <latitude_deg>43.7344</latitude_deg>
+      <longitude_deg>3.5490</longitude_deg>
+      <elevation>54</elevation>
+      <heading_deg>0</heading_deg>
+    </spherical_coordinates>
+
+    <gui>
+
+      <!-- 3D scene -->
+      <plugin filename="GzScene3D" name="3D View">
+        <ignition-gui>
+          <title>3D View</title>
+          <property type="bool" key="showTitleBar">false</property>
+          <property type="string" key="state">docked</property>
+        </ignition-gui>
+
+        <engine>ogre2</engine>
+        <scene>scene</scene>
+        <ambient_light>1 1 1</ambient_light>
+        <background_color>0.8 0.8 0.8</background_color>
+        <sky></sky>
+        <camera_pose>28.186 14.29 8.28 0 0.3 -2.8</camera_pose>
+      </plugin>
+
+      <!-- Play / pause / step -->
+      <plugin filename="WorldControl" name="World control">
+        <ignition-gui>
+          <title>World control</title>
+          <property type="bool" key="showTitleBar">false</property>
+          <property type="bool" key="resizable">false</property>
+          <property type="double" key="height">72</property>
+          <property type="double" key="width">121</property>
+          <property type="double" key="z">1</property>
+
+          <property type="string" key="state">floating</property>
+          <anchors target="3D View">
+            <line own="left" target="left"/>
+            <line own="bottom" target="bottom"/>
+          </anchors>
+        </ignition-gui>
+
+        <play_pause>true</play_pause>
+        <step>true</step>
+        <start_paused>true</start_paused>
+
+      </plugin>
+
+      <!-- Time / RTF -->
+      <plugin filename="WorldStats" name="World stats">
+        <ignition-gui>
+          <title>World stats</title>
+          <property type="bool" key="showTitleBar">false</property>
+          <property type="bool" key="resizable">false</property>
+          <property type="double" key="height">110</property>
+          <property type="double" key="width">290</property>
+          <property type="double" key="z">1</property>
+
+          <property type="string" key="state">floating</property>
+          <anchors target="3D View">
+            <line own="right" target="right"/>
+            <line own="bottom" target="bottom"/>
+          </anchors>
+        </ignition-gui>
+
+        <sim_time>true</sim_time>
+        <real_time>true</real_time>
+        <real_time_factor>true</real_time_factor>
+        <iterations>true</iterations>
+
+      </plugin>
+
+      <!-- Insert simple shapes -->
+      <plugin filename="Shapes" name="Shapes">
+        <ignition-gui>
+          <property key="resizable" type="bool">false</property>
+          <property key="x" type="double">0</property>
+          <property key="y" type="double">0</property>
+          <property key="width" type="double">250</property>
+          <property key="height" type="double">50</property>
+          <property key="state" type="string">floating</property>
+          <property key="showTitleBar" type="bool">false</property>
+          <property key="cardBackground" type="string">#666666</property>
+        </ignition-gui>
+      </plugin>
+
+      <!-- Insert lights -->
+      <plugin filename="Lights" name="Lights">
+        <ignition-gui>
+          <property key="resizable" type="bool">false</property>
+          <property key="x" type="double">250</property>
+          <property key="y" type="double">0</property>
+          <property key="width" type="double">150</property>
+          <property key="height" type="double">50</property>
+          <property key="state" type="string">floating</property>
+          <property key="showTitleBar" type="bool">false</property>
+          <property key="cardBackground" type="string">#666666</property>
+        </ignition-gui>
+      </plugin>
+
+      <!-- Translate / rotate -->
+      <plugin filename="TransformControl" name="Transform control">
+        <ignition-gui>
+          <property key="resizable" type="bool">false</property>
+          <property key="x" type="double">0</property>
+          <property key="y" type="double">50</property>
+          <property key="width" type="double">250</property>
+          <property key="height" type="double">50</property>
+          <property key="state" type="string">floating</property>
+          <property key="showTitleBar" type="bool">false</property>
+          <property key="cardBackground" type="string">#777777</property>
+        </ignition-gui>
+      </plugin>
+
+      <!-- Screenshot -->
+      <plugin filename="Screenshot" name="Screenshot">
+        <ignition-gui>
+          <property key="resizable" type="bool">false</property>
+          <property key="x" type="double">250</property>
+          <property key="y" type="double">50</property>
+          <property key="width" type="double">50</property>
+          <property key="height" type="double">50</property>
+          <property key="state" type="string">floating</property>
+          <property key="showTitleBar" type="bool">false</property>
+          <property key="cardBackground" type="string">#777777</property>
+        </ignition-gui>
+      </plugin>
+
+      <!-- Entity tree -->
+      <plugin filename="EntityTree" name="Entity tree">
+        <ignition-gui>
+          <property type="string" key="state">docked_collapsed</property>
+        </ignition-gui>
+      </plugin>
+
+      <!-- Inspector -->
+      <plugin filename="ComponentInspector" name="Component inspector">
+        <ignition-gui>
+          <property type="string" key="state">docked_collapsed</property>
+        </ignition-gui>
+      </plugin>
+
+      <plugin filename="Plot3D" name="Plot 3D">
+        <ignition-gui>
+          <property type="string" key="state">docked_collapsed</property>
+        </ignition-gui>
+        <entity_name>Buoy</entity_name>
+        <offset>0 0 2</offset>
+        <color>1 1 1</color>
+        <maximum_points>100</maximum_points>
+        <minimum_distance>0.01</minimum_distance>
+      </plugin>
+
+      <plugin filename="ImageDisplay" name="Image Display">
+        <ignition-gui>
+          <property type="string" key="state">docked_collapsed</property>
+        </ignition-gui>
+        <topic>semantic/colored_map</topic>
+      </plugin>
+
+      <plugin filename="Teleop" name="Teleop">
+        <ignition-gui>
+          <property type="string" key="state">docked_collapsed</property>
+        </ignition-gui>
+      </plugin>
+
+      <plugin filename="JointPositionController" name="Joint Position Controller">
+        <ignition-gui>
+          <property type="string" key="state">docked_collapsed</property>
+        </ignition-gui>
+      </plugin>
+    </gui>
 
     <light type="directional" name="sun">
       <cast_shadows>true</cast_shadows>
-      <pose>0 0 35 -0.7 0.3 0</pose>
-      <diffuse>0.85 0.85 0.9 1</diffuse>
-      <specular>0.1 0.1 0.1 1</specular>
-      <intensity>1.3</intensity>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>0.0 0.5 -0.9</direction>
     </light>
 
-    <physics name="default_phys" type="ignored">
-      <max_step_size>0.001</max_step_size>
-      <real_time_factor>1.0</real_time_factor>
-    </physics>
-    <plugin filename="gz-sim-physics-system"
-            name="gz::sim::systems::Physics"/>
-    <plugin filename="gz-sim-sensors-system"
-            name="gz::sim::systems::Sensors">
-      <render_engine>ogre2</render_engine>
-    </plugin>
-    <plugin filename="gz-sim-user-commands-system"
-            name="gz::sim::systems::UserCommands"/>
-    <plugin filename="gz-sim-scene-broadcaster-system"
-            name="gz::sim::systems::SceneBroadcaster"/>
-
-    <!-- Solid ground -->
-    <model name="ground">
-      <static>true</static>
-      <pose>0 0 -0.5 0 0 0</pose>
-      <link name="link">
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>220 220 1</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <box>
-              <size>220 220 1</size>
-            </box>
-          </geometry>
-          <material>
-            <diffuse>0.35 0.4 0.32 1</diffuse>
-            <specular>0.05 0.05 0.05 1</specular>
-          </material>
-        </visual>
-      </link>
-    </model>
-
-    <!-- Water patch (visual + collision at same height as ground) -->
-    <model name="lake_patch">
-      <static>true</static>
-      <pose>0 40 0 0 0 0</pose>
-      <link name="link">
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>120 80 0.1</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <box>
-              <size>120 80 0.1</size>
-            </box>
-          </geometry>
-          <material>
-            <diffuse>0.0 0.25 0.45 0.8</diffuse>
-            <specular>0.1 0.1 0.15 1</specular>
-          </material>
-        </visual>
-      </link>
-    </model>
-
-    <!-- Simple shore buildings and trees -->
-    <model name="shore_building_1">
-      <static>true</static>
-      <pose>-30 10 8 0 0 0.2</pose>
-      <link name="link">
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>18 26 16</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <box>
-              <size>18 26 16</size>
-            </box>
-          </geometry>
-          <material>
-            <diffuse>0.6 0.65 0.7 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
-
-    <model name="shore_building_2">
-      <static>true</static>
-      <pose>30 5 10 0 0 -0.1</pose>
-      <link name="link">
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>16 24 20</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <box>
-              <size>16 24 20</size>
-            </box>
-          </geometry>
-          <material>
-            <diffuse>0.55 0.6 0.65 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
-
-    <!-- A small pier going into the lake -->
-    <model name="pier">
-      <static>true</static>
-      <pose>0 20 0.2 0 0 0</pose>
-      <link name="link">
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>10 30 0.4</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <box>
-              <size>10 30 0.4</size>
-            </box>
-          </geometry>
-          <material>
-            <diffuse>0.4 0.3 0.2 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
-
-    <!-- X3 drone with stereo camera, over the pier near the shore -->
     <include>
-      <name>x3_stereo</name>
-      <pose>0 10 3 0 0 0.0</pose>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/OpenRobotics/models/Fortress island
+      </uri>
+    </include>
+
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/OpenRobotics/models/Fortress heightmap
+      </uri>
+    </include>
+
+    <!-- X3 stereo multicopter -->
+    <include>
       <uri>model://x3_stereo</uri>
+      <pose>3 0 0.2 0 0.2 3.14159</pose>
+
+      <!-- Drone startup script -->
+      <plugin filename="gz-sim8-triggered-publisher-system" name="gz::sim::systems::TriggeredPublisher">
+        <input type="gz.msgs.StringMsg" topic="/trigger_enable">
+          <match field="data">enable_drone</match>
+        </input>
+        <output type="gz.msgs.Boolean" topic="X3/enable">
+          data: true
+        </output>
+      </plugin>
+
+      <!-- Velocity controller plugin -->
+      <plugin filename="gz-sim8-multicopter-control-system" name="gz::sim::systems::MulticopterVelocityControl">
+        <robotNamespace>X3</robotNamespace>
+        <commandSubTopic>cmd_vel</commandSubTopic>
+        <enableSubTopic>enable</enableSubTopic>
+        <comLinkName>X3/base_link</comLinkName>
+        <velocityGain>4.0 4.0 4.0</velocityGain>
+        <attitudeGain>8.0 8.0 3.0</attitudeGain>
+        <angularRateGain>4.0 4.0 4.0</angularRateGain>
+        <maximumLinearAcceleration>4.0 4.0 4.0</maximumLinearAcceleration>
+        <actuatorsTopic>command/motor_speed</actuatorsTopic>
+        <rotorConfiguration>
+          <rotor>
+            <jointName>X3/rotor_0_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_1_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>-1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_2_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_3_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>-1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_4_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>-1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_5_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_6_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>-1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_7_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>1</direction>
+          </rotor>
+        </rotorConfiguration>
+      </plugin>
+
+      <!-- Motor plugins -->
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_0_joint</jointName>
+        <linkName>X3/rotor_0</linkName>
+        <turningDirection>ccw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>0</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/0</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_4_joint</jointName>
+        <linkName>X3/rotor_4</linkName>
+        <turningDirection>cw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>4</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/4</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_5_joint</jointName>
+        <linkName>X3/rotor_5</linkName>
+        <turningDirection>ccw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>5</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/5</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_6_joint</jointName>
+        <linkName>X3/rotor_6</linkName>
+        <turningDirection>cw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>6</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/6</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_7_joint</jointName>
+        <linkName>X3/rotor_7</linkName>
+        <turningDirection>ccw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>7</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/7</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_1_joint</jointName>
+        <linkName>X3/rotor_1</linkName>
+        <turningDirection>cw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>1</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/1</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_2_joint</jointName>
+        <linkName>X3/rotor_2</linkName>
+        <turningDirection>ccw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>2</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/2</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_3_joint</jointName>
+        <linkName>X3/rotor_3</linkName>
+        <turningDirection>cw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>3</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/3</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+    </include>
+
+    <model name="sdf_pose_examples">
+      <!-- partial angle unstable box and sphere -->
+      <model name="partial_angle_box">
+        <static>true</static>
+        <pose>11.57 -12.19 2.85   0 -3.141 0</pose>
+        <link name="link">
+          <visual name="visual">
+            <material>
+              <ambient>0.87 0.07 0.07 1</ambient>
+              <diffuse>0.87 0.07 0.07 1</diffuse>
+              <specular>0.87 0.07 0.07 1</specular>
+            </material>
+            <geometry>
+              <box>
+                <size>0.5 0.5 0.5</size>
+              </box>
+            </geometry>
+          </visual>
+          <collision name="collision">
+            <geometry>
+              <box>
+                <size>0.5 0.5 0.5</size>
+              </box>
+            </geometry>
+          </collision>
+        </link>
+      </model>
+      <model name="sphere_on_partial_angle_box">
+        <static>false</static>
+        <pose>11.57 -12.19 3.36   0 0 0</pose>
+        <link name="link">
+          <collision name="collision">
+            <geometry>
+              <sphere>
+                <radius>0.25</radius>
+              </sphere>
+            </geometry>
+          </collision>
+          <visual name="sphere_vis">
+            <material>
+              <ambient>0.5 0.5 0.5 1</ambient>
+              <diffuse>0.5 0.5 0.5 1</diffuse>
+              <specular>0.8 0.8 0.8 1</specular>
+            </material>
+            <geometry>
+              <sphere>
+                <radius>0.25</radius>
+              </sphere>
+            </geometry>
+          </visual>
+        </link>
+      </model>
+
+      <!-- degrees stable box and sphere -->
+      <model name="degrees_box">
+        <static>true</static>
+        <pose degrees="true">11.57 -11.49 2.85   0 -180 0</pose>
+        <link name="link">
+          <visual name="visual">
+            <material>
+              <ambient>0.07 0.87 0.07 1</ambient>
+              <diffuse>0.07 0.87 0.07 1</diffuse>
+              <specular>0.07 0.87 0.07 1</specular>
+            </material>
+            <geometry>
+              <box>
+                <size>0.5 0.5 0.5</size>
+              </box>
+            </geometry>
+          </visual>
+          <collision name="collision">
+            <geometry>
+              <box>
+                <size>0.5 0.5 0.5</size>
+              </box>
+            </geometry>
+            <surface>
+              <friction>
+                <ode>
+                  <mu>.1</mu>
+                  <mu2>.1</mu2>
+                </ode>
+              </friction>
+            </surface>
+          </collision>
+        </link>
+      </model>
+      <model name="sphere_on_degrees_box">
+        <static>false</static>
+        <pose>11.57 -11.49 3.36   0 0 0</pose>
+        <link name="link">
+          <collision name="collision">
+            <geometry>
+              <sphere>
+                <radius>0.25</radius>
+              </sphere>
+            </geometry>
+          </collision>
+          <visual name="sphere_vis">
+            <material>
+              <ambient>0.5 0.5 0.5 1</ambient>
+              <diffuse>0.5 0.5 0.5 1</diffuse>
+              <specular>0.8 0.8 0.8 1</specular>
+            </material>
+            <geometry>
+              <sphere>
+                <radius>0.25</radius>
+              </sphere>
+            </geometry>
+          </visual>
+        </link>
+      </model>
+    </model>
+
+    <!--Merge-include demo-->
+    <model name="robot_arm_with_gripper">
+      <pose>4 -9.5 3.38   0 0 0</pose>
+      <include>
+        <uri>
+          https://fuel.ignitionrobotics.org/1.0/OpenRobotics/models/Panda arm - Fortress merge include demo
+        </uri>
+        <name>arm</name>
+      </include>
+      <joint name="fix_to_world" type="fixed">
+        <parent>world</parent>
+        <child>arm</child>
+      </joint>
+      <joint name="attach_gripper" type="fixed">
+        <parent>arm::gripper_mount</parent>
+        <child>gripper</child>
+      </joint>
+      <include>
+        <uri>
+          https://fuel.ignitionrobotics.org/1.0/OpenRobotics/models/Panda hand - Fortress merge include demo
+        </uri>
+        <name>gripper</name>
+        <placement_frame>mount_point</placement_frame>
+        <pose relative_to="arm::gripper_mount"/>
+      </include>
+    </model>
+
+    <model name="robot_arm_with_gripper_merged">
+      <pose>0.917345 -9.5 3.38   0 0 0</pose>
+      <include merge="true">
+        <uri>
+          https://fuel.ignitionrobotics.org/1.0/OpenRobotics/models/Panda arm - Fortress merge include demo
+        </uri>
+        <name>test_arm</name>
+      </include>
+      <joint name="fix_to_world" type="fixed">
+        <parent>world</parent>
+        <child>panda_link0</child>
+      </joint>
+      <joint name="attach_gripper" type="fixed">
+        <parent>gripper_mount</parent>
+        <child>mount_point</child>
+      </joint>
+      <include merge="true">
+        <uri>
+          https://fuel.ignitionrobotics.org/1.0/OpenRobotics/models/Panda hand - Fortress merge include demo
+        </uri>
+        <name>gripper</name>
+        <placement_frame>mount_point</placement_frame>
+        <pose relative_to="gripper_mount" />
+      </include>
+    </model>
+    <!--End merge-include demo-->
+
+    <model name="Buoy">
+        <pose degrees="true">
+          19 11 -1.45   5 5 90
+        </pose>
+        <link name="base_link">
+            <inertial>
+               <pose>
+                 0 0 0.15  0 0 0
+               </pose>
+              <mass>200</mass>
+              <inertia>
+                <ixx>33.33</ixx>
+                <ixy>0</ixy>
+                <ixz>0</ixz>
+                <iyy>33.33</iyy>
+                <iyz>0</iyz>
+                <izz>33.33</izz>
+              </inertia>
+            </inertial>
+            <collision name="collision">
+               <pose>
+                 0 0 0.15  0 0 0
+               </pose>
+                <geometry>
+                  <box><size>1 1 1</size></box>
+                </geometry>
+            </collision>
+            <visual name="Purple">
+                <geometry>
+                    <mesh>
+                        <uri>https://fuel.ignitionrobotics.org/1.0/cole/models/fortress statue/2/files/meshes/fortressstatue.dae</uri>
+                        <submesh>
+                            <name>Purple</name>
+                            <center>false</center>
+                        </submesh>
+                    </mesh>
+                </geometry>
+                <material>
+                    <diffuse>1.0 1.0 1.0</diffuse>
+                    <specular>1.0 1.0 1.0</specular>
+                    <pbr>
+                        <metal>
+                            <albedo_map>https://fuel.ignitionrobotics.org/1.0/cole/models/fortress statue/2/files/materials/textures/Purple.png</albedo_map>
+                            <roughness>0.4</roughness>
+                            <metalness>0</metalness>
+                        </metal>
+                    </pbr>
+                </material>
+            </visual>
+            <visual name="White">
+                <geometry>
+                    <mesh>
+                        <uri>https://fuel.ignitionrobotics.org/1.0/cole/models/fortress statue/2/files/meshes/fortressstatue.dae</uri>
+                        <submesh>
+                            <name>White</name>
+                            <center>false</center>
+                        </submesh>
+                    </mesh>
+                </geometry>
+                <material>
+                    <diffuse>1.0 1.0 1.0</diffuse>
+                    <specular>1.0 1.0 1.0</specular>
+                    <pbr>
+                        <metal>
+                            <albedo_map>https://fuel.ignitionrobotics.org/1.0/cole/models/fortress statue/2/files/materials/textures/White.png</albedo_map>
+                            <roughness>0.4</roughness>
+                            <metalness>0</metalness>
+                        </metal>
+                    </pbr>
+                </material>
+            </visual>
+            <visual name="Black">
+                <geometry>
+                    <mesh>
+                        <uri>https://fuel.ignitionrobotics.org/1.0/cole/models/fortress statue/2/files/meshes/fortressstatue.dae</uri>
+                        <submesh>
+                            <name>Black</name>
+                            <center>false</center>
+                        </submesh>
+                    </mesh>
+                </geometry>
+                <material>
+                    <diffuse>1.0 1.0 1.0</diffuse>
+                    <specular>1.0 1.0 1.0</specular>
+                    <pbr>
+                        <metal>
+                            <albedo_map>https://fuel.ignitionrobotics.org/1.0/cole/models/fortress statue/2/files/materials/textures/Black.png</albedo_map>
+                            <roughness>0.4</roughness>
+                            <metalness>0</metalness>
+                        </metal>
+                    </pbr>
+                </material>
+            </visual>
+        </link>
+    </model>
+
+    <include>
+      <name>CleanerBot</name>
+      <pose degrees="true" rotation_format="euler_rpy">
+        4.92 4.89 0.02   0 -1.15 78.5
+      </pose>
+      <uri>https://fuel.ignitionrobotics.org/1.0/OpenRobotics/models/CleanerBot1</uri>
+
+      <plugin
+        filename="ignition-gazebo-diff-drive-system"
+        name="ignition::gazebo::systems::DiffDrive">
+        <topic>/cmd_vel</topic>
+        <left_joint>joint_tire_left</left_joint>
+        <right_joint>joint_tire_right</right_joint>
+        <wheel_separation>0.46</wheel_separation>
+        <wheel_radius>0.1</wheel_radius>
+        <odom_publish_frequency>1</odom_publish_frequency>
+      </plugin>
+
+      <experimental:params>
+        <sensor element_id="body" name="segmentation_sensor" type="segmentation" action="add">
+          <pose>.5 0 1.4 0 0 0</pose>
+          <topic>semantic</topic>
+          <camera>
+            <segmentation_type>semantic</segmentation_type>
+            <horizontal_fov>1.57</horizontal_fov>
+            <image>
+              <width>800</width>
+              <height>600</height>
+            </image>
+            <clip>
+              <near>0.1</near>
+              <far>100</far>
+            </clip>
+          </camera>
+          <always_on>1</always_on>
+          <update_rate>30</update_rate>
+          <visualize>true</visualize>
+        </sensor>
+      </experimental:params>
+    </include>
+
+    <include>
+      <name>tethys</name>
+      <pose degrees="false" rotation_format="quat_xyzw">
+        10 20 -1.7
+        0 0 0 1
+      </pose>
+      <uri>https://fuel.ignitionrobotics.org/1.0/accurrent/models/MBARI Tethys LRAUV</uri>
+
+      <!-- Joint controllers -->
+      <plugin
+        filename="ignition-gazebo-joint-position-controller-system"
+        name="ignition::gazebo::systems::JointPositionController">
+        <joint_name>horizontal_fins_joint</joint_name>
+        <p_gain>0.1</p_gain>
+      </plugin>
+
+      <plugin
+        filename="ignition-gazebo-joint-position-controller-system"
+        name="ignition::gazebo::systems::JointPositionController">
+        <joint_name>vertical_fins_joint</joint_name>
+        <p_gain>0.1</p_gain>
+      </plugin>
+
+      <plugin
+        filename="ignition-gazebo-thruster-system"
+        name="ignition::gazebo::systems::Thruster">
+        <namespace>tethys</namespace>
+        <joint_name>propeller_joint</joint_name>
+        <thrust_coefficient>0.004422</thrust_coefficient>
+        <fluid_density>1000</fluid_density>
+        <propeller_diameter>0.2</propeller_diameter>
+      </plugin>
+
+      <!-- Lift and drag -->
+
+      <!-- Vertical fin -->
+      <plugin
+        filename="ignition-gazebo-lift-drag-system"
+        name="ignition::gazebo::systems::LiftDrag">
+        <air_density>1000</air_density>
+        <cla>4.13</cla>
+        <cla_stall>-1.1</cla_stall>
+        <cda>0.2</cda>
+        <cda_stall>0.03</cda_stall>
+        <alpha_stall>0.17</alpha_stall>
+        <a0>0</a0>
+        <area>0.0244</area>
+        <upward>0 1 0</upward>
+        <forward>1 0 0</forward>
+        <link_name>vertical_fins</link_name>
+        <cp>0 0 0</cp>
+      </plugin>
+
+      <!-- Horizontal fin -->
+      <plugin
+        filename="ignition-gazebo-lift-drag-system"
+        name="ignition::gazebo::systems::LiftDrag">
+        <air_density>1000</air_density>
+        <cla>4.13</cla>
+        <cla_stall>-1.1</cla_stall>
+        <cda>0.2</cda>
+        <cda_stall>0.03</cda_stall>
+        <alpha_stall>0.17</alpha_stall>
+        <a0>0</a0>
+        <area>0.0244</area>
+        <upward>0 0 1</upward>
+        <forward>1 0 0</forward>
+        <link_name>horizontal_fins</link_name>
+        <cp>0 0 0</cp>
+      </plugin>
+
+      <plugin
+        filename="ignition-gazebo-hydrodynamics-system"
+        name="ignition::gazebo::systems::Hydrodynamics">
+        <link_name>base_link</link_name>
+        <xDotU>-4.876161</xDotU>
+        <yDotV>-126.324739</yDotV>
+        <zDotW>-126.324739</zDotW>
+        <kDotP>0</kDotP>
+        <mDotQ>-33.46</mDotQ>
+        <nDotR>-33.46</nDotR>
+        <xUU>-6.2282</xUU>
+        <xU>0</xU>
+        <yVV>-601.27</yVV>
+        <yV>0</yV>
+        <zWW>-601.27</zWW>
+        <zW>0</zW>
+        <kPP>-0.1916</kPP>
+        <kP>0</kP>
+        <mQQ>-632.698957</mQQ>
+        <mQ>0</mQ>
+        <nRR>-632.698957</nRR>
+        <nR>0</nR>
+      </plugin>
+
+      <plugin
+        filename="libignition-gazebo-buoyancy-engine-system.so"
+        name="ignition::gazebo::systems::BuoyancyEngine">
+        <link_name>base_link</link_name>
+        <namespace>tethys</namespace>
+        <min_volume>0.0</min_volume>
+        <neutral_volume>0.002</neutral_volume>
+        <default_volume>0.002</default_volume>
+        <max_volume>0.003</max_volume>
+        <max_inflation_rate>0.0003</max_inflation_rate>
+      </plugin>
+
+    </include>
+
+    <!-- param passing demo -->
+    <include>
+      <name>x1_original</name>
+      <pose degrees="true">10.508200 -5.624940 2.832280 0 0 180</pose>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/OpenRobotics/models/X1 UGV - Fortress param demo
+      </uri>
+    </include>
+
+    <include>
+      <name>x1_modified</name>
+      <pose degrees="true">10.508200 -3.955190 2.832280 0 0 180</pose>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/OpenRobotics/models/X1 UGV - Fortress param demo
+      </uri>
+
+      <experimental:params>
+
+        <!-- replace -->
+        <visual element_id="base::base_visual">
+          <geometry action="replace">
+            <mesh>
+              <uri>
+                https://fuel.ignitionrobotics.org/1.0/OpenRobotics/models/X1 UGV - Fortress param demo/1/files/meshes/green_chassis.dae
+              </uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <visual element_id="base::top_plate_visual">
+          <geometry action="replace">
+            <mesh>
+              <uri>
+                https://fuel.ignitionrobotics.org/1.0/OpenRobotics/models/X1 UGV - Fortress param demo/1/files/meshes/top_plate_fortress_logo.dae
+              </uri>
+            </mesh>
+          </geometry>
+        </visual>
+
+        <!-- remove -->
+        <visual element_id="base::right_headlight_visual" action="remove"/>
+        <light element_id="base::right_light_source" action="remove"/>
+        <visual element_id="base::left_headlight_visual" action="remove"/>
+        <light element_id="base::left_light_source" action="remove"/>
+        <visual element_id="base::center_left_headlight_visual" action="remove"/>
+        <light element_id="base::center_left_light" action="remove"/>
+
+        <!-- modify -->
+        <visual element_id="base::center_right_headlight_visual"
+                action="modify" name="center_headlight_visual">
+          <pose>0.461459 0 0.124431 0 0 -3.14159</pose>
+        </visual>
+        <light element_id="base::center_right_light"
+               action="modify" name="center_light">
+          <pose>0.538 0 0.180 3.14159 1.56859 0</pose>
+          <diffuse>0 0 1 1</diffuse>
+          <attenuation>
+            <range>5</range>
+          </attenuation>
+        </light>
+
+        <!-- add -->
+        <model name="camera_model" element_id="" action="add">
+          <link name="camera_link">
+            <pose>0.4 0 0.3 0 0 0</pose>
+            <inertial>
+              <mass>0.1</mass>
+              <inertia>
+                <ixx>0.000166667</ixx>
+                <iyy>0.000166667</iyy>
+                <izz>0.000166667</izz>
+              </inertia>
+            </inertial>
+            <collision name="camera_collision">
+              <geometry>
+                <box>
+                  <size>0.1 0.1 0.1</size>
+                </box>
+              </geometry>
+            </collision>
+            <visual name="camera_visual">
+              <geometry>
+                <box>
+                  <size>0.1 0.1 0.1</size>
+                </box>
+              </geometry>
+            </visual>
+            <sensor name="camera" type="camera">
+              <camera>
+                <horizontal_fov>1.047</horizontal_fov>
+                <image>
+                  <width>320</width>
+                  <height>240</height>
+                </image>
+                <clip>
+                  <near>0.1</near>
+                  <far>100</far>
+                </clip>
+              </camera>
+              <always_on>1</always_on>
+              <update_rate>30</update_rate>
+              <visualize>true</visualize>
+              <topic>camera</topic>
+            </sensor>
+          </link>
+        </model>
+      </experimental:params>
     </include>
 
   </world>
