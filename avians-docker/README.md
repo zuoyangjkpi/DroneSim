@@ -1,66 +1,66 @@
-# AVIANS ROS2 Docker环境
+# AVIANS ROS2 Docker Environment
 
-这个Docker环境包含了完整的AVIANS ROS2 PORT1项目环境，包括：
+This Docker setup ships with the complete AVIANS ROS2 PORT1 workspace, including:
 
-- Ubuntu 24.04基础镜像
-- ROS2 Jazzy完整桌面版
-- Conda环境（airship_ros2）
-- 所有项目依赖和包
-- 自动构建的ROS2工作空间
+- Ubuntu 24.04 base image
+- Full ROS2 Jazzy desktop install
+- `airship_ros2` conda environment
+- All project dependencies and packages
+- Pre-built ROS2 workspace
 
-## 快速开始
+## Quick Start
 
-### 1. 构建Docker镜像
+### 1. Build the image
 
 ```bash
 cd ~/avians-docker
 ./build.sh
 ```
 
-### 2. 启动容器
+### 2. Start the container
 
 ```bash
 ./run.sh
 ```
 
-### 3. 进入容器
+### 3. Enter the container
 
 ```bash
 ./shell.sh
 ```
 
-### 4. 停止容器
+### 4. Stop the container
 
 ```bash
 ./stop.sh
 ```
 
-## 目录结构
+## Directory Layout
 
 ```
 ~/avians-docker/
-├── Dockerfile              # Docker镜像定义
-├── docker-compose.yml      # Docker Compose配置
-├── airship_ros2_env.yml     # Conda环境配置
-├── build.sh                # 构建脚本
-├── run.sh                  # 运行脚本
-├── shell.sh                # 进入容器脚本
-├── stop.sh                 # 停止脚本
-├── shared/                 # 容器与宿主机共享目录
-└── README.md               # 说明文档
+├── Dockerfile              # Docker image definition
+├── docker-compose.yml      # Docker Compose config
+├── airship_ros2_env.yml    # Conda environment spec
+├── build.sh                # Build script
+├── run.sh                  # Launch script
+├── shell.sh                # Attach script
+├── stop.sh                 # Stop script
+├── shared/                 # Shared host/container folder
+└── README.md               # This document
 ```
 
-## 容器环境说明
+## Container Environment
 
-- **用户**: aviansuser（非root用户）
-- **工作目录**: `/home/aviansuser/AVIANS_ROS2_PORT1`
-- **Conda环境**: airship_ros2（自动激活）
-- **ROS2版本**: Jazzy
-- **网络模式**: host（与宿主机共享网络）
+- **User**: `aviansuser` (non-root, passwordless sudo)
+- **Workspace**: `/home/aviansuser/AVIANS_ROS2_PORT1`
+- **Conda env**: `airship_ros2` (auto-activated)
+- **ROS2**: Jazzy
+- **Network mode**: host (shares the host network)
 
-## 环境变量
+## Environment Setup
 
-容器中已自动设置以下环境：
+The container automatically runs:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
@@ -68,62 +68,62 @@ source /home/aviansuser/AVIANS_ROS2_PORT1/install/setup.bash
 conda activate airship_ros2
 ```
 
-## 使用说明
+## Usage Notes
 
-### 进入容器后可直接使用：
+### Once inside the container
 
 ```bash
-# 查看可用的ROS2包
+# List project ROS2 packages
 ros2 pkg list | grep -E "(neural_network|uav_msgs|pose_cov|projection|target_tracker)"
 
-# 运行测试
+# Run tests
 cd /home/aviansuser/AVIANS_ROS2_PORT1
 ./test_avians.sh
 
-# 启动节点示例
+# Launch a detector node
 ros2 run neural_network_detector yolo12_detector_node
 ```
 
-### 开发模式
+### Development workflow
 
-`shared/` 目录可用于在宿主机和容器间共享文件，适合开发调试。
+Use the `shared/` directory to exchange files between the host and container during development.
 
-### 数据持久化
+### Data persistence
 
-工作空间和conda环境使用Docker卷进行持久化存储，容器删除后数据不会丢失。
+The workspace and conda environment live in Docker volumes, so data survives container removal.
 
-## 故障排除
+## Troubleshooting
 
-### GUI应用显示问题
+### GUI apps fail to display
 
-如果遇到图形界面无法显示，确保运行了：
+Allow X11 forwarding:
 
 ```bash
 xhost +local:docker
 ```
 
-### 权限问题
+### Permission issues
 
-容器内用户为aviansuser，拥有sudo权限，密码为空。
+Commands run as `aviansuser`, who has passwordless sudo inside the container.
 
-### 网络问题
+### Network conflicts
 
-容器使用host网络模式，与宿主机共享网络。如有冲突可修改docker-compose.yml。
+The container uses host networking. Adjust `docker-compose.yml` if you need a different networking mode.
 
-## 自定义配置
+## Customization
 
-可根据需要修改：
+Feel free to tweak:
 
-- `Dockerfile`: 调整基础环境和依赖
-- `docker-compose.yml`: 修改端口、卷挂载等配置
-- `airship_ros2_env.yml`: 更新conda环境
+- `Dockerfile`: base image, dependencies, entrypoint
+- `docker-compose.yml`: ports, volumes, runtime options
+- `airship_ros2_env.yml`: Python dependencies
 
-## 在新电脑上使用
+## Moving to a New Machine
 
-1. 复制整个 `avians-docker` 文件夹到新电脑
-2. 确保新电脑已安装Docker和Docker Compose
-3. 运行 `./build.sh` 构建镜像
-4. 运行 `./run.sh` 启动容器
-5. 运行 `./shell.sh` 进入容器开始使用
+1. Copy the entire `avians-docker` folder to the new system.
+2. Install Docker and Docker Compose.
+3. Run `./build.sh` to build the image.
+4. Run `./run.sh` to start the container.
+5. Run `./shell.sh` to begin working.
 
-项目就可以在新电脑上正常运行了！
+You're ready to use AVIANS ROS2 on the new computer!

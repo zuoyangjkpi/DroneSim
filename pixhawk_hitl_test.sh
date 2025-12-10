@@ -2,8 +2,8 @@
 
 # AVIANS Pixhawk Hardware-in-the-Loop (HITL) Test Suite
 # =========================================================
-# 此脚本用于Pixhawk 6X硬件在环测试
-# 所有低级控制器运行在PX4固件上，ROS2只负责高级任务
+# This script drives the Pixhawk 6X hardware-in-the-loop test
+# All low-level controllers stay on PX4 firmware; ROS2 handles high-level logic
 
 echo "🚁 AVIANS Pixhawk HITL Test Suite"
 echo "===================================="
@@ -325,12 +325,12 @@ pixhawk_hitl_full_test() {
     # Step 13: Enable drone and tracking
     print_status $YELLOW "Step 13/13: Enabling drone control and tracking..."
 
-    # 启用无人机控制（发送到PX4）
-    print_status $YELLOW "  - 启用无人机控制（PX4）..."
+    # Enable drone control (forwarded to PX4)
+    print_status $YELLOW "  - Enabling drone control (PX4)..."
     ros2 topic pub -r 1 /X3/enable std_msgs/msg/Bool "data: true" > /dev/null 2>&1 &
 
-    # 启用NMPC跟踪
-    print_status $YELLOW "  - 启用NMPC跟踪..."
+    # Enable NMPC tracking
+    print_status $YELLOW "  - Enabling NMPC tracking..."
     ros2 topic pub -r 1 /nmpc/enable std_msgs/msg/Bool "data: true" > /dev/null 2>&1 &
 
     sleep 5

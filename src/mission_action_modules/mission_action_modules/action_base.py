@@ -282,15 +282,15 @@ class ActionModule:
         if not self._active:
             return
         self.context.node.get_logger().info(f"[{self.name}] canceled - immediately stopping all timers")
-        # 立即停止定时器，防止旧模块继续发布指令
+        # Stop timers right away so the old module cannot keep publishing
         self.stop_timers()
-        # ❌ 不要在这里禁用控制器！
-        # ✅ 让新模块启动时重新enable，避免切换时的控制真空
-        # 原因：
-        # 1. Timer已停止，旧模块不会再发布新指令
-        # 2. 控制器保持enabled，维持最后的目标（避免失控）
-        # 3. 新模块启动时的enable会覆盖这个状态
-        # 调用子类的清理逻辑
+        # ❌ Do NOT disable controllers here!
+        # ✅ Allow the new module to re-enable them to avoid gaps in control
+        # Why:
+        # 1. Timers are stopped so the old module will not publish new commands
+        # 2. Controllers stay enabled and hold the last target (prevents instability)
+        # 3. The next module's enable sequence will override the state anyway
+        # Invoke subclass-specific cleanup
         self.on_cancel()
         self._set_result(ActionOutcome.CANCELED, "canceled by request")
 
@@ -328,9 +328,9 @@ class ActionModule:
         if self._handle and not self._handle.future.done():
             result = ActionResult(outcome=outcome, message=message, data=data or {})
             self._handle.future.set_result(result)
-        # ❌ 移除：不要在正常结束时禁用控制器
-        # ✅ 只在被cancel时禁用（见cancel()方法）
-        # 这样可以避免TAKEOFF完成后立即禁用控制器导致无人机下降的问题
+        # ❌ Do not disable controllers when the module finishes normally
+        # ✅ Only disable them from cancel() if needed
+        # This avoids the drone losing thrust right after TAKEOFF succeeds
         self.stop_timers()
         self._active = False
         self._goal = None

@@ -1,23 +1,23 @@
 #!/bin/bash
 
 echo "=========================================="
-echo "启动AVIANS ROS2 Docker容器"
+echo "Starting the AVIANS ROS2 Docker container"
 echo "=========================================="
 
-# 确保X11转发权限
+# Allow X11 forwarding
 xhost +local:docker
 
-# 创建shared目录
+# Ensure shared dir exists
 mkdir -p ./shared
 
-# 启动容器
+# Start the container
 docker-compose up -d
 
-echo "容器已启动！"
+echo "Container started!"
 echo ""
-echo "使用以下命令进入容器："
+echo "Use the following command to enter the container:"
 echo "docker exec -it avians-ros2-container /bin/bash"
 echo ""
-echo "或者使用："
+echo "Or simply run:"
 echo "./shell.sh"
 echo "=========================================="

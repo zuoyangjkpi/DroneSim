@@ -27,10 +27,10 @@ include_directories(third_party/YOLOs-CPP/onnxruntime-linux-x64-1.20.1/include) 
 # set(ONNXRUNTIME_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/third_party/YOLOs-CPP/onnxruntime-linux-x64-1.20.1")
 # set(ONNXRUNTIME_LIB "${ONNXRUNTIME_ROOT}/lib/libonnxruntime.so.1.20.1")
 
-# third_party 根目录
+# third_party root directory
 set(THIRD_PARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/YOLOs-CPP")
 
-# 指向我们刚才创建的软链接 onnxruntime -> onnxruntime-linux-x64-gpu-1.22.0
+# Point to the symlink we created: onnxruntime -> onnxruntime-linux-x64-gpu-1.22.0
 set(ONNXRUNTIME_ROOT "${THIRD_PARTY_DIR}/onnxruntime")
 set(ONNXRUNTIME_INCLUDE_DIR "${ONNXRUNTIME_ROOT}/include")
 
@@ -42,11 +42,11 @@ find_library(ONNXRUNTIME_LIB
 
 target_include_directories(neural_network_detector_node PRIVATE ${ONNXRUNTIME_INCLUDE_DIR} include)
 target_link_libraries(neural_network_detector_node PRIVATE ${ONNXRUNTIME_LIB})
-ament_target_dependencies(neural_network_detector_node rclcpp)  # 按需补依赖
+ament_target_dependencies(neural_network_detector_node rclcpp)  # Add dependencies as needed
 install(TARGETS neural_network_detector_node DESTINATION lib/${PROJECT_NAME})
 
 
-# 关键：让运行时能找到 CUDA/TRT provider 动态库
+# Critical: allow the runtime to find the CUDA/TRT provider shared libs
 set_target_properties(${PROJECT_NAME} PROPERTIES
   BUILD_RPATH   "${ONNXRUNTIME_ROOT}/lib"
   INSTALL_RPATH "${ONNXRUNTIME_ROOT}/lib")

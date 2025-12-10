@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "进入AVIANS ROS2容器..."
+echo "Entering the AVIANS ROS2 container..."
 
-# 进入已运行的容器
+# Attach to the running container
 docker exec -it avians-ros2-container /bin/bash

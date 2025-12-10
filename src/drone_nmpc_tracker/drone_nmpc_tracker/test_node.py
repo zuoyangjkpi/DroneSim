@@ -189,7 +189,7 @@ class NMPCTestNode(Node):
         # Implementation for TF publishing
         pass
     
-    # 注释掉图像发布函数，避免与Gazebo的图像话题冲突
+    # Commented out to avoid clashing with Gazebo's camera topics
     # def publish_image(self):
     #     """Publish simulated camera image"""
     #     # Create a simple test image

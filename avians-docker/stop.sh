@@ -1,8 +1,8 @@
 #!/bin/bash
 
-echo "停止AVIANS ROS2容器..."
+echo "Stopping AVIANS ROS2 container..."
 
-# 停止并移除容器
+# Stop and remove the container
 docker-compose down
 
-echo "容器已停止！"
+echo "Container stopped!"

@@ -176,7 +176,7 @@ class WaypointTestOrchestrator(Node):
             else:
                 self.get_logger().info(f"FlyToTarget complete: {result.message} | Entering continuous tracking")
             self._fly_handle = None
-            # 进入complete阶段，持续发布目标点
+            # Enter the \"complete\" stage and keep publishing the target waypoint
             self._stage = "complete"
         else:
             self._fail_sequence(f"FlyToTarget {result.outcome}: {result.message}")
@@ -206,12 +206,12 @@ class WaypointTestOrchestrator(Node):
 
         result = self._hover_handle.result()
         if result.outcome == ActionOutcome.SUCCEEDED:
-            # hover_duration=-1时不应该到这里，但如果到了就记录
+            # We should not reach here when hover_duration == -1, but log it just in case
             self.get_logger().info(
                 f"Hover complete unexpectedly: {result.message} | hover_duration={self.hover_duration}"
             )
             self._hover_handle = None
-            # 重新启动hover以继续测试
+            # Restart hover so the long-running test continues
             self._stage = "hover"
         else:
             self._fail_sequence(f"Hover {result.outcome}: {result.message}")
@@ -232,18 +232,18 @@ class WaypointTestOrchestrator(Node):
         )
 
     def _run_continuous_tracking(self) -> None:
-        """持续发布目标路径点和yaw，用于长期控制器测试"""
+        """Continuously publish target waypoints and yaw for long controller tests"""
         if self._target_point is None:
             return
 
-        # 每秒发布一次目标点以保持控制器活跃
+        # Publish once per second to keep the controller active
         current_time = self.get_clock().now().nanoseconds / 1e9
         if not hasattr(self, '_last_publish_time'):
             self._last_publish_time = 0.0
 
         if current_time - self._last_publish_time >= 1.0:
             self.action_context.send_waypoint(self._target_point)
-            # 计算朝向目标的yaw（如果有home_position）
+            # Compute yaw toward the target (if we have a home_position)
             if self._home_position is not None:
                 heading = math.atan2(
                     self._target_point[1] - self._home_position[1],
@@ -300,20 +300,20 @@ class WaypointTestOrchestrator(Node):
         if self._latest_odom is None:
             return
 
-        # 优先使用 ActionContext 缓存的实际命令
+        # Prefer the actual command cached in ActionContext
         cmd_pos = self.action_context.get_last_waypoint()
         if cmd_pos is None:
-            # 备用：使用预测值（仅在模块还未发送命令时）
+            # Fallback: use the predicted value (only before the module sends commands)
             cmd_pos = self._current_command_waypoint
         if cmd_pos is None:
             return
 
-        # 优先使用 ActionContext 缓存的实际姿态命令
+        # Prefer the cached attitude command from ActionContext
         cached_att = self.action_context.get_last_attitude_command()
         if cached_att is not None:
             cmd_att = cached_att.copy()
         elif self._current_command_yaw is not None:
-            # 备用：使用预测的偏航角
+            # Fallback: use the predicted yaw angle
             cmd_att = np.array([0.0, 0.0, self._current_command_yaw], dtype=float)
         else:
             cmd_att = np.zeros(3, dtype=float)
@@ -324,39 +324,39 @@ class WaypointTestOrchestrator(Node):
             self._cmd_ang_velocity if self._cmd_ang_velocity is not None else np.zeros(3)
         )
 
-        err_pos = cmd_pos - pos  # 误差 = 目标 - 当前（更符合控制器视角）
+        err_pos = cmd_pos - pos  # Error = goal - current (controller-centric)
         err_vel = cmd_vel - vel
         err_att = np.array([self._wrap_angle(cmd_att[i] - att[i]) for i in range(3)])
         err_ang = cmd_ang - ang_vel
 
-        # 计算水平距离和偏航角（度）
+        # Horizontal distance and yaw (degrees)
         dist_xy = math.sqrt(err_pos[0]**2 + err_pos[1]**2)
         yaw_deg = math.degrees(att[2])
         cmd_yaw_deg = math.degrees(cmd_att[2])
         err_yaw_deg = math.degrees(err_att[2])
 
-        # 分行打印，便于调参时查看
+        # Multi-line logging makes tuning easier
         self.get_logger().info("=" * 100)
         self.get_logger().info(
-            f"[位置] 当前: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f}) | "
-            f"目标: ({cmd_pos[0]:.2f}, {cmd_pos[1]:.2f}, {cmd_pos[2]:.2f}) | "
-            f"误差: ({err_pos[0]:.2f}, {err_pos[1]:.2f}, {err_pos[2]:.2f}) | "
-            f"水平距离: {dist_xy:.2f}m"
+            f"[Position] current: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f}) | "
+            f"target: ({cmd_pos[0]:.2f}, {cmd_pos[1]:.2f}, {cmd_pos[2]:.2f}) | "
+            f"error: ({err_pos[0]:.2f}, {err_pos[1]:.2f}, {err_pos[2]:.2f}) | "
+            f"horizontal distance: {dist_xy:.2f} m"
         )
         self.get_logger().info(
-            f"[速度] 当前: ({vel[0]:.2f}, {vel[1]:.2f}, {vel[2]:.2f}) | "
-            f"目标: ({cmd_vel[0]:.2f}, {cmd_vel[1]:.2f}, {cmd_vel[2]:.2f}) | "
-            f"误差: ({err_vel[0]:.2f}, {err_vel[1]:.2f}, {err_vel[2]:.2f})"
+            f"[Velocity] current: ({vel[0]:.2f}, {vel[1]:.2f}, {vel[2]:.2f}) | "
+            f"target: ({cmd_vel[0]:.2f}, {cmd_vel[1]:.2f}, {cmd_vel[2]:.2f}) | "
+            f"error: ({err_vel[0]:.2f}, {err_vel[1]:.2f}, {err_vel[2]:.2f})"
         )
         self.get_logger().info(
-            f"[姿态] 当前Yaw: {yaw_deg:6.1f}° | "
-            f"目标Yaw: {cmd_yaw_deg:6.1f}° | "
-            f"误差Yaw: {err_yaw_deg:6.1f}° | "
-            f"Roll/Pitch误差: ({math.degrees(err_att[0]):.1f}°, {math.degrees(err_att[1]):.1f}°)"
+            f"[Attitude] current yaw: {yaw_deg:6.1f}° | "
+            f"target yaw: {cmd_yaw_deg:6.1f}° | "
+            f"yaw error: {err_yaw_deg:6.1f}° | "
+            f"roll/pitch error: ({math.degrees(err_att[0]):.1f}°, {math.degrees(err_att[1]):.1f}°)"
         )
         self.get_logger().info(
-            f"[角速度] 当前: ({math.degrees(ang_vel[0]):.2f}, {math.degrees(ang_vel[1]):.2f}, {math.degrees(ang_vel[2]):.2f})°/s | "
-            f"目标: ({math.degrees(cmd_ang[0]):.2f}, {math.degrees(cmd_ang[1]):.2f}, {math.degrees(cmd_ang[2]):.2f})°/s"
+            f"[Angular velocity] current: ({math.degrees(ang_vel[0]):.2f}, {math.degrees(ang_vel[1]):.2f}, {math.degrees(ang_vel[2]):.2f})°/s | "
+            f"target: ({math.degrees(cmd_ang[0]):.2f}, {math.degrees(cmd_ang[1]):.2f}, {math.degrees(cmd_ang[2]):.2f})°/s"
         )
 
     @staticmethod
@@ -374,18 +374,18 @@ class WaypointTestOrchestrator(Node):
             dtype=float,
         )
 
-        # Odometry的线速度是机体坐标系，需要转换为世界坐标系
+        # Odometry linear velocity is body-frame, convert to world-frame
         vel_body = np.array(
             [msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.linear.z],
             dtype=float,
         )
 
         q = msg.pose.pose.orientation
-        # 构建从机体到世界的旋转矩阵
+        # Build the rotation matrix from body to world
         x, y, z, w = q.x, q.y, q.z, q.w
         norm = x * x + y * y + z * z + w * w
         if norm < 1e-8:
-            vel = vel_body  # 四元数无效时，假设速度已经是世界坐标系
+            vel = vel_body  # If the quaternion is invalid assume it is already world-frame
         else:
             s = 2.0 / norm
             xx, yy, zz = x * x * s, y * y * s, z * z * s
@@ -396,7 +396,7 @@ class WaypointTestOrchestrator(Node):
                 [xy + wz, 1.0 - (xx + zz), yz - wx],
                 [xz - wy, yz + wx, 1.0 - (xx + yy)],
             ])
-            vel = R_world_from_body @ vel_body  # 转换到世界坐标系
+            vel = R_world_from_body @ vel_body  # Convert to world-frame
 
         siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
         cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)

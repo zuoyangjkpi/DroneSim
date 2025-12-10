@@ -25,7 +25,7 @@ find_package(ros2_utils REQUIRED)
 # -----------------------------
 set(THIRD_PARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/YOLOs-CPP")
 
-# 使用你创建的稳定软链接：
+# Use the stable symlink you created:
 #   third_party/YOLOs-CPP/onnxruntime -> onnxruntime-linux-x64-gpu-1.22.0
 set(ONNXRUNTIME_ROOT "${THIRD_PARTY_DIR}/onnxruntime")
 set(ONNXRUNTIME_INCLUDE_DIR "${ONNXRUNTIME_ROOT}/include")
@@ -53,7 +53,7 @@ add_executable(detection_visualizer_node
 
 target_include_directories(yolo12_detector_node PRIVATE
   include
-  ${THIRD_PARTY_DIR}/include           # YOLO 自带头文件（如果有的话）
+  ${THIRD_PARTY_DIR}/include           # YOLO-provided headers (if any)
   ${ONNXRUNTIME_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}
 )
@@ -101,9 +101,9 @@ target_link_libraries(detection_visualizer_node
   ${OpenCV_LIBS}
 )
 
-# 运行时 RPATH：
-#   - 构建时：从 third_party 里的 ORT 目录找 provider .so
-#   - 安装后：可执行旁的 lib/ 目录（$ORIGIN = install/lib/${PROJECT_NAME}）
+# Runtime RPATH:
+#   - During builds: pick provider .so files from the third_party ORT dir
+#   - After install: look next to the executable in lib/ ($ORIGIN = install/lib/${PROJECT_NAME})
 set_target_properties(yolo12_detector_node PROPERTIES
   BUILD_RPATH   "${ONNXRUNTIME_ROOT}/lib"
   INSTALL_RPATH "\$ORIGIN/lib"
@@ -112,14 +112,14 @@ set_target_properties(yolo12_detector_node PROPERTIES
 # -----------------------------
 # Install
 # -----------------------------
-# 可执行文件
+# Executables
 install(TARGETS
   yolo12_detector_node
   detection_visualizer_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# 安装 ORT 核心及 provider 动态库到可执行旁的 lib/ 子目录
+# Install the ORT core + provider shared libs next to the executable in lib/
 install(DIRECTORY "${ONNXRUNTIME_ROOT}/lib/"
   DESTINATION "lib/${PROJECT_NAME}/lib"
   FILES_MATCHING
@@ -127,7 +127,7 @@ install(DIRECTORY "${ONNXRUNTIME_ROOT}/lib/"
     PATTERN "libonnxruntime_providers_*.so*"
 )
 
-# 模型 / 标签等
+# Models / labels / metadata
 install(DIRECTORY
   third_party/
   DESTINATION share/${PROJECT_NAME}/
@@ -137,7 +137,7 @@ install(DIRECTORY
     PATTERN "*.txt"
 )
 
-# 头文件（如需）
+# Headers (if needed)
 install(DIRECTORY include/
   DESTINATION include
 )

@@ -108,7 +108,7 @@ class NMPCTrackerNode(Node):
         self._filtered_person_position = None
         self._detection_streak = 0
 
-        # 光学坐标系（REP 103）到相机机体系（x 前、y 左、z 上）的转换矩阵及逆矩阵
+        # Rotation from the optical frame (REP 103) to the camera body frame (x forward, y left, z up)
         self._rot_optical_to_camera = np.array([
             [0.0, 0.0, 1.0],
             [-1.0, 0.0, 0.0],
@@ -134,23 +134,23 @@ class NMPCTrackerNode(Node):
             depth=10
         )
         
-        # Control command publishers - 发布到NMPC专用话题，由TrackTarget模块转发
-        # 这样确保只有TrackTarget模块激活时，NMPC的指令才会被转发到下游控制器
+        # Control command publishers — use NMPC-specific topics that TrackTargetModule forwards
+        # This ensures downstream controllers only see NMPC commands when TrackTargetModule is active
         self.waypoint_pub = self.create_publisher(
             PoseStamped,
-            '/nmpc/waypoint_command',  # 修改为NMPC专用话题
+            '/nmpc/waypoint_command',  # NMPC-only topic
             control_qos
         )
 
         self.attitude_pub = self.create_publisher(
             Vector3Stamped,
-            '/nmpc/attitude_command',  # 修改为NMPC专用话题
+            '/nmpc/attitude_command',  # NMPC-only topic
             control_qos
         )
 
 
-        # ❌ 移除NMPC直接控制低层控制器的enable publisher
-        # ✅ 现在由TrackTargetModule通过ActionContext统一管理控制器enable/disable
+        # ❌ Remove NMPC's direct low-level controller enable publisher
+        # ✅ TrackTargetModule manages enable/disable via ActionContext now
 
 
         # Status publisher - publish to NMPC-specific topic to avoid conflict with ActionManager
@@ -278,13 +278,13 @@ class NMPCTrackerNode(Node):
             self.drone_state_received = True
             self.last_tracking_yaw = orientation[2]
             
-            # ✅ 添加调试信息 - 降低频率
+            # ✅ Add debug logging at a lower frequency
             if hasattr(self, '_debug_counter'):
                 self._debug_counter += 1
             else:
                 self._debug_counter = 1
 
-            if self._debug_counter % 50 == 0:  # 每50次更新才打印一次
+            if self._debug_counter % 50 == 0:  # Log once every 50 updates
                 self.get_logger().info(f"Drone state: pos=[{position[0]:.2f}, {position[1]:.2f}, {position[2]:.2f}], vel=[{velocity[0]:.2f}, {velocity[1]:.2f}, {velocity[2]:.2f}]")
             
         except Exception as e:
@@ -421,21 +421,21 @@ class NMPCTrackerNode(Node):
                     break
             except TransformException as exc:
                 last_error = exc
-                # 若因为时间外推失败，尝试使用最近可用的TF
+                # If time extrapolation fails, fall back to the latest available TF
                 if 'future' in str(exc).lower() or 'extrapolation' in str(exc).lower():
                     try:
                         transform = self.tf_buffer.lookup_transform(
                             self.world_frame,
                             candidate,
-                            Time(),  # 最新可用 TF
+                            Time(),  # Latest available TF
                             timeout=Duration(seconds=0.2)
                         )
-                        if transform:
-                            used_frame = candidate
-                            self.get_logger().warn(
-                                f"TF extrapolation for {candidate} (requested {lookup_time.nanoseconds * 1e-9:.3f}s);"
-                                " 改用最新可用的 TF 数据"
-                            )
+                            if transform:
+                                used_frame = candidate
+                                self.get_logger().warn(
+                                    f"TF extrapolation for {candidate} (requested {lookup_time.nanoseconds * 1e-9:.3f}s);"
+                                    " switched to the latest available TF data"
+                                )
                             break
                     except TransformException as exc_latest:
                         last_error = exc_latest
@@ -501,9 +501,9 @@ class NMPCTrackerNode(Node):
         # Debug: Check if ray direction makes sense for downward-tilted camera
         if ray_world[2] > 0:
             self.get_logger().warn(
-                f"⚠️  射线方向向上 ray_world[2]={ray_world[2]:.3f} > 0，这对于向下倾斜的相机是异常的\n"
-                f"   📐 相机光学坐标系射线: [{ray_cam[0]:.3f}, {ray_cam[1]:.3f}, {ray_cam[2]:.3f}]\n"
-                f"   🔄 旋转后世界坐标系射线: [{ray_world[0]:.3f}, {ray_world[1]:.3f}, {ray_world[2]:.3f}]"
+                f"⚠️  Ray points upward ray_world[2]={ray_world[2]:.3f} > 0, which is unexpected for a downward-facing camera\n"
+                f"   📐 Optical-frame ray: [{ray_cam[0]:.3f}, {ray_cam[1]:.3f}, {ray_cam[2]:.3f}]\n"
+                f"   🔄 Rotated world-frame ray: [{ray_world[0]:.3f}, {ray_world[1]:.3f}, {ray_world[2]:.3f}]"
             )
 
         if abs(ray_world[2]) < 1e-6:
@@ -526,22 +526,22 @@ class NMPCTrackerNode(Node):
             # but target is below camera (height_diff < 0), this is a coordinate system issue
             if ray_world[2] > 0 and height_diff < 0:
                 self.get_logger().warn(
-                    f"🔧 检测到坐标系异常，尝试修正射线方向 (t={t:.3f})\n"
-                    f"   📍 相机位置: [{camera_position[0]:.2f}, {camera_position[1]:.2f}, {camera_position[2]:.2f}]\n"
-                    f"   📏 人员锚定高度: {anchor_height:.2f}m\n"
-                    f"   ➡️  原射线方向: [{ray_world[0]:.3f}, {ray_world[1]:.3f}, {ray_world[2]:.3f}]"
+                    f"🔧 Detected coordinate-frame inconsistency; attempting to fix ray direction (t={t:.3f})\n"
+                    f"   📍 Camera position: [{camera_position[0]:.2f}, {camera_position[1]:.2f}, {camera_position[2]:.2f}]\n"
+                    f"   📏 Person anchor height: {anchor_height:.2f} m\n"
+                    f"   ➡️  Original ray: [{ray_world[0]:.3f}, {ray_world[1]:.3f}, {ray_world[2]:.3f}]"
                 )
                 # Force ray to point downward for tilted camera
                 ray_world[2] = -abs(ray_world[2])
                 t = height_diff / ray_world[2]
-                self.get_logger().info(f"   ✅ 修正后射线方向: [{ray_world[0]:.3f}, {ray_world[1]:.3f}, {ray_world[2]:.3f}], t={t:.3f}")
+                self.get_logger().info(f"   ✅ Corrected ray: [{ray_world[0]:.3f}, {ray_world[1]:.3f}, {ray_world[2]:.3f}], t={t:.3f}")
             else:
                 self.get_logger().warn(
-                    f"❌ 几何计算无效: t={t:.3f} <= 0\n"
-                    f"   📍 相机位置: [{camera_position[0]:.2f}, {camera_position[1]:.2f}, {camera_position[2]:.2f}]\n"
-                    f"   📏 人员锚定高度: {anchor_height:.2f}m\n"
-                    f"   ➡️  射线方向: [{ray_world[0]:.3f}, {ray_world[1]:.3f}, {ray_world[2]:.3f}]\n"
-                    f"   📐 分子: {height_diff:.3f}, 分母: {ray_world[2]:.3f}"
+                    f"❌ Invalid geometry: t={t:.3f} <= 0\n"
+                    f"   📍 Camera position: [{camera_position[0]:.2f}, {camera_position[1]:.2f}, {camera_position[2]:.2f}]\n"
+                    f"   📏 Person anchor height: {anchor_height:.2f} m\n"
+                    f"   ➡️  Ray direction: [{ray_world[0]:.3f}, {ray_world[1]:.3f}, {ray_world[2]:.3f}]\n"
+                    f"   📐 Numerator: {height_diff:.3f}, denominator: {ray_world[2]:.3f}"
                 )
                 return None
 
@@ -627,8 +627,8 @@ class NMPCTrackerNode(Node):
         else:
             self.get_logger().info("NMPC control disabled")
 
-        # ❌ 不再由NMPC自己enable/disable低层控制器
-        # ✅ TrackTargetModule会通过ActionContext统一管理
+        # ❌ NMPC no longer enables/disables the low-level controllers directly
+        # ✅ TrackTargetModule handles that through ActionContext
         if not self.control_enabled:
             return
     
@@ -658,8 +658,8 @@ class NMPCTrackerNode(Node):
     def _perform_tracking(self):
         """Run NMPC optimization and push the resulting commands downstream."""
         if not self.person_detected:
-            # 在TRACK模式下若丢失目标，立即切换由上层逻辑处理
-            self.get_logger().warn('TRACK模式下未检测到目标，忽略跟踪命令')
+            # If TRACK mode loses the person, let higher-level logic switch modules
+            self.get_logger().warn('TRACK mode has no target; ignoring tracking command')
             return
 
         # Advance orbit target only during active tracking
@@ -670,8 +670,8 @@ class NMPCTrackerNode(Node):
 
         try:
             control, info = self.controller.optimize()
-        except Exception as exc:  # 捕捉优化失败，避免节点崩溃
-            self.get_logger().error(f'NMPC优化失败: {exc}')
+        except Exception as exc:  # Catch optimization failures to keep the node alive
+            self.get_logger().error(f'NMPC optimization failed: {exc}')
             return
 
         # Standard MPC: only execute the first point from the optimized sequence
@@ -887,7 +887,7 @@ class NMPCTrackerNode(Node):
         )
 
     def _get_current_position(self) -> np.ndarray:
-        """获取当前无人机位置"""
+        """Return the drone position from the current NMPC state."""
         return self.controller.current_state.data[nmpc_config.STATE_X:nmpc_config.STATE_Z+1]
 
     def _get_current_yaw(self) -> float:

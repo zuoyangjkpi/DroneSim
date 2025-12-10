@@ -653,7 +653,7 @@
       <odom_frame>world</odom_frame>
       <robot_base_frame>X3/base_link</robot_base_frame>
       <dimensions>3</dimensions>
-      <odom_topic>/model/X3/odometry</odom_topic>
+      <odom_topic>/X3/odometry</odom_topic>
       <odom_publish_frequency>50</odom_publish_frequency>
     </plugin>
 

@@ -104,7 +104,7 @@ class NMPCConfig:
         self.TRACKING_HEIGHT_OFFSET = 1.5          # Increased height offset for better downward view
         self.TRACKING_FIXED_ALTITUDE = 3.0         # Consistent with takeoff altitude for unified flight height (m)
         self.TARGET_POSITION_SMOOTHING = 0.95      # High alpha = more new data, less smoothing
-        self.PERSON_POSITION_FILTER_ALPHA = 0.75   # Much higher - reduce滞后, track person movement faster
+        self.PERSON_POSITION_FILTER_ALPHA = 0.75   # Much higher to reduce lag and track people faster
         self.MIN_WAYPOINT_SPACING = 0.25           # Minimum spacing between generated waypoints (m)
         self.WAYPOINT_PLAN_CHANGE_THRESHOLD = 0.4  # Distance threshold to treat a plan as new
 

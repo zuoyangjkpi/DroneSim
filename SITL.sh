@@ -4,14 +4,14 @@
 # Launches Gazebo simulation, Guidance Controller, RViz, and SLAM Bridge
 
 # Parse arguments
-WORLD_FILE="drone_world.sdf"
+WORLD_FILE="drone_world_stereo.sdf"
 WORLD_MODE="default"
 if [[ "$1" == "--city" ]]; then
     WORLD_MODE="city"
-    echo "🏙️  Using City urban world with stereo camera"
+    echo "🏙️  Using X3 city block world with stereo camera"
 elif [[ "$1" == "--lake" ]]; then
     WORLD_MODE="lake"
-    echo "🌊 Using Lake (Harmonic) world with stereo camera"
+    echo "🌊 Using X3 lakeside world with stereo camera"
 fi
 
 # Source ROS2 Jazzy first
@@ -42,22 +42,19 @@ export GZ_GUI_PLUGIN_PATH="/opt/ros/jazzy/opt/gz_gui_vendor/lib/gz-gui-8/plugins
 # Use stereo RViz config for city/lake modes, regular config otherwise
 case "$WORLD_MODE" in
   city)
-    CITY_WORLD_PATH="$(pwd)/external/city_worlds/urban_circuit_01.sdf"
-    WORLD_PATH="$CITY_WORLD_PATH"
+    WORLD_PATH="$DRONE_DESC_PATH/worlds/x3_city_world.sdf"
     RVIZ_CONFIG="$DRONE_DESC_PATH/config/drone_stereo.rviz"
-    FUEL_CACHE="$HOME/.gz/fuel"
-    # Fuel cache often nests under fuel.ignitionrobotics.org/openrobotics/models (sometimes also fuel.gazebosim.org)
-    export GZ_SIM_RESOURCE_PATH="$BASE_RESOURCE_PATH:$FUEL_CACHE:$FUEL_CACHE/fuel.ignitionrobotics.org/openrobotics/models:$FUEL_CACHE/fuel.gazebosim.org/openrobotics/models:$DRONE_DESC_PATH/models"
+    export GZ_SIM_RESOURCE_PATH="$BASE_RESOURCE_PATH:$DRONE_DESC_PATH/models"
     ;;
   lake)
-    HARMONIC_DEMO_PATH="$(pwd)/external/harmonic_demo"
-    WORLD_PATH="$HARMONIC_DEMO_PATH/harmonic_demo/harmonic.sdf"
+    WORLD_PATH="$DRONE_DESC_PATH/worlds/x3_lake_world.sdf"
     RVIZ_CONFIG="$DRONE_DESC_PATH/config/drone_stereo.rviz"
-    export GZ_SIM_RESOURCE_PATH="$BASE_RESOURCE_PATH:$HARMONIC_DEMO_PATH/harmonic_demo:$DRONE_DESC_PATH/models"
+    export GZ_SIM_RESOURCE_PATH="$BASE_RESOURCE_PATH:$DRONE_DESC_PATH/models"
     ;;
   *)
     WORLD_PATH="$DRONE_DESC_PATH/worlds/$WORLD_FILE"
-    RVIZ_CONFIG="$DRONE_DESC_PATH/config/drone.rviz"
+    # Use the richer stereo RViz layout even in mono world
+    RVIZ_CONFIG="$DRONE_DESC_PATH/config/drone_stereo.rviz"
     export GZ_SIM_RESOURCE_PATH="$BASE_RESOURCE_PATH:$DRONE_DESC_PATH/models"
     ;;
 esac
@@ -86,6 +83,8 @@ sleep 5 # Wait for Gazebo to start
 # 2. Launch ROS-Gazebo Bridge
 echo "🌉 Starting ROS-Gazebo bridge..."
 ros2 run ros_gz_bridge parameter_bridge \
+    /camera/image_raw@sensor_msgs/msg/Image@gz.msgs.Image \
+    /camera/camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo \
     /camera/left/image_raw@sensor_msgs/msg/Image@gz.msgs.Image \
     /camera/right/image_raw@sensor_msgs/msg/Image@gz.msgs.Image \
     /camera/left/camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo \

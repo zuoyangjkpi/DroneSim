@@ -400,9 +400,9 @@ ros2 topic hz /X3/cmd_vel
 - `GZ_GUI_PLUGIN_PATH`: GUI plugins
 
 ### World Files
-- **Default**: `drone_world.sdf` (basic testing)
-- **City**: `urban_circuit_01.sdf` (urban environment with obstacles)
-- **Lake**: `harmonic.sdf` (lake house with indoor/outdoor scenes)
+- **Default**: `drone_world.sdf` (basic testing, flat ground)
+- **City**: `x3_city_world.sdf` (local city block with buildings + solid collisions)
+- **Lake**: `x3_lake_world.sdf` (local lakeside scene with ground + water patch collisions)
 
 ### Camera Configuration
 - **Stereo Baseline**: Defined in `x3_stereo` model

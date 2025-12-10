@@ -48,7 +48,7 @@ AVIANS ROS2 (Orin NX)                    Pixhawk 6X (PX4 v1.16.0)
 
 ### 1. Build bundled px4_msgs
 
-`px4_msgs` 已经包含在工作区的 `src/custom_msgs/px4_msgs` 目录下，无需额外克隆。第一次使用时只需编译该包：
+`px4_msgs` is already vendored under `src/custom_msgs/px4_msgs`, so there is no need to clone it separately. Just build the package the first time you set up the workspace:
 
 ```bash
 cd ~/AVIANS_ROS2_PORT1

@@ -1,0 +1,264 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <world name="city_multicopter">
+
+    <!-- Simple city-style environment with solid ground and buildings -->
+
+    <gravity>0 0 -9.81</gravity>
+
+    <scene>
+      <ambient>0.4 0.4 0.4 1</ambient>
+      <background>0.2 0.2 0.25 1</background>
+      <grid>false</grid>
+      <origin_visual>false</origin_visual>
+    </scene>
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 30 -0.6 0.2 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.1 0.1 0.1 1</specular>
+      <intensity>1.2</intensity>
+    </light>
+
+    <gui fullscreen="0">
+      <plugin filename="MinimalScene" name="3D View">
+        <gz-gui>
+          <title>3D View</title>
+          <property type="bool" key="showTitleBar">false</property>
+          <property type="string" key="state">docked</property>
+        </gz-gui>
+        <engine>ogre2</engine>
+        <scene>scene</scene>
+        <camera_clip>
+          <near>0.25</near>
+          <far>5000</far>
+        </camera_clip>
+        <!-- Overhead oblique view looking towards the origin -->
+        <camera_pose>-40 -60 35 0.0 0.6 0.9</camera_pose>
+      </plugin>
+    </gui>
+
+    <physics name="default_phys" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+    <plugin filename="gz-sim-physics-system"
+            name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-sensors-system"
+            name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-user-commands-system"
+            name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system"
+            name="gz::sim::systems::SceneBroadcaster"/>
+
+    <!-- Ground plane with collision -->
+    <model name="ground">
+      <static>true</static>
+      <pose>0 0 -0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>200 200 1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>200 200 1</size>
+            </box>
+          </geometry>
+          <material>
+            <diffuse>0.25 0.25 0.27 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Main road along X axis -->
+    <model name="main_road">
+      <static>true</static>
+      <pose>0 0 0.01 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>180 10 0.02</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>180 10 0.02</size>
+            </box>
+          </geometry>
+          <material>
+            <diffuse>0.1 0.1 0.1 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Cross street along Y axis -->
+    <model name="cross_street">
+      <static>true</static>
+      <pose>0 0 0.015 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>10 180 0.02</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>10 180 0.02</size>
+            </box>
+          </geometry>
+          <material>
+            <diffuse>0.12 0.12 0.13 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- A few simple building blocks (all with collisions) -->
+    <model name="building_block_1">
+      <static>true</static>
+      <pose>-40 -30 10 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>20 40 20</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>20 40 20</size>
+            </box>
+          </geometry>
+          <material>
+            <diffuse>0.6 0.6 0.65 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="building_block_2">
+      <static>true</static>
+      <pose>-40 30 12 0 0 0.3</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>18 30 24</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>18 30 24</size>
+            </box>
+          </geometry>
+          <material>
+            <diffuse>0.5 0.55 0.6 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="building_block_3">
+      <static>true</static>
+      <pose>40 -30 14 0 0 -0.2</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>22 36 28</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>22 36 28</size>
+            </box>
+          </geometry>
+          <material>
+            <diffuse>0.55 0.6 0.65 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="building_block_4">
+      <static>true</static>
+      <pose>40 30 9 0 0 0.1</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>16 24 18</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>16 24 18</size>
+            </box>
+          </geometry>
+          <material>
+            <diffuse>0.65 0.65 0.7 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Low obstacles near the intersection -->
+    <model name="central_island">
+      <static>true</static>
+      <pose>0 10 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>8 16 1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>8 16 1</size>
+            </box>
+          </geometry>
+          <material>
+            <diffuse>0.3 0.35 0.3 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- X3 drone with stereo camera, above the main intersection -->
+    <include>
+      <name>x3_stereo</name>
+      <pose>0 0 3 0 0 0</pose>
+      <uri>model://x3_stereo</uri>
+    </include>
+
+  </world>
+</sdf>
+

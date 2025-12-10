@@ -3,7 +3,7 @@
 waypoint_controller:
   ros__parameters:
     control_frequency: 100.0
-    position_tolerance: 0.5       # 提高到0.5m，避免过于严格
+    position_tolerance: 0.5       # Raised to 0.5 m to avoid over-constraining
     velocity_tolerance: 0.05
     waypoint_timeout: 4.0
 

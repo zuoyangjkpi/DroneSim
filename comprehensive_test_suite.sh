@@ -1593,7 +1593,7 @@ main() {
         source install/setup.bash
     fi
 
-    # Gazebo rendering/env defaults (avoid Wayland EGL崩溃，确保模型可见)
+    # Gazebo rendering defaults (avoid Wayland EGL crashes and keep models visible)
     local WS_ROOT="$(pwd)"
     export GZ_SIM_RESOURCE_PATH="$WS_ROOT/install/drone_description/share/drone_description/models:$WS_ROOT/install/drone_description/share/drone_description:$WS_ROOT/install:${GZ_SIM_RESOURCE_PATH}"
     export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb}"

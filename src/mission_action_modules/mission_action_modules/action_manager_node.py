@@ -42,7 +42,7 @@ class ActionManagerNode(Node):
 
     def __init__(self) -> None:
         super().__init__("mission_action_manager")
-        # 注意：Node 基类使用 _context 存放 ROS Context，不要覆盖
+        # Note: the Node base class keeps its ROS context in _context—do not overwrite it
         self._action_context = ActionContext(self)
         self.modules = {
             "takeoff": TakeoffModule(self._action_context),
@@ -58,7 +58,7 @@ class ActionManagerNode(Node):
             "avoidance": AvoidanceModule(self._action_context),
         }
         self._active_handles: Dict[str, ActionHandle] = {}
-        # 全局互斥：同一时间只能有一个active module
+        # Global mutex: only one active module is allowed at a time
         self._current_active_module: Optional[str] = None
 
         # Cache for latest action params from mission_executor
@@ -250,7 +250,7 @@ class ActionManagerNode(Node):
         self.status_pub.publish(msg)
 
     def _start_action(self, name: str, goal) -> bool:
-        # 全局互斥检查：如果有其他action正在运行，先强制停止
+        # Global mutex check: cancel any other running action first
         if self._current_active_module is not None and self._current_active_module != name:
             old_name = self._current_active_module
             old_handle = self._active_handles.get(old_name)
@@ -258,12 +258,12 @@ class ActionManagerNode(Node):
                 self.get_logger().info(
                     f"🔄 Switching from '{old_name}' to '{name}' - canceling old action"
                 )
-                old_handle.cancel()  # 立即取消旧模块
-                # 等待旧模块完全停止（最多等待0.5秒）
+                old_handle.cancel()  # Cancel the old module immediately
+                # Wait for the old module to stop (max 0.5 s)
                 try:
                     old_handle.result(timeout=0.5)
                 except Exception:
-                    pass  # 超时也继续
+                    pass  # Continue even if it times out
 
         module = self.modules[name]
         active_handle = self._active_handles.get(name)
@@ -279,7 +279,7 @@ class ActionManagerNode(Node):
             return False
 
         self._active_handles[name] = handle
-        self._current_active_module = name  # 更新当前活动模块
+        self._current_active_module = name  # Update the currently active module
         handle.future.add_done_callback(
             lambda fut, action_name=name: self._on_action_done(action_name, fut)
         )
@@ -298,7 +298,7 @@ class ActionManagerNode(Node):
             self._publish_event(name, "exception", str(exc), {})
         finally:
             self._active_handles.pop(name, None)
-            # 清除当前活动模块标记
+            # Clear the active-module marker
             if self._current_active_module == name:
                 self._current_active_module = None
 

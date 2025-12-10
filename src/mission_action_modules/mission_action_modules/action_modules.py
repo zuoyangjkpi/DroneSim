@@ -285,7 +285,7 @@ class FlyToTargetModule(ActionModule):
         self._yaw_targets: Optional[List[Optional[float]]] = None
         self._current_idx = 0
         self._start_time = 0.0
-        self._timeout_per_leg = -1.0  # 默认无限时间
+        self._timeout_per_leg = -1.0  # Default to unlimited time
         self._tolerance = 0.3
         self._last_waypoint_refresh = 0.0
         
@@ -309,9 +309,9 @@ class FlyToTargetModule(ActionModule):
             if goal.tolerance is not None
             else self.context.defaults.position_tolerance
         )
-        # 默认无超时限制，依赖 mission_executor 的 stage timeout
+        # Default to no per-leg timeout and rely on mission_executor stage timeout
         self._timeout_per_leg = (
-            goal.timeout_per_leg if goal.timeout_per_leg is not None else -1.0  # -1 表示无限时长
+            goal.timeout_per_leg if goal.timeout_per_leg is not None else -1.0  # -1 means unlimited
         )
         self._last_waypoint_refresh = self.context.now()
         self._current_idx = 0
@@ -426,14 +426,14 @@ class FlyToTargetModule(ActionModule):
             self._command_current_waypoint()
             return
 
-        # 如果timeout_per_leg <= 0，表示不设超时限制
+        # timeout_per_leg <= 0 means no timeout enforcement
         if self._timeout_per_leg > 0 and elapsed > self._timeout_per_leg:
             self.fail(
                 f"Timeout moving to waypoint {self._current_idx + 1}/{len(self._waypoints)}"
             )
             return
 
-        # 定期刷新waypoint（每0.5秒），避免控制器超时
+        # Refresh the waypoint every 0.5 s so the controller never times out
         now = self.context.now()
         if now - self._last_waypoint_refresh >= 0.5:
             self.context.send_waypoint(target)
@@ -650,7 +650,7 @@ class SearchModule(ActionModule):
             return
         now = self.context.now()
         elapsed = now - self._start_time
-        # 基于启动时间累加yaw，实现持续旋转
+        # Accumulate yaw based on the start time so rotation is continuous
         yaw_cmd = self._base_yaw + self._yaw_rate * elapsed
         yaw_cmd = self.context._wrap_angle(yaw_cmd)
         self.context.send_yaw(0.0, 0.0, yaw_cmd)
@@ -758,21 +758,21 @@ class LostHoldModule(ActionModule):
         if self._goal is None:
             return
 
-        # 持续刷新waypoint和yaw指令，保持控制器活跃
+        # Continuously refresh waypoint and yaw commands to keep the controller active
         if self._hold_position is not None:
             self.context.send_waypoint(self._hold_position)
         self.context.send_yaw(0.0, 0.0, self._hold_yaw)
 
-        # ✅ 唯一成功条件：检测到目标
+        # ✅ The only success condition is detecting the target again
         if self._detection_streak >= self._confirmations_required:
             self.succeed("Target reacquired during hold", data={"reacquired": True})
             return
 
-        # ℹ️ 如果未检测到目标，继续hold直到：
-        # 1. 检测到目标 → succeed → transitions["success"] → back to TRACK
+        # ℹ️ If the target never reappears, keep holding until:
+        # 1. Detection occurs → succeed → transitions["success"] → back to TRACK
         # 2. Stage timeout → transitions["timeout"] → go to SEARCH
         #
-        # 持续刷新waypoint保持位置（已在函数开头处理）
+        # Waypoint refreshing to hold position happens at the top of this method
 
     def _status_callback(self, msg: Float64MultiArray) -> None:
         detected = bool(int(msg.data[0])) if msg.data else False
@@ -839,7 +839,7 @@ class LandModule(ActionModule):
             else self.context.defaults.land_timeout
         )
         self._start_time = self.context.now()
-        self._timeout_warned = False  # 初始化超时警告标志
+        self._timeout_warned = False  # Initialize timeout warning flag
 
         self._target = np.array([target_xy[0], target_xy[1], target_alt], dtype=float)
 
@@ -866,7 +866,7 @@ class LandModule(ActionModule):
             self.succeed("Landed successfully")
             return
 
-        # 移除超时失败逻辑，改为持续尝试（像TakeoffModule一样）
+        # Keep trying instead of failing on timeout (mirrors TakeoffModule behavior)
         if elapsed > self._timeout:
             if not getattr(self, "_timeout_warned", False):
                 self.context.node.get_logger().warn(
@@ -874,7 +874,7 @@ class LandModule(ActionModule):
                     f"Continuing descent to {self._final_altitude:.2f} m."
                 )
                 self._timeout_warned = True
-            # 重置计时器避免日志刷屏
+            # Reset the timer so the warning does not spam continuously
             self._start_time = self.context.now()
 
         # Refresh landing waypoint every second to keep controller engaged

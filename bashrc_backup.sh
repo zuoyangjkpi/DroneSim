@@ -12,11 +12,11 @@ HISTSIZE=10000
 HISTFILESIZE=20000
 shopt -s histappend
 shopt -s checkwinsize
-# 可选：容错 cd，支持 ** 递归通配
+# Optional: forgiving cd with ** globbing
 shopt -s cdspell
 shopt -s globstar
 
-# 将本次命令即时写入历史文件
+# Write every command to the history file immediately
 PROMPT_COMMAND="history -a;${PROMPT_COMMAND}"
 
 # --------------------------
@@ -31,7 +31,7 @@ alias ll='ls -alF --color=auto'
 alias la='ls -A --color=auto'
 alias l='ls -CF --color=auto'
 
-# 安全别名（可按需注释）
+# Safer aliases (comment them out if you prefer defaults)
 alias rm='rm -i'
 alias cp='cp -i'
 alias mv='mv -i'
@@ -40,7 +40,7 @@ alias grep='grep --color=auto'
 alias egrep='egrep --color=auto'
 alias fgrep='fgrep --color=auto'
 
-# 常用系统信息
+# Handy system info aliases
 alias df='df -h'
 alias du='du -h'
 alias free='free -m'
@@ -69,7 +69,7 @@ unset __conda_setup
 # --------------------------
 # 5) Prompt (shows conda env safely)
 # --------------------------
-# 终端标题栏：user@host: cwd
+# Terminal title bar: user@host: cwd
 case "$TERM" in
   xterm*|rxvt*)
     PS1="\[\e]0;\u@\h: \w\a\]"
@@ -78,7 +78,7 @@ case "$TERM" in
     PS1=""
     ;;
 esac
-# 彩色主提示 + 显示 Conda 环境（由 CONDA_PROMPT_MODIFIER 提供）
+# Colored prompt + Conda indicator (via CONDA_PROMPT_MODIFIER)
 PS1+='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
 # PS1+='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\] ${CONDA_PROMPT_MODIFIER:-${CONDA_DEFAULT_ENV:+(${CONDA_DEFAULT_ENV}) }}\$ '
 
@@ -97,11 +97,11 @@ fi
 # --------------------------
 # 7) Dev toolchains
 # --------------------------
-# Rust (opengen 等会用到)
+# Rust (needed by opengen and friends)
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 export PATH="$HOME/.cargo/bin:$PATH"
 
-# colcon 自动补全（若存在）
+# colcon autocomplete (if present)
 if [ -f /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash ]; then
   . /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash
 fi
@@ -121,7 +121,7 @@ _use_ros_noetic() {
     . /opt/ros/noetic/setup.bash
     echo "✅ ROS1 Noetic loaded."
   else
-    echo "⚠️  /opt/ros/noetic/setup.bash 不存在（宿主机未安装？或请在 Docker 内使用）。"
+    echo "⚠️  /opt/ros/noetic/setup.bash is missing (install it on the host or use Docker)."
   fi
 }
 
@@ -130,19 +130,19 @@ _use_ros_jazzy() {
     . /opt/ros/jazzy/setup.bash
     echo "✅ ROS2 Jazzy loaded."
   else
-    echo "⚠️  /opt/ros/jazzy/setup.bash 不存在（Jazzy 通常在 Ubuntu 24.04 / Docker 中）。"
+    echo "⚠️  /opt/ros/jazzy/setup.bash is missing (Jazzy normally lives on Ubuntu 24.04 or Docker)."
   fi
 }
 
 # --------------------------
 # 10) One-shot env setters
 # --------------------------
-# ROS1（Noetic）开发环境
+# ROS1 (Noetic) development environment
 setup_airship_ros1() {
   echo "🚀 Setting up AirshipMPC (ROS1 / Noetic)..."
-  conda activate airship_env || { echo "❌ conda env 'airship_env' 不存在"; return 1; }
+  conda activate airship_env || { echo "❌ conda env 'airship_env' does not exist"; return 1; }
 
-  # 保持干净
+  # Keep the environment clean
   unset PYTHONPATH
   export PYTHONNOUSERSITE=1
   export CMAKE_PREFIX_PATH="$CONDA_PREFIX:${CMAKE_PREFIX_PATH}"
@@ -153,7 +153,7 @@ setup_airship_ros1() {
   echo "✅ Conda: $CONDA_PREFIX"
   echo "✅ Python: $(python -V)"
 
-  # source 工作区（catkin 或 colcon）
+  # Source the workspace (catkin or colcon)
   if [ -f "$AIRSHIP_WS/devel/setup.bash" ]; then
     . "$AIRSHIP_WS/devel/setup.bash"
     echo "✅ Sourced: devel/setup.bash (catkin)"
@@ -161,23 +161,23 @@ setup_airship_ros1() {
     . "$AIRSHIP_WS/install/setup.bash"
     echo "✅ Sourced: install/setup.bash (colcon)"
   else
-    echo "ℹ️ 未找到 devel/ 或 install/，请先编译（catkin_make / colcon build）。"
+    echo "ℹ️ Could not find devel/ or install/—build first (catkin_make / colcon build)."
   fi
   echo "🎯 ROS1 environment ready."
 }
 
-# ROS2（Jazzy）开发环境
+# ROS2 (Jazzy) development environment
 setup_airship_ros2() {
   echo "🚀 Setting up AirshipMPC (ROS2 / Jazzy)..."
-  conda activate airship_ros2 || { echo "❌ conda env 'airship_ros2' 不存在"; return 1; }
+  conda activate airship_ros2 || { echo "❌ conda env 'airship_ros2' does not exist"; return 1; }
 
-  # 保持干净
+  # Keep the environment clean
   unset PYTHONPATH
   export PYTHONNOUSERSITE=1
   export CMAKE_PREFIX_PATH="$CONDA_PREFIX:${CMAKE_PREFIX_PATH}"
   hash -r
 
-  # 千问 API Key 环境变量
+  # Qwen API key environment variables
   export DASHSCOPE_API_KEY="sk-5db2e04d96f24a4bb2ccad84af9cdb4b"
   export QWEN_API_KEY="$DASHSCOPE_API_KEY"
 
@@ -190,17 +190,17 @@ setup_airship_ros2() {
     . "$AIRSHIP_WS/install/setup.bash"
     echo "✅ Sourced: install/setup.bash (colcon)"
   else
-    echo "ℹ️ 未找到 install/，请先执行：colcon build"
+    echo "ℹ️ Could not find install/—run colcon build first."
   fi
   echo "🎯 ROS2 environment ready."
 }
 
-# ROS2（Jazzy）开发环境
+# ROS2 (Jazzy) development environment
 setup_drone_ros2() {
   echo "🚀 Setting up AVIANS (ROS2 / Jazzy)..."
-  conda activate airship_ros2 || { echo "❌ conda env 'airship_ros2' 不存在"; return 1; }
+  conda activate airship_ros2 || { echo "❌ conda env 'airship_ros2' does not exist"; return 1; }
 
-  # 保持干净
+  # Keep the environment clean
   unset PYTHONPATH
   export PYTHONNOUSERSITE=1
   export CMAKE_PREFIX_PATH="$CONDA_PREFIX:${CMAKE_PREFIX_PATH}"
@@ -211,68 +211,68 @@ setup_drone_ros2() {
   echo "✅ Conda: $CONDA_PREFIX"
   echo "✅ Python: $(python -V)"
 
-  # ROS2 环境
+  # ROS2 environment
   if [ -f "/opt/ros/jazzy/setup.bash" ]; then
     . "/opt/ros/jazzy/setup.bash"
     echo "✅ Sourced: /opt/ros/jazzy/setup.bash"
   else
-    echo "ℹ️ 未找到 /opt/ros/jazzy/setup.bash"
+    echo "ℹ️ /opt/ros/jazzy/setup.bash was not found."
   fi
 
-  # 工作区环境
+  # Workspace environment
   if [ -f "$DRONE_WS/install/setup.bash" ]; then
     . "$DRONE_WS/install/setup.bash"
     echo "✅ Sourced: install/setup.bash (colcon)"
   else
-    echo "ℹ️ 未找到 install/，请先执行：colcon build"
+    echo "ℹ️ Could not find install/—run colcon build first."
   fi
   echo "🎯 ROS2 environment ready."
 
-  # 进入ROS2工作区
+  # Switch into the ROS2 workspace
   if [ -d "$DRONE_WS" ]; then
     cd "$DRONE_WS"
-    echo "✅ 工作区: $DRONE_WS"
+    echo "✅ Workspace: $DRONE_WS"
   else
-    echo "⚠️  PX4工作区不存在: $DRONE_WS"
+    echo "⚠️  Workspace does not exist: $DRONE_WS"
   fi
 }
 
-# PX4固件开发环境
+# PX4 firmware development environment
 setup_px4() {
   echo "🚀 Setting up PX4 Firmware Build Environment..."
-  conda activate px4 || { echo "❌ conda env 'px4' 不存在"; return 1; }
+  conda activate px4 || { echo "❌ conda env 'px4' does not exist"; return 1; }
 
-  # 保持干净的Python环境
+  # Keep the Python environment clean
   unset PYTHONPATH
   export PYTHONNOUSERSITE=1
 
-  # 强制CMake使用px4环境的Python（避免找到其他conda环境的Python）
+  # Force CMake to use this env's python (avoid leaking other conda envs)
   export PYTHON_EXECUTABLE="$CONDA_PREFIX/bin/python3"
   export Python3_EXECUTABLE="$PYTHON_EXECUTABLE"
 
   hash -r
 
-  echo "✅ Conda环境: $CONDA_PREFIX"
-  echo "✅ Python版本: $(python -V)"
-  echo "✅ Python路径: $PYTHON_EXECUTABLE"
+  echo "✅ Conda env: $CONDA_PREFIX"
+  echo "✅ Python version: $(python -V)"
+  echo "✅ Python path: $PYTHON_EXECUTABLE"
 
-  # 验证关键依赖
-  python -c "import em; print('✅ empy version:', em.__version__)" 2>/dev/null || echo "⚠️  empy未安装"
-  python -c "import jsonschema; print('✅ jsonschema已安装')" 2>/dev/null || echo "⚠️  jsonschema未安装"
+  # Verify required deps
+  python -c "import em; print('✅ empy version:', em.__version__)" 2>/dev/null || echo "⚠️  empy is not installed"
+  python -c "import jsonschema; print('✅ jsonschema installed')" 2>/dev/null || echo "⚠️  jsonschema is not installed"
 
-  # 进入PX4工作区
+  # Switch into the PX4 workspace
   if [ -d "$PX4_WS" ]; then
     cd "$PX4_WS"
-    echo "✅ 工作区: $PX4_WS"
+    echo "✅ Workspace: $PX4_WS"
   else
-    echo "⚠️  PX4工作区不存在: $PX4_WS"
+    echo "⚠️  PX4 workspace does not exist: $PX4_WS"
   fi
 
   echo "🎯 PX4 build environment ready."
-  echo "💡 可用命令: make px4_fmu-v6x_avians_v1"
+  echo "💡 Example: make px4_fmu-v6x_avians_v1"
 }
 
-# 快捷别名
+# Quick aliases
 alias airship='setup_airship_ros1'
 alias airship2='setup_airship_ros2'
 alias drone='setup_drone_ros2'

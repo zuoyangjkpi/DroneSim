@@ -9,66 +9,66 @@ services:
     container_name: avians-ros2-container
     hostname: avians-ros2
     
-    # 网络设置
+    # Networking
     network_mode: host
     
-    # 环境变量
+    # Environment variables
     environment:
       - DISPLAY=${DISPLAY}
       - ROS_DOMAIN_ID=0
       - ROS_LOCALHOST_ONLY=0
       - CONDA_DEFAULT_ENV=airship_ros2
     
-    # 卷挂载
+    # Volume mounts
     volumes:
-      # X11转发
+      # X11 forwarding
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ${HOME}/.Xauthority:/home/aviansuser/.Xauthority:ro
       
-      # 共享目录（可选，用于开发）
+      # Shared folder (optional for development)
       - ./shared:/home/aviansuser/shared:rw
       
-      # 保持容器数据持久化
+      # Persistent data volumes
       - avians_workspace:/home/aviansuser/AVIANS_ROS2_PORT1
       - avians_conda:/home/aviansuser/miniconda3
     
-    # 设备访问
+    # Device access
     devices:
-      - /dev/dri:/dev/dri  # GPU访问
+      - /dev/dri:/dev/dri  # GPU access
     
-    # 端口映射（如果不使用host网络模式）
+    # Port mapping (uncomment if not using host networking)
     # ports:
     #   - "11311:11311"  # ROS Master
     #   - "7400-7410:7400-7410"  # ROS2 DDS
     
-    # 特权模式（如果需要访问硬件）
+    # Privileged mode (only if hardware access is required)
     privileged: false
     
-    # 安全选项
+    # Security options
     security_opt:
       - seccomp:unconfined
     
-    # IPC设置
+    # IPC settings
     ipc: host
     
-    # 工作目录
+    # Working directory
     working_dir: /home/aviansuser/AVIANS_ROS2_PORT1
     
-    # 保持容器运行
+    # Keep container running interactively
     tty: true
     stdin_open: true
     
-    # 重启策略
+    # Restart policy
     restart: unless-stopped
 
-# 命名卷
+# Named volumes
 volumes:
   avians_workspace:
     driver: local
   avians_conda:
     driver: local
 
-# 网络配置（如果不使用host模式）
+# Custom network (if not using host mode)
 # networks:
 #   ros_network:
 #     driver: bridge
