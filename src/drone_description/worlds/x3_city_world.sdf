@@ -21,24 +21,6 @@
       <intensity>1.2</intensity>
     </light>
 
-    <gui fullscreen="0">
-      <plugin filename="MinimalScene" name="3D View">
-        <gz-gui>
-          <title>3D View</title>
-          <property type="bool" key="showTitleBar">false</property>
-          <property type="string" key="state">docked</property>
-        </gz-gui>
-        <engine>ogre2</engine>
-        <scene>scene</scene>
-        <camera_clip>
-          <near>0.25</near>
-          <far>5000</far>
-        </camera_clip>
-        <!-- Overhead oblique view looking towards the origin -->
-        <camera_pose>-40 -60 35 0.0 0.6 0.9</camera_pose>
-      </plugin>
-    </gui>
-
     <physics name="default_phys" type="ignored">
       <max_step_size>0.001</max_step_size>
       <real_time_factor>1.0</real_time_factor>
@@ -261,4 +243,3 @@
 
   </world>
 </sdf>
-
