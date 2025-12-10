@@ -323,44 +323,29 @@ Camera configuration in `drone_description/models/x3_stereo/`:
 
 ### SLAM Bridge Configuration
 
-Edit `src/slam_sim_bridge/src/bridge_node.cpp`:
+The `slam_sim_bridge` node adapts simulation state and commands, without
+touching the camera topics (which are shared between real flight and SITL).
 
-```cpp
-// Simulation input topics (from Gazebo)
-declare_parameter("sim_camera_left_topic", "/camera/left/image_raw");
-declare_parameter("sim_camera_right_topic", "/camera/right/image_raw");
-declare_parameter("sim_imu_topic", "/imu/data");
+- Input (from Gazebo / SITL):
+  - `/X3/odometry` (nav_msgs/Odometry)
+  - `/imu/data` (sensor_msgs/Imu)
+  - `/machine_1/command` (uav_msgs/UAVPose)
+- Output (towards SLAM / controllers):
+  - `/machine_1/pose` (uav_msgs/UAVPose)
+  - `/imu` (sensor_msgs/Imu)
+  - `/drone/control/waypoint_command` (geometry_msgs/PoseStamped)
 
-// SLAM output topics (to ORB-SLAM3)
-declare_parameter("slam_camera_left_topic", "/camera1");
-declare_parameter("slam_camera_right_topic", "/camera2");
-declare_parameter("slam_imu_topic", "/imu");
-```
+If you change any of these topics in `src/slam_sim_bridge/src/bridge_node.cpp`,
+rebuild the bridge:
 
-After editing, rebuild:
 ```bash
-colcon build --packages-select slam_sim_bridge
+colcon build --symlink-install --packages-select slam_sim_bridge
 source install/setup.bash
 ```
 
-### ROS2 Remapping
-
-The SLAM launch file (`multi_camera_euroc.launch.py`) uses ROS2 remapping to maintain EuRoC dataset compatibility:
-
-```python
-remappings=[
-    ('/camera1', '/cam0/image_raw'),  # Internal → External
-    ('/camera2', '/cam1/image_raw'),
-    ('/imu', '/imu0'),
-]
-```
-
-**How it works:**
-- ORB-SLAM3 internally subscribes to `/camera1`, `/camera2`, `/imu`
-- slam_sim_bridge publishes to these internal topics
-- Remapping allows SLAM to also work with EuRoC datasets without code changes
-
-See [SITL_ARCHITECTURE.md](SITL_ARCHITECTURE.md) for detailed explanation.
+The EuRoC-style remappings in the SLAM workspace (e.g. `/imu` → `/imu0`)
+are handled entirely by the SLAM launch files; they are independent of
+AVIANS_ROS2 and this SITL bridge.
 
 ## 🧪 Testing
 
