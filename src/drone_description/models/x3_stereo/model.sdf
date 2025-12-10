@@ -149,18 +149,18 @@
 
 
     <!-- ============================================ -->
-    <!-- KITTI Stereo Camera Configuration            -->
-    <!-- fx=fy=718.856, cx=607.1928, cy=185.2157      -->
-    <!-- Resolution: 1241x376, Baseline: 0.53716m     -->
-    <!-- HFOV: 1.4227 rad                             -->
-    <!-- Mount: 10 cm forward of body origin          -->
-    <!--        pitched down 45 deg                   -->
+    <!-- ELP-USB3DGS1200P01-V90 Stereo Camera Configuration              -->
+    <!-- Calibrated intrinsics (usb_stereo_camera.yaml):                 -->
+    <!--   fx=fy≈369.36, cx≈330.62, cy≈269.47                            -->
+    <!-- Resolution: 640x480, Baseline ≈ 0.061m (geometry + SLAM config) -->
+    <!-- HFOV ≈ 1.426 rad (derived from fx & width)                      -->
+    <!-- Mount: 10 cm forward of body origin, pitched down 45 deg        -->
     <!-- ============================================ -->
 
     <!-- Left Camera Link -->
     <link name='stereo_camera_left_link'>
       <!-- 10 cm forward, +Y (left), pitched down 45 deg -->
-      <pose relative_to='X3/base_link'>0.10 0.26858 0 0 0.785398 0</pose>
+      <pose relative_to='X3/base_link'>0.10 0.0305 0 0 0.785398 0</pose>
 
       <inertial>
         <pose>0 0 0 0 0 0</pose>
@@ -178,22 +178,22 @@
       <sensor name="camera_left" type="camera">
         <pose>0 0 0 0 0 0</pose>
         <always_on>1</always_on>
-        <update_rate>10</update_rate>
+        <update_rate>30</update_rate>
         <topic>/camera/left/image_raw</topic>
 
         <camera>
-          <horizontal_fov>1.4227</horizontal_fov>
+          <horizontal_fov>1.426</horizontal_fov>
           <distortion>
             <k1>0.0</k1>
             <k2>0.0</k2>
             <k3>0.0</k3>
             <p1>0.0</p1>
             <p2>0.0</p2>
-            <center>0.489 0.493</center>
+            <center>0.517 0.561</center>
           </distortion>
           <image>
-            <width>1241</width>
-            <height>376</height>
+            <width>640</width>
+            <height>480</height>
             <format>R8G8B8</format>
           </image>
           <clip>
@@ -216,7 +216,7 @@
     <!-- Right Camera Link -->
     <link name='stereo_camera_right_link'>
       <!-- 10 cm forward, -Y (right), pitched down 45 deg -->
-      <pose relative_to='X3/base_link'>0.10 -0.26858 0 0 0.785398 0</pose>
+      <pose relative_to='X3/base_link'>0.10 -0.0305 0 0 0.785398 0</pose>
 
       <inertial>
         <pose>0 0 0 0 0 0</pose>
@@ -234,22 +234,22 @@
       <sensor name="camera_right" type="camera">
         <pose>0 0 0 0 0 0</pose>
         <always_on>1</always_on>
-        <update_rate>10</update_rate>
+        <update_rate>30</update_rate>
         <topic>/camera/right/image_raw</topic>
 
         <camera>
-          <horizontal_fov>1.4227</horizontal_fov>
+          <horizontal_fov>1.426</horizontal_fov>
           <distortion>
             <k1>0.0</k1>
             <k2>0.0</k2>
             <k3>0.0</k3>
             <p1>0.0</p1>
             <p2>0.0</p2>
-            <center>0.489 0.493</center>
+            <center>0.517 0.561</center>
           </distortion>
           <image>
-            <width>1241</width>
-            <height>376</height>
+            <width>640</width>
+            <height>480</height>
             <format>R8G8B8</format>
           </image>
           <clip>
