@@ -13,6 +13,7 @@ find_package(nav_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(ros2_utils REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
 
 
@@ -23,8 +24,12 @@ find_package(ros2_utils REQUIRED)
 add_executable(waypoint_controller src/waypoint_controller.cpp)
 ament_target_dependencies(waypoint_controller rclcpp geometry_msgs nav_msgs tf2 ros2_utils tf2_geometry_msgs)
 
+add_executable(scene_markers src/scene_markers.cpp)
+ament_target_dependencies(scene_markers rclcpp geometry_msgs visualization_msgs tf2)
+
 install(TARGETS
   waypoint_controller
+  scene_markers
   DESTINATION lib/${PROJECT_NAME}
 )
 

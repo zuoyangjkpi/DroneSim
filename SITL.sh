@@ -5,9 +5,13 @@
 
 # Parse arguments
 WORLD_FILE="drone_world.sdf"
+WORLD_MODE="default"
 if [[ "$1" == "--city" ]]; then
-    WORLD_FILE="city_drone_world.sdf"
+    WORLD_MODE="city"
     echo "🏙️  Using City urban world with stereo camera"
+elif [[ "$1" == "--lake" ]]; then
+    WORLD_MODE="lake"
+    echo "🌊 Using Lake (Harmonic) world with stereo camera"
 fi
 
 # Source ROS2 Jazzy first
@@ -27,8 +31,36 @@ echo "🚀 Starting SITL Environment with $WORLD_FILE..."
 
 # Get package paths
 DRONE_DESC_PATH=$(ros2 pkg prefix drone_description --share)
-WORLD_PATH="$DRONE_DESC_PATH/worlds/$WORLD_FILE"
-RVIZ_CONFIG="$DRONE_DESC_PATH/config/drone.rviz"
+
+# Base resource paths: include system + ROS share (materials) + any existing env
+BASE_RESOURCE_PATH="/usr/share/gz/gz-sim8:/opt/ros/jazzy/share:${GZ_SIM_RESOURCE_PATH}"
+# Ensure system + rendering plugins are resolvable
+export GZ_SIM_SYSTEM_PLUGIN_PATH="/opt/ros/jazzy/opt/gz_sim_vendor/lib:${GZ_SIM_SYSTEM_PLUGIN_PATH}"
+export GZ_RENDER_ENGINE_PATH="/opt/ros/jazzy/opt/gz_rendering_vendor/lib/gz-rendering-8/engine-plugins:${GZ_RENDER_ENGINE_PATH}"
+export GZ_GUI_PLUGIN_PATH="/opt/ros/jazzy/opt/gz_gui_vendor/lib/gz-gui-8/plugins:${GZ_GUI_PLUGIN_PATH}"
+
+# Use stereo RViz config for city/lake modes, regular config otherwise
+case "$WORLD_MODE" in
+  city)
+    CITY_WORLD_PATH="$(pwd)/external/city_worlds/urban_circuit_01.sdf"
+    WORLD_PATH="$CITY_WORLD_PATH"
+    RVIZ_CONFIG="$DRONE_DESC_PATH/config/drone_stereo.rviz"
+    FUEL_CACHE="$HOME/.gz/fuel"
+    # Fuel cache often nests under fuel.ignitionrobotics.org/openrobotics/models (sometimes also fuel.gazebosim.org)
+    export GZ_SIM_RESOURCE_PATH="$BASE_RESOURCE_PATH:$FUEL_CACHE:$FUEL_CACHE/fuel.ignitionrobotics.org/openrobotics/models:$FUEL_CACHE/fuel.gazebosim.org/openrobotics/models:$DRONE_DESC_PATH/models"
+    ;;
+  lake)
+    HARMONIC_DEMO_PATH="$(pwd)/external/harmonic_demo"
+    WORLD_PATH="$HARMONIC_DEMO_PATH/harmonic_demo/harmonic.sdf"
+    RVIZ_CONFIG="$DRONE_DESC_PATH/config/drone_stereo.rviz"
+    export GZ_SIM_RESOURCE_PATH="$BASE_RESOURCE_PATH:$HARMONIC_DEMO_PATH/harmonic_demo:$DRONE_DESC_PATH/models"
+    ;;
+  *)
+    WORLD_PATH="$DRONE_DESC_PATH/worlds/$WORLD_FILE"
+    RVIZ_CONFIG="$DRONE_DESC_PATH/config/drone.rviz"
+    export GZ_SIM_RESOURCE_PATH="$BASE_RESOURCE_PATH:$DRONE_DESC_PATH/models"
+    ;;
+esac
 
 # Check if world file exists
 if [ ! -f "$WORLD_PATH" ]; then
@@ -36,12 +68,18 @@ if [ ! -f "$WORLD_PATH" ]; then
     exit 1
 fi
 
-# Set Gazebo resource paths
-export GZ_SIM_RESOURCE_PATH="$DRONE_DESC_PATH/models:$GZ_SIM_RESOURCE_PATH"
-
 # 1. Launch Gazebo Simulation
 echo "🎮 Starting Gazebo simulation..."
-gz sim -v 4 -r "$WORLD_PATH" &
+
+# Prefer Bullet so mesh collisions (terrain, rocks) are supported; DART lacks MeshShapeFeature.
+BULLET_PLUGIN="/opt/ros/jazzy/opt/gz_physics_vendor/lib/gz-physics-7/engine-plugins/libgz-physics7-bullet-plugin.so"
+if [ -f "$BULLET_PLUGIN" ]; then
+    PHYSICS_ARG=(--physics-engine "$BULLET_PLUGIN")
+else
+    PHYSICS_ARG=()
+fi
+
+gz sim -v 4 -r "$WORLD_PATH" "${PHYSICS_ARG[@]}" &
 GZ_PID=$!
 sleep 5 # Wait for Gazebo to start
 
@@ -53,6 +91,7 @@ ros2 run ros_gz_bridge parameter_bridge \
     /camera/left/camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo \
     /camera/right/camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo \
     /X3/odometry@nav_msgs/msg/Odometry@gz.msgs.Odometry \
+    /imu/data@sensor_msgs/msg/Imu@gz.msgs.IMU \
     /X3/cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist \
     /X3/enable@std_msgs/msg/Bool@gz.msgs.Boolean \
     /world/city_multicopter/dynamic_pose/info@geometry_msgs/msg/PoseArray@gz.msgs.Pose_V &
@@ -74,6 +113,12 @@ ros2 run drone_description waypoint_controller &
 CTRL_PID=$!
 sleep 2
 
+# 4.5. Launch Velocity Control Adapter
+echo "🔄 Starting Velocity Control Adapter..."
+ros2 run drone_low_level_controllers multicopter_velocity_control_adapter &
+VELOCITY_ADAPTER_PID=$!
+sleep 1
+
 # 5. Launch SLAM Bridge
 echo "🔗 Starting SLAM-Sim Bridge..."
 ros2 run slam_sim_bridge bridge_node &
@@ -81,10 +126,11 @@ SLAM_BRIDGE_PID=$!
 
 echo ""
 echo "✅ SITL Environment Ready!"
-echo "   - Gazebo: Running ($WORLD_FILE)"
+echo "   - Gazebo: Running ($(basename $WORLD_PATH))"
 echo "   - ROS-GZ Bridge: Running"
 echo "   - RViz: Running"
-echo "   - Controller: Running"
+echo "   - Waypoint Controller: Running"
+echo "   - Velocity Adapter: Running"
 echo "   - SLAM Bridge: Running"
 echo ""
 echo "📷 Stereo Camera Topics:"
@@ -99,7 +145,7 @@ echo "Press Ctrl+C to stop all processes."
 cleanup() {
     echo ""
     echo "🛑 Stopping all processes..."
-    kill $GZ_PID $BRIDGE_PID $RVIZ_PID $CTRL_PID $SLAM_BRIDGE_PID 2>/dev/null
+    kill $GZ_PID $BRIDGE_PID $RVIZ_PID $CTRL_PID $VELOCITY_ADAPTER_PID $SLAM_BRIDGE_PID 2>/dev/null
     pkill -f "gz sim" 2>/dev/null
     exit
 }

@@ -35,6 +35,7 @@ Software-In-The-Loop (SITL) simulation architecture for integrating AVIANS auton
 │  • /camera/left/camera_info    (sensor_msgs/CameraInfo)                  │
 │  • /camera/right/camera_info   (sensor_msgs/CameraInfo)                  │
 │  • /X3/odometry                (nav_msgs/Odometry)                       │
+│  • /imu/data                   (sensor_msgs/Imu)                         │
 │  • /X3/cmd_vel                 (geometry_msgs/Twist)                     │
 │  • /X3/enable                  (std_msgs/Bool)                           │
 └────────────┬─────────────────────────────────────────────────────────────┘
@@ -47,23 +48,26 @@ Software-In-The-Loop (SITL) simulation architecture for integrating AVIANS auton
 │  ┌────────────────────────────────────────────────────────────────────┐  │
 │  │  SENSOR DATA FORWARDING (Gazebo → SLAM)                           │  │
 │  │                                                                     │  │
-│  │  Subscribe:                        Publish:                        │  │
-│  │  • /X3/odometry                 →  /machine_1/pose (UAVPose)       │  │
-│  │  • /camera/image_raw            →  /camera/image_raw (Image)       │  │
-│  │  • /imu/data                    →  /imu (Imu)                      │  │
+│  │  Subscribe:                             Publish:                   │  │
+│  │  • /X3/odometry                      →  /machine_1/pose (UAVPose)  │  │
+│  │  • /camera/left/image_raw            →  /camera1 (Image)           │  │
+│  │  • /camera/right/image_raw           →  /camera2 (Image)           │  │
+│  │  • /camera/left/camera_info          →  /camera1/camera_info       │  │
+│  │  • /camera/right/camera_info         →  /camera2/camera_info       │  │
+│  │  • /imu/data                         →  /imu (Imu)                 │  │
 │  │                                                                     │  │
-│  │  ⚠️  ISSUE: Single camera topic but Gazebo provides stereo!        │  │
-│  │     Missing: /camera/left/image_raw, /camera/right/image_raw       │  │
+│  │  ✅ Publishes to ORB-SLAM3 internal topics (before remapping)     │  │
 │  └────────────────────────────────────────────────────────────────────┘  │
 │                                                                           │
 │  ┌────────────────────────────────────────────────────────────────────┐  │
-│  │  COMMAND FORWARDING (SLAM → Gazebo)                               │  │
+│  │  COMMAND FORWARDING (SLAM → Controller)                           │  │
 │  │                                                                     │  │
-│  │  Subscribe:                        Publish:                        │  │
-│  │  • /machine_1/command (UAVPose) →  /target_waypoint (PoseStamped)  │  │
+│  │  Subscribe:                             Publish:                   │  │
+│  │  • /machine_1/command (UAVPose)      →  /drone/control/            │  │
+│  │                                          waypoint_command           │  │
+│  │                                          (PoseStamped)              │  │
 │  │                                                                     │  │
-│  │  ⚠️  ISSUE: Waypoint controller expects /drone/control/waypoint_command │  │
-│  │     but slam_sim_bridge publishes to /target_waypoint              │  │
+│  │  ✅ FIXED: Correct waypoint topic for controller                   │  │
 │  └────────────────────────────────────────────────────────────────────┘  │
 └────────────┬─────────────────────────────────────────────────────────────┘
              │
@@ -78,11 +82,15 @@ Software-In-The-Loop (SITL) simulation architecture for integrating AVIANS auton
 │  • Mission Executor (BehaviorTree)                                        │
 │  • Scene Graph (Semantic understanding)                                   │
 │                                                                           │
-│  Input Topics:                                                            │
-│  • /camera/left/image_raw     (from slam_sim_bridge)                     │
-│  • /camera/right/image_raw    (from slam_sim_bridge)                     │
-│  • /imu                       (from slam_sim_bridge)                     │
-│  • /machine_1/pose            (from slam_sim_bridge)                     │
+│  Input Topics (ORB-SLAM3 internal, published by slam_sim_bridge):        │
+│  • /camera1                   (Image - left camera)                      │
+│  • /camera2                   (Image - right camera)                     │
+│  • /camera1/camera_info       (CameraInfo)                               │
+│  • /camera2/camera_info       (CameraInfo)                               │
+│  • /imu                       (Imu)                                      │
+│  • /machine_1/pose            (UAVPose)                                  │
+│                                                                           │
+│  Note: Launch file remaps /camera1→/cam0/image_raw for EuRoC compat     │
 │                                                                           │
 │  Output Topics:                                                           │
 │  • /machine_1/command         (UAVPose - waypoint commands)              │
@@ -101,13 +109,23 @@ Software-In-The-Loop (SITL) simulation architecture for integrating AVIANS auton
 │  Output Topics:                                                           │
 │  • /drone/control/velocity_setpoint  (TwistStamped)                      │
 │  • /drone/control/waypoint_reached   (Bool)                              │
-│                                                                           │
-│  ⚠️  ISSUE: No connection between /drone/control/velocity_setpoint       │
-│     and /X3/cmd_vel (Gazebo input)                                       │
 └────────────┬─────────────────────────────────────────────────────────────┘
              │
              ▼
-         Missing Controller Wrapper?
+┌──────────────────────────────────────────────────────────────────────────┐
+│                VELOCITY CONTROL ADAPTER                                   │
+│  (drone_low_level_controllers/multicopter_velocity_control_adapter)     │
+│                                                                           │
+│  Purpose: Converts TwistStamped to Twist for Gazebo                      │
+│                                                                           │
+│  Input Topics:                                                            │
+│  • /drone/control/velocity_setpoint  (TwistStamped)                      │
+│                                                                           │
+│  Output Topics:                                                           │
+│  • /X3/cmd_vel                       (Twist)                             │
+│                                                                           │
+│  ✅ FIXED: Complete control chain to Gazebo                              │
+└────────────┬─────────────────────────────────────────────────────────────┘
              │
              ▼
          /X3/cmd_vel → Gazebo
@@ -126,12 +144,13 @@ Software-In-The-Loop (SITL) simulation architecture for integrating AVIANS auton
 2. **ROS-Gazebo Bridge**
    - Converts Gazebo messages to ROS2 topics
    - Publishes: `/camera/left/image_raw`, `/camera/right/image_raw`, `/camera/left/camera_info`, `/camera/right/camera_info`
-   - Publishes: `/X3/odometry`, `/imu` (if bridged)
+   - Publishes: `/X3/odometry`, `/imu/data` (IMU sensor data)
 
 3. **SLAM Sim Bridge** (`slam_sim_bridge/bridge_node`)
-   - Subscribes to Gazebo topics
-   - Converts to SLAM-expected format
-   - Publishes sensor data for SLAM system
+   - Subscribes to Gazebo stereo camera topics (left/right + camera_info)
+   - Converts odometry to UAVPose format
+   - Publishes to ORB-SLAM3 internal topics: `/camera1`, `/camera2`, `/imu`
+   - SLAM launch file uses remapping to connect external ROS topics to these internal topics
 
 4. **SLAM System**
    - ORB-SLAM3 processes stereo images + IMU
@@ -146,99 +165,62 @@ Software-In-The-Loop (SITL) simulation architecture for integrating AVIANS auton
 
 2. **SLAM Sim Bridge**
    - Converts UAVPose → PoseStamped
-   - Publishes to: `/target_waypoint`
+   - Publishes to: `/drone/control/waypoint_command`
 
-3. **⚠️ MISSING LINK**
-   - Waypoint controller expects: `/drone/control/waypoint_command`
-   - But slam_sim_bridge publishes: `/target_waypoint`
-   - **Solution**: Add topic remapping or fix slam_sim_bridge
-
-4. **Waypoint Controller**
+3. **Waypoint Controller**
    - PID controller: position error → velocity command
    - Publishes: `/drone/control/velocity_setpoint` (TwistStamped)
 
-5. **⚠️ MISSING WRAPPER**
-   - Gazebo expects: `/X3/cmd_vel` (Twist)
-   - But controller publishes: `/drone/control/velocity_setpoint` (TwistStamped)
-   - **Solution**: Add velocity_wrapper node or topic remapping
+4. **Velocity Control Adapter**
+   - Strips timestamp from TwistStamped
+   - Publishes: `/X3/cmd_vel` (Twist)
 
-6. **ROS-Gazebo Bridge**
+5. **ROS-Gazebo Bridge**
    - Forwards `/X3/cmd_vel` to Gazebo
    - Drone actuates based on velocity commands
 
 ---
 
-## Critical Issues Identified
+## Critical Issues - STATUS
 
-### Issue 1: Stereo Camera Topic Mismatch
-**Problem**: `slam_sim_bridge` only subscribes to single camera topic `/camera/image_raw`, but Gazebo publishes stereo:
-- `/camera/left/image_raw`
-- `/camera/right/image_raw`
+### ✅ Issue 1: Stereo Camera Topic Mismatch - RESOLVED
+**Problem**: `slam_sim_bridge` only subscribed to single camera topic
 
-**Impact**: SLAM system won't receive stereo images
+**Solution Implemented**: Rewrote `bridge_node.cpp` with full stereo support:
+- Subscribes: `/camera/left/image_raw`, `/camera/right/image_raw`
+- Subscribes: `/camera/left/camera_info`, `/camera/right/camera_info`
+- Publishes: `/camera1`, `/camera2` (ORB-SLAM3 internal topics, before remapping)
+- Publishes: `/camera1/camera_info`, `/camera2/camera_info`
+- SLAM launch file handles remapping: `/camera1` → `/cam0/image_raw`, `/camera2` → `/cam1/image_raw`
 
-**Solution**:
+### ✅ Issue 2: Waypoint Topic Mismatch - RESOLVED
+**Problem**: Topic name mismatch between SLAM bridge and controller
+
+**Solution Implemented**: Fixed `sim_waypoint_topic` parameter in bridge_node.cpp:
 ```cpp
-// In bridge_node.cpp, add:
-left_camera_sub_ = create_subscription<sensor_msgs::msg::Image>(
-    "/camera/left/image_raw", 10,
-    std::bind(&BridgeNode::leftCameraCallback, this, std::placeholders::_1));
-
-right_camera_sub_ = create_subscription<sensor_msgs::msg::Image>(
-    "/camera/right/image_raw", 10,
-    std::bind(&BridgeNode::rightCameraCallback, this, std::placeholders::_1));
+declare_parameter("sim_waypoint_topic", "/drone/control/waypoint_command");
 ```
 
-### Issue 2: Waypoint Topic Mismatch
-**Problem**:
-- `slam_sim_bridge` publishes: `/target_waypoint`
-- `waypoint_controller` subscribes: `/drone/control/waypoint_command`
+### ✅ Issue 3: Velocity Command Topic Mismatch - RESOLVED
+**Problem**: TwistStamped → Twist conversion needed for Gazebo
 
-**Impact**: Controller won't receive SLAM waypoints
+**Solution Implemented**: Added `multicopter_velocity_control_adapter` to SITL.sh:
+- Subscribes: `/drone/control/velocity_setpoint` (TwistStamped)
+- Publishes: `/X3/cmd_vel` (Twist)
+- Includes velocity filtering and limiting
 
-**Solution Options**:
-1. **Option A**: Fix slam_sim_bridge parameter:
-   ```cpp
-   declare_parameter("sim_waypoint_topic", "/drone/control/waypoint_command");
-   ```
+### ✅ Issue 4: IMU Topic Not Bridged - RESOLVED
+**Problem**: SITL.sh didn't bridge IMU data from Gazebo
 
-2. **Option B**: Add topic remapping in SITL.sh:
+**Solution Implemented**:
+1. Added IMU bridging to ROS-Gazebo bridge in SITL.sh:
    ```bash
-   ros2 run slam_sim_bridge bridge_node \
-       --ros-args -r /target_waypoint:=/drone/control/waypoint_command &
+   /imu/data@sensor_msgs/msg/Imu@gz.msgs.IMU \
    ```
+2. slam_sim_bridge publishes to `/imu` (ORB-SLAM3 internal topic)
+3. SLAM launch file handles remapping: `/imu` → `/imu0`
 
-### Issue 3: Velocity Command Topic Mismatch
-**Problem**:
-- `waypoint_controller` publishes: `/drone/control/velocity_setpoint` (TwistStamped)
-- Gazebo expects: `/X3/cmd_vel` (Twist)
-
-**Impact**: Drone won't move based on controller commands
-
-**Solution Options**:
-1. **Option A**: Create velocity wrapper node:
-   ```python
-   # velocity_wrapper.py
-   def callback(msg: TwistStamped):
-       twist = Twist()
-       twist.linear = msg.twist.linear
-       twist.angular = msg.twist.angular
-       pub.publish(twist)
-   ```
-
-2. **Option B**: Add topic remapping:
-   ```bash
-   ros2 run drone_guidance_controllers waypoint_controller \
-       --ros-args -r /drone/control/velocity_setpoint:=/X3/cmd_vel &
-   ```
-
-### Issue 4: IMU Topic Not Bridged
-**Problem**: SITL.sh doesn't bridge IMU data from Gazebo
-
-**Solution**: Add to ROS-Gazebo bridge:
-```bash
-/imu@sensor_msgs/msg/Imu@gz.msgs.IMU \
-```
+Now IMU data flows: Gazebo → `/imu/data` → slam_sim_bridge → `/imu` → SLAM System (remapped from `/imu0`)
 
 ---
 
@@ -248,17 +230,37 @@ right_camera_sub_ = create_subscription<sensor_msgs::msg::Image>(
 Gazebo Sensors
     │
     ├─→ /camera/left/image_raw ──┐
-    ├─→ /camera/right/image_raw ─┼─→ slam_sim_bridge ─→ SLAM System
-    ├─→ /camera/left/camera_info ┤                        │
-    ├─→ /camera/right/camera_info┤                        │
-    ├─→ /imu ────────────────────┘                        │
-    └─→ /X3/odometry ──────────────────────────────────────┘
-                                                           │
-                                                           ▼
+    ├─→ /camera/right/image_raw ─┤
+    ├─→ /camera/left/camera_info ┼─→ slam_sim_bridge ─→ /camera1 ────────┐
+    ├─→ /camera/right/camera_info┤                   ─→ /camera2 ────────┤
+    ├─→ /imu/data ───────────────┤                   ─→ /imu ─────────────┤
+    └─→ /X3/odometry ─────────────┘                   ─→ /machine_1/pose ─┘
+                                                                           │
+                                                                           ▼
+                                    SLAM launch remaps: /camera1→/cam0/image_raw
+                                                        /camera2→/cam1/image_raw
+                                                        /imu→/imu0
+                                                                           │
+                                                                           ▼
+                                                        SLAM System (ORB-SLAM3)
+                                                                           │
+                                                                           ▼
 SLAM System ─→ /machine_1/command ─→ slam_sim_bridge ─→ /drone/control/waypoint_command
                                                            │
                                                            ▼
-                                     waypoint_controller ─→ /X3/cmd_vel ─→ Gazebo
+                                               waypoint_controller
+                                                           │
+                                                           ▼
+                                         /drone/control/velocity_setpoint
+                                                           │
+                                                           ▼
+                                    multicopter_velocity_control_adapter
+                                                           │
+                                                           ▼
+                                                    /X3/cmd_vel
+                                                           │
+                                                           ▼
+                                                        Gazebo
 ```
 
 ---
@@ -270,7 +272,8 @@ SLAM System ─→ /machine_1/command ─→ slam_sim_bridge ─→ /drone/contr
 2. **ROS-Gazebo Bridge** (`ros_gz_bridge parameter_bridge`)
 3. **RViz2** (`rviz2`)
 4. **Waypoint Controller** (`waypoint_controller`)
-5. **SLAM Bridge** (`slam_sim_bridge`)
+5. **Velocity Control Adapter** (`multicopter_velocity_control_adapter`)
+6. **SLAM Bridge** (`slam_sim_bridge`)
 
 ### Recommended Full Integration Launch:
 
@@ -289,15 +292,60 @@ cd ~/SLAM
 
 ---
 
+## Understanding ROS2 Remapping in SLAM Integration
+
+### How Remapping Works
+
+ROS2 remapping allows nodes to use internal topic names while connecting to different external topic names. The syntax in launch files is:
+
+```python
+remappings=[
+    ('/internal_topic', '/external_topic'),
+]
+```
+
+- **Left side** (`/internal_topic`): Topic name used inside the node's code
+- **Right side** (`/external_topic`): Actual topic name on the ROS network
+
+### SLAM System Remapping Example
+
+In [multi_camera_euroc.launch.py](../SLAM/semantic_slam_ws/src/orbslam3_ros2/launch/multi_camera_euroc.launch.py):
+
+```python
+remappings=[
+    ('/camera1', '/cam0/image_raw'),  # EuRoC left camera
+    ('/camera2', '/cam1/image_raw'),  # EuRoC right camera
+    ('/imu', '/imu0'),                # EuRoC IMU
+]
+```
+
+**This means:**
+- ORB-SLAM3 internally subscribes to `/camera1`, `/camera2`, `/imu`
+- ROS2 transparently redirects data from `/cam0/image_raw`, `/cam1/image_raw`, `/imu0`
+- **slam_sim_bridge must publish to `/camera1`, `/camera2`, `/imu`** (the internal topic names)
+- The launch file's remapping handles the connection to external EuRoC-named topics
+
+### Why This Design?
+
+This architecture allows ORB-SLAM3 to:
+1. Use its own internal topic convention (`/camera1`, `/camera2`, `/imu`)
+2. Be compatible with EuRoC dataset format (`/cam0/*`, `/cam1/*`, `/imu0`)
+3. Work with our Gazebo simulation without modifying SLAM code
+
+The remapping layer acts as an adapter between different naming conventions.
+
+---
+
 ## Topic Reference Table
 
 | Component | Input Topics | Output Topics | Message Type |
 |-----------|-------------|---------------|--------------|
-| **Gazebo** | `/X3/cmd_vel`<br>`/X3/enable` | `/camera/left/image_raw`<br>`/camera/right/image_raw`<br>`/X3/odometry`<br>`/imu` | Twist<br>Bool<br>Image<br>Image<br>Odometry<br>Imu |
+| **Gazebo** | `/X3/cmd_vel`<br>`/X3/enable` | `/camera/left/image_raw`<br>`/camera/right/image_raw`<br>`/camera/left/camera_info`<br>`/camera/right/camera_info`<br>`/X3/odometry`<br>`/imu/data` | Twist<br>Bool<br>Image<br>Image<br>CameraInfo<br>CameraInfo<br>Odometry<br>Imu |
 | **ROS-GZ Bridge** | Gazebo → ROS | ROS → Gazebo | Protocol converter |
-| **slam_sim_bridge** | `/X3/odometry`<br>`/camera/left/image_raw`<br>`/camera/right/image_raw`<br>`/imu`<br>`/machine_1/command` | `/machine_1/pose`<br>`/camera/left/image_raw`<br>`/camera/right/image_raw`<br>`/imu`<br>`/drone/control/waypoint_command` | Odometry→UAVPose<br>Image (pass-through)<br>Image (pass-through)<br>Imu (pass-through)<br>UAVPose→PoseStamped |
-| **SLAM System** | `/camera/left/image_raw`<br>`/camera/right/image_raw`<br>`/imu`<br>`/machine_1/pose` | `/machine_1/command` | Image<br>Image<br>Imu<br>UAVPose<br>UAVPose |
-| **waypoint_controller** | `/drone/control/waypoint_command`<br>`/X3/odometry`<br>`/drone/control/waypoint_enable` | `/X3/cmd_vel`<br>`/drone/control/waypoint_reached` | PoseStamped<br>Odometry<br>Bool<br>Twist<br>Bool |
+| **slam_sim_bridge** | `/X3/odometry`<br>`/camera/left/image_raw`<br>`/camera/right/image_raw`<br>`/camera/left/camera_info`<br>`/camera/right/camera_info`<br>`/imu/data`<br>`/machine_1/command` | `/machine_1/pose`<br>`/camera1`<br>`/camera2`<br>`/camera1/camera_info`<br>`/camera2/camera_info`<br>`/imu`<br>`/drone/control/waypoint_command` | Odometry→UAVPose<br>Image (ORB-SLAM3 internal)<br>Image (ORB-SLAM3 internal)<br>CameraInfo (ORB-SLAM3 internal)<br>CameraInfo (ORB-SLAM3 internal)<br>Imu (ORB-SLAM3 internal)<br>UAVPose→PoseStamped |
+| **SLAM System** | `/camera1` (remapped from `/cam0/image_raw`)<br>`/camera2` (remapped from `/cam1/image_raw`)<br>`/camera1/camera_info`<br>`/camera2/camera_info`<br>`/imu` (remapped from `/imu0`)<br>`/machine_1/pose` | `/machine_1/command` | Image<br>Image<br>CameraInfo<br>CameraInfo<br>Imu<br>UAVPose<br>UAVPose |
+| **waypoint_controller** | `/drone/control/waypoint_command`<br>`/X3/odometry`<br>`/drone/control/waypoint_enable` | `/drone/control/velocity_setpoint`<br>`/drone/control/waypoint_reached` | PoseStamped<br>Odometry<br>Bool<br>TwistStamped<br>Bool |
+| **velocity_adapter** | `/drone/control/velocity_setpoint` | `/X3/cmd_vel` | TwistStamped→Twist |
 
 ---
 
@@ -392,7 +440,7 @@ ros2 topic hz /X3/cmd_vel
 
 ---
 
-**Last Updated**: December 9, 2025
+**Last Updated**: December 9, 2025 (Updated with complete SITL integration)
 **Maintained By**: FRPG-AVIANS Team
 **Related Docs**:
 - [SLAM README](../SLAM/README.md)

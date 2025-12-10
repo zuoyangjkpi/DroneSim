@@ -9,6 +9,19 @@
 namespace pose_cov_ops {
   namespace interface {
 
+    // Helper to normalize Pose/PoseWithCovariance input to PoseWithCovariance
+    inline PoseWithCovariance toPwC(const PoseWithCovariance &pose)
+    {
+      return pose;
+    }
+
+    inline PoseWithCovariance toPwC(const geometry_msgs::msg::Pose &pose)
+    {
+      PoseWithCovariance out;
+      out.pose = pose;
+      return out;
+    }
+
     template<typename K>
     Interface<K>::Interface(const std::vector<topicSubInfo<K>> &pose_topics, rclcpp::Node::SharedPtr node) 
     : node_(node) {
@@ -61,7 +74,7 @@ namespace pose_cov_ops {
       }
 
       // Compose using pose_cov_ops, place result in out_pose
-      pose_cov_ops::compose(p_transf->pose, in_pose, out_pose);
+      pose_cov_ops::compose(p_transf->pose, toPwC(in_pose), out_pose);
 
       return true;
     }
@@ -100,7 +113,7 @@ namespace pose_cov_ops {
       }
 
       // Final composition for the in_pose and the composition of the transformation poses
-      pose_cov_ops::compose(t_pose, in_pose, out_pose);
+      pose_cov_ops::compose(t_pose, toPwC(in_pose), out_pose);
 
       return true;
     }
@@ -139,7 +152,7 @@ namespace pose_cov_ops {
       }
 
       // Compose using pose_cov_ops, place result in out_pose
-      pose_cov_ops::inverseCompose(in_pose, p_transf->pose, out_pose);
+      pose_cov_ops::inverseCompose(toPwC(in_pose), p_transf->pose, out_pose);
 
       return true;
     }
@@ -178,7 +191,7 @@ namespace pose_cov_ops {
       }
 
       // Final composition for the in_pose and the composition of the transformation poses
-      pose_cov_ops::inverseCompose(in_pose, t_pose, out_pose);
+      pose_cov_ops::inverseCompose(toPwC(in_pose), t_pose, out_pose);
 
       return true;
     }
