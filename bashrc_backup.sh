@@ -169,7 +169,7 @@ setup_airship_ros1() {
 # ROS2 (Jazzy) development environment
 setup_airship_ros2() {
   echo "🚀 Setting up AirshipMPC (ROS2 / Jazzy)..."
-  conda activate airship_ros2 || { echo "❌ conda env 'airship_ros2' does not exist"; return 1; }
+  conda activate drone || { echo "❌ conda env 'drone' does not exist"; return 1; }
 
   # Keep the environment clean
   unset PYTHONPATH
@@ -198,7 +198,7 @@ setup_airship_ros2() {
 # ROS2 (Jazzy) development environment
 setup_drone_ros2() {
   echo "🚀 Setting up AVIANS (ROS2 / Jazzy)..."
-  conda activate airship_ros2 || { echo "❌ conda env 'airship_ros2' does not exist"; return 1; }
+  conda activate drone || { echo "❌ conda env 'drone' does not exist"; return 1; }
 
   # Keep the environment clean
   unset PYTHONPATH

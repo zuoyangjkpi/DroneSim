@@ -515,7 +515,6 @@
     </include>
 
     <!-- Walking actors (slow roaming within a small area) -->
-
     <actor name="walker_1">
       <!-- Initial pose: yaw aligned with first segment direction -->
       <pose>2 0 1.0 0 0 1.249</pose>

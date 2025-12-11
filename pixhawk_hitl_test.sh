@@ -243,12 +243,12 @@ pixhawk_hitl_full_test() {
 
     # Step 6: Start drone TF publisher
     print_status $YELLOW "Step 6/13: Starting drone TF publisher..."
-    python3 drone_tf_publisher.py > /tmp/drone_tf_hitl.log 2>&1 &
+    ros2 run drone_tf_publisher drone_tf_publisher > /tmp/drone_tf_hitl.log 2>&1 &
     sleep 1
 
     # Step 7: Start RViz visualization
     print_status $YELLOW "Step 7/13: Starting RViz visualization..."
-    python3 visualization_node.py > /tmp/visualization_hitl.log 2>&1 &
+    ros2 run visualization visualization_node > /tmp/visualization_hitl.log 2>&1 &
     sleep 2
 
     # Step 8: Start drone_state_publisher bridge (reads from PX4)
@@ -376,8 +376,8 @@ kill_all_hitl_processes() {
     pkill -f "yolo12_detector_node" 2>/dev/null
     pkill -f "nmpc_tracker_node" 2>/dev/null
     pkill -f "detection_visualizer_node" 2>/dev/null
-    pkill -f "visualization_node.py" 2>/dev/null
-    pkill -f "drone_tf_publisher.py" 2>/dev/null
+    pkill -f "visualization.visualization_node" 2>/dev/null
+    pkill -f "drone_tf_publisher" 2>/dev/null
     pkill -f "drone_state_publisher_node" 2>/dev/null
     pkill -f "projection_model_node" 2>/dev/null
     pkill -f "tf_from_uav_pose_node" 2>/dev/null

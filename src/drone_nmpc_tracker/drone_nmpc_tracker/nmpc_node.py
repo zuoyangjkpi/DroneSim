@@ -430,12 +430,12 @@ class NMPCTrackerNode(Node):
                             Time(),  # Latest available TF
                             timeout=Duration(seconds=0.2)
                         )
-                            if transform:
-                                used_frame = candidate
-                                self.get_logger().warn(
-                                    f"TF extrapolation for {candidate} (requested {lookup_time.nanoseconds * 1e-9:.3f}s);"
-                                    " switched to the latest available TF data"
-                                )
+                        if transform:
+                            used_frame = candidate
+                            self.get_logger().warn(
+                                f"TF extrapolation for {candidate} (requested {lookup_time.nanoseconds * 1e-9:.3f}s);"
+                                " switched to the latest available TF data"
+                            )
                             break
                     except TransformException as exc_latest:
                         last_error = exc_latest

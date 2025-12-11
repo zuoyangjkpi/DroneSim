@@ -137,7 +137,7 @@ AVIANS_ROS2/
 │   └── 🌊 harmonic_demo/                # Lakeside world (Harmonic)
 ├── 📄 SITL.sh                           # Main SITL launcher
 ├── 📄 SITL_ARCHITECTURE.md              # Detailed architecture docs
-├── 📄 comprehensive_test_suite.sh       # Test harness
+├── 📄 independent_test.sh               # Standalone test harness
 └── 📖 README.md                         # This file
 
 External SLAM Workspace (separate):
@@ -306,20 +306,14 @@ ros2 topic echo /X3/cmd_vel --once
 
 ### Stereo Camera Setup
 
-Camera configuration in `drone_description/models/x3_stereo/`:
+Stereo camera is defined in `drone_description/models/x3_stereo/model.sdf`:
 
-```xml
-<camera name="left_camera">
-  <horizontal_fov>1.047</horizontal_fov>
-  <image>
-    <width>640</width>
-    <height>480</height>
-  </image>
-  <camera_info_topic>camera/left/camera_info</camera_info_topic>
-</camera>
-```
-
-**Stereo Baseline:** 0.12m (configurable in SDF)
+- Resolution: `640x480`
+- Approx. HFOV: `~1.426 rad`
+- Baseline: `~0.061 m`
+- Topics:
+  - `/camera/left/right/image_raw`
+  - `/camera/left/right/camera_info`
 
 ### SLAM Bridge Configuration
 
@@ -352,7 +346,7 @@ AVIANS_ROS2 and this SITL bridge.
 ### System Health Check
 
 ```bash
-./comprehensive_test_suite.sh
+./independent_test.sh
 # Select Option 1: System Status Check
 ```
 

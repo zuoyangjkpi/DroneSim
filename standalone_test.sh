@@ -255,11 +255,11 @@ text_prompt_test() {
 
     # Step 4-5: TF + visualization
     print_status $YELLOW "Step 4/12: Starting TF publisher..."
-    python3 drone_tf_publisher.py > /tmp/drone_tf.log 2>&1 &
+    python3 -m drone_tf_publisher.drone_tf_publisher > /tmp/drone_tf.log 2>&1 &
     sleep 1
 
     print_status $YELLOW "Step 5/12: Launching RViz visualization..."
-    python3 visualization_node.py > /tmp/visualization.log 2>&1 &
+    ros2 run visualization visualization_node > /tmp/visualization.log 2>&1 &
     sleep 2
 
     # Step 6-9: State estimation chain
@@ -667,17 +667,17 @@ full_integration_test() {
     
     # Step 4: Start drone TF publisher for proper RViz display
     print_status $YELLOW "Step 4/12: Starting drone TF publisher..."
-    python3 drone_tf_publisher.py > /tmp/drone_tf.log 2>&1 &
+    python3 -m drone_tf_publisher.drone_tf_publisher > /tmp/drone_tf.log 2>&1 &
     local tf_pid=$!
     sleep 1
     
     # Step 5: Start RViz visualization with trajectory display
     print_status $YELLOW "Step 5/12: Starting RViz visualization..."
-    python3 visualization_node.py > /tmp/visualization.log 2>&1 &
+    python3 -m visualization.visualization_node > /tmp/visualization.log 2>&1 &
     local viz_node_pid=$!
     sleep 2
-    
-    if check_process "visualization_node.py"; then
+
+    if check_process "visualization_node"; then
         print_status $GREEN "✅ RViz visualization node started successfully"
         print_status $YELLOW "💡 Open RViz2 and add these topics for visualization:"
         print_status $YELLOW "   - /person_position_markers (MarkerArray) - Red=Predicted, Blue=Actual person"
@@ -1457,8 +1457,8 @@ kill_all_processes() {
 
     # Visualization and detection nodes
     pkill -f "detection_visualizer_node" 2>/dev/null
-    pkill -f "visualization_node.py" 2>/dev/null
-    pkill -f "drone_tf_publisher.py" 2>/dev/null
+    pkill -f "visualization.visualization_node" 2>/dev/null
+    pkill -f "drone_tf_publisher" 2>/dev/null
 
     # Generic ROS processes
     pkill -f "ros2 launch" 2>/dev/null

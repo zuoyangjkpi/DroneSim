@@ -90,7 +90,7 @@ The NMPC tracker integrates with your existing AVIANS system:
 
 ```bash
 # Terminal 1: Launch your Gazebo simulation
-./comprehensive_test_suite.sh
+./standalone_test.sh
 
 # Terminal 2: Launch NMPC tracker
 ros2 launch drone_nmpc_tracker nmpc_tracker.launch.py
@@ -256,4 +256,3 @@ For issues and questions:
 ## Acknowledgments
 
 Based on the AirshipMPC project and adapted for quadrotor person tracking with ROS2 Jazzy compatibility.
-

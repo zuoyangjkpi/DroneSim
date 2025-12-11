@@ -16,11 +16,11 @@ waypoint_controller:
     kd_z: 6.0                     
 
     max_velocity_xy: 4.0          # Reverted to 4.0
-    max_velocity_z: 1.2           
+    max_velocity_z: 2.0           
     
     max_vertical_error: 2.0
     integral_limit_xy: 2.0        # Increased limit
-    integral_limit_z: 0.5
+    integral_limit_z: 1.0
 
 yaw_controller:
   ros__parameters:
@@ -31,6 +31,6 @@ yaw_controller:
     kd_yaw: 1.0                # Reduced from 4.0 to 1.0
     max_angular_velocity_yaw: 3.5  # Increased from 2.5 to 3.5
     max_yaw_step: 0.8          # Increased from 0.4 to 0.8
-    derivative_filter_alpha: 0.9   
+    derivative_filter_alpha: 0.3   
     yaw_integral_limit: 0.5    # Increased limit
     attitude_command_timeout: 3.0

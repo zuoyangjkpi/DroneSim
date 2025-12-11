@@ -9,7 +9,7 @@
 # Odometry (Gazebo proto -> ROS2)
 # Direct bridge from Gazebo odometry to ROS2 odometry
 - ros_topic_name: "/X3/odometry"
-  gz_topic_name: "/model/X3/odometry"
+  gz_topic_name: "/X3/odometry"
   ros_type_name: "nav_msgs/msg/Odometry"
   gz_type_name: "gz.msgs.Odometry"
   direction: GZ_TO_ROS

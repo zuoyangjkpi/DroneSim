@@ -630,6 +630,108 @@
       </link>
     </model>
 
+    <!-- Walking actors (slow roaming within a small area) -->
+    <actor name="walker_1">
+      <!-- Initial pose: yaw aligned with first segment direction -->
+      <pose>2 0 1.0 0 0 1.249</pose>
+      <skin>
+        <filename>model://actor/meshes/walk.dae</filename>
+        <scale>1.2</scale>
+      </skin>
+      <animation name="walk">
+        <filename>model://actor/meshes/walk.dae</filename>
+        <scale>1.2</scale>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+
+      <script>
+        <loop>true</loop>
+        <auto_start>true</auto_start>
+
+        <!-- A gentle multi-waypoint loop to mimic free walking -->
+        <trajectory id="0" type="walk">
+          <waypoint>
+            <time>0</time>
+            <pose>2 0 0 0 0 1.249</pose>
+          </waypoint>
+          <waypoint>
+            <time>8</time>
+            <pose>3 3 0 0 0 2.820</pose>
+          </waypoint>
+          <waypoint>
+            <time>16</time>
+            <pose>0 4 0 0 0 -2.554</pose>
+          </waypoint>
+          <waypoint>
+            <time>24</time>
+            <pose>-3 2 0 0 0 -1.326</pose>
+          </waypoint>
+          <waypoint>
+            <time>32</time>
+            <pose>-2 -2 0 0 0 -0.322</pose>
+          </waypoint>
+          <waypoint>
+            <time>40</time>
+            <pose>1 -3 0 0 0 1.249</pose>
+          </waypoint>
+          <waypoint>
+            <time>48</time>
+            <pose>2 0 0 0 0 1.249</pose>
+          </waypoint>
+        </trajectory>
+      </script>
+    </actor>
+
+
+    <actor name="walker_2">
+      <pose>-2 0 1.0 0 0 1.893</pose>
+      <skin>
+        <filename>model://actor/meshes/walk.dae</filename>
+        <scale>0.8</scale>
+      </skin>
+      <animation name="walk">
+        <filename>model://actor/meshes/walk.dae</filename>
+        <scale>0.8</scale>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+
+      <script>
+        <loop>true</loop>
+        <auto_start>true</auto_start>
+
+        <trajectory id="0" type="walk">
+          <waypoint>
+            <time>0</time>
+            <pose>-2 0 0 0 0 1.893</pose>
+          </waypoint>
+          <waypoint>
+            <time>8</time>
+            <pose>-3 3 0 0 0 0.464</pose>
+          </waypoint>
+          <waypoint>
+            <time>16</time>
+            <pose>-1 4 0 0 0 -0.588</pose>
+          </waypoint>
+          <waypoint>
+            <time>24</time>
+            <pose>2 2 0 0 0 -1.326</pose>
+          </waypoint>
+          <waypoint>
+            <time>32</time>
+            <pose>3 -2 0 0 0 -2.554</pose>
+          </waypoint>
+          <waypoint>
+            <time>40</time>
+            <pose>0 -4 0 0 0 2.034</pose>
+          </waypoint>
+          <waypoint>
+            <time>48</time>
+            <pose>-2 0 0 0 0 2.034</pose>
+          </waypoint>
+        </trajectory>
+      </script>
+    </actor>
+
     <include>
       <uri>
         https://fuel.ignitionrobotics.org/1.0/MovAi/models/Tugbot

@@ -763,16 +763,16 @@ class LostHoldModule(ActionModule):
             self.context.send_waypoint(self._hold_position)
         self.context.send_yaw(0.0, 0.0, self._hold_yaw)
 
-        # ✅ The only success condition is detecting the target again
+        # ✅ Check if target reacquired
         if self._detection_streak >= self._confirmations_required:
             self.succeed("Target reacquired during hold", data={"reacquired": True})
             return
 
-        # ℹ️ If the target never reappears, keep holding until:
-        # 1. Detection occurs → succeed → transitions["success"] → back to TRACK
-        # 2. Stage timeout → transitions["timeout"] → go to SEARCH
-        #
-        # Waypoint refreshing to hold position happens at the top of this method
+        # ✅ Check timeout - if target not reacquired within duration, transition to SEARCH
+        elapsed = self.context.now() - self._start_time
+        if elapsed >= self._goal.duration:
+            self.succeed(f"Hold timeout ({elapsed:.1f}s), target not found", data={"reacquired": False})
+            return
 
     def _status_callback(self, msg: Float64MultiArray) -> None:
         detected = bool(int(msg.data[0])) if msg.data else False
