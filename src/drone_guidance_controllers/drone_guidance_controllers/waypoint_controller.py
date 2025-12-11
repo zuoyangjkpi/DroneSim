@@ -50,6 +50,8 @@ class WaypointController(Node):
         self.declare_parameter('max_vertical_error', 1.5)
         self.declare_parameter('integral_limit_xy', 4.0)
         self.declare_parameter('integral_limit_z', 1.5)
+        self.declare_parameter('cf_v_xy', 1.0)
+        self.declare_parameter('cf_v_z', 1.0)
 
         # Get parameters
         self.control_frequency = self.get_parameter('control_frequency').value
@@ -70,6 +72,8 @@ class WaypointController(Node):
         self.max_vertical_error = abs(float(self.get_parameter('max_vertical_error').value))
         self.integral_limit_xy = abs(float(self.get_parameter('integral_limit_xy').value))
         self.integral_limit_z = abs(float(self.get_parameter('integral_limit_z').value))
+        self.cf_v_xy = float(np.clip(self.get_parameter('cf_v_xy').value, 0.0, 1.0))
+        self.cf_v_z = float(np.clip(self.get_parameter('cf_v_z').value, 0.0, 1.0))
 
         # State variables
         self.current_pose = None
@@ -85,6 +89,7 @@ class WaypointController(Node):
         self.position_error_previous = np.zeros(3)
         self.last_control_time = None
         self.last_waypoint_time = None
+        self.filtered_velocity_command = np.zeros(3)
 
         # File logger for external monitoring
         self.file_logger = _init_file_logger('waypoint_controller')
@@ -176,6 +181,7 @@ class WaypointController(Node):
             self.position_error_previous = np.zeros(3)
             self.last_control_time = None
             self._waypoint_reached = False
+            self.filtered_velocity_command = np.zeros(3)
             self.file_logger.info('controller_disabled -> hover command issued')
 
     def control_loop(self):
@@ -313,19 +319,37 @@ class WaypointController(Node):
                                     kd * error_derivative)
             velocity_command = np.clip(velocity_command_raw, -max_vel, max_vel)
 
+        # Command smoothing in XY and Z
+        alpha_xy = self.cf_v_xy
+        alpha_z = self.cf_v_z
+        filtered = self.filtered_velocity_command.copy()
+        if 0.0 < alpha_xy < 1.0:
+            filtered[0] = (1.0 - alpha_xy) * filtered[0] + alpha_xy * velocity_command[0]
+            filtered[1] = (1.0 - alpha_xy) * filtered[1] + alpha_xy * velocity_command[1]
+        else:
+            filtered[0] = velocity_command[0]
+            filtered[1] = velocity_command[1]
+
+        if 0.0 < alpha_z < 1.0:
+            filtered[2] = (1.0 - alpha_z) * filtered[2] + alpha_z * velocity_command[2]
+        else:
+            filtered[2] = velocity_command[2]
+
+        self.filtered_velocity_command = filtered
+
         # Publish velocity setpoint
         velocity_cmd = TwistStamped()
         velocity_cmd.header.stamp = current_time.to_msg()
         velocity_cmd.header.frame_id = 'world'
-        velocity_cmd.twist.linear.x = velocity_command[0]
-        velocity_cmd.twist.linear.y = velocity_command[1]
-        velocity_cmd.twist.linear.z = velocity_command[2]
+        velocity_cmd.twist.linear.x = filtered[0]
+        velocity_cmd.twist.linear.y = filtered[1]
+        velocity_cmd.twist.linear.z = filtered[2]
 
         self.velocity_setpoint_pub.publish(velocity_cmd)
 
         self.file_logger.info(
             'waypoint_ctrl vel_cmd=[%.3f, %.3f, %.3f] error=[%.3f, %.3f, %.3f] reached=%s',
-            velocity_command[0], velocity_command[1], velocity_command[2],
+            filtered[0], filtered[1], filtered[2],
             position_error[0], position_error[1], position_error[2],
             reached_now
         )
@@ -336,7 +360,7 @@ class WaypointController(Node):
         # Debug logging
         self.get_logger().debug(
             f'Waypoint control: error={position_magnitude:.3f}m, '
-            f'cmd_vel=[{velocity_command[0]:.2f}, {velocity_command[1]:.2f}, {velocity_command[2]:.2f}]'
+            f'cmd_vel=[{filtered[0]:.2f}, {filtered[1]:.2f}, {filtered[2]:.2f}]'
         )
 
 def main(args=None):

@@ -3,34 +3,36 @@
 waypoint_controller:
   ros__parameters:
     control_frequency: 100.0
-    position_tolerance: 0.5       # Raised to 0.5 m to avoid over-constraining
+    position_tolerance: 0.5       
     velocity_tolerance: 0.05
     waypoint_timeout: 4.0
 
-    # Reverted to previous "Optimized" tuning
-    kp_xy: 1.5                    
-    ki_xy: 0.0                    
-    kd_xy: 3.0                    
-    kp_z: 0.8                     # Keep Z conservative
-    ki_z: 0.02                    
-    kd_z: 6.0                     
 
-    max_velocity_xy: 4.0          # Reverted to 4.0
-    max_velocity_z: 2.0           
+    kp_xy: 1.5                    
+    ki_xy: 0.1                    
+    kd_xy: 3.0                    
+    kp_z: 0.8                     
+    ki_z: 0.02                    
+    kd_z: 6.0                    
+
+    max_velocity_xy: 2.5          
+    max_velocity_z: 1.5           
     
     max_vertical_error: 2.0
-    integral_limit_xy: 2.0        # Increased limit
-    integral_limit_z: 1.0
+    integral_limit_xy: 0.5        
+    integral_limit_z: 0.5
+    cf_v_xy: 0.8
+    cf_v_z: 0.8
 
 yaw_controller:
   ros__parameters:
     control_frequency: 100.0
     yaw_tolerance: 0.030
-    kp_yaw: 2.0                # Increased from 1.0 to 2.0
-    ki_yaw: 0.0005             
-    kd_yaw: 1.0                # Reduced from 4.0 to 1.0
-    max_angular_velocity_yaw: 3.5  # Increased from 2.5 to 3.5
-    max_yaw_step: 0.8          # Increased from 0.4 to 0.8
-    derivative_filter_alpha: 0.3   
-    yaw_integral_limit: 0.5    # Increased limit
+    kp_yaw: 1.5                
+    ki_yaw: 0.05             
+    kd_yaw: 0.5               
+    max_angular_velocity_yaw: 2.5  
+    max_yaw_step: 0.8          
+    cf_yaw_rate: 0.8
+    yaw_integral_limit: 0.5    
     attitude_command_timeout: 3.0

@@ -528,10 +528,14 @@
         <enableSubTopic>enable</enableSubTopic>
         <comLinkName>X3/base_link</comLinkName>
         <!-- Reverted to previous "Optimized" tuning -->
-        <velocityGain>4.0 4.0 4.0</velocityGain> 
-        <attitudeGain>8.0 8.0 3.0</attitudeGain> 
-        <angularRateGain>4.0 4.0 4.0</angularRateGain> 
+        <velocityGain>1.5 1.5 2.0</velocityGain> 
+        <attitudeGain>4.5 4.5 4.0</attitudeGain> 
+        <angularRateGain>6.0 6.0 5.5</angularRateGain> 
+
+        <maximumLinearVelocity>3.0 3.0 2.0</maximumLinearVelocity>
         <maximumLinearAcceleration>4.0 4.0 4.0</maximumLinearAcceleration>
+        <maximumAngularVelocity>4.0 4.0 3.0</maximumAngularVelocity>
+        
         <actuatorsTopic>command/motor_speed</actuatorsTopic>
         <rotorConfiguration>
           <rotor>

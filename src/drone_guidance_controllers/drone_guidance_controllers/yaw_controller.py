@@ -42,7 +42,7 @@ class YawController(Node):
         self.declare_parameter('kd_yaw', 0.9)
         self.declare_parameter('max_angular_velocity_yaw', 2.3)
         self.declare_parameter('max_yaw_step', 0.2)
-        self.declare_parameter('derivative_filter_alpha', 0.4)
+        self.declare_parameter('cf_yaw_rate', 1.0)
         self.declare_parameter('yaw_integral_limit', 1.2)
         self.declare_parameter('attitude_command_timeout', 3.0)
 
@@ -53,8 +53,7 @@ class YawController(Node):
         self.kd_yaw = float(self.get_parameter('kd_yaw').value)
         self.max_yaw_rate = float(self.get_parameter('max_angular_velocity_yaw').value)
         self.max_yaw_step = abs(float(self.get_parameter('max_yaw_step').value))
-        self.derivative_filter_alpha = float(np.clip(
-            self.get_parameter('derivative_filter_alpha').value, 0.0, 1.0))
+        self.cf_yaw_rate = float(np.clip(self.get_parameter('cf_yaw_rate').value, 0.0, 1.0))
         self.yaw_integral_limit = abs(float(self.get_parameter('yaw_integral_limit').value))
         self.command_timeout = float(self.get_parameter('attitude_command_timeout').value)
 
@@ -67,7 +66,7 @@ class YawController(Node):
         self.yaw_integral = 0.0
         self.prev_error = 0.0
         self.last_control_time = None
-        self.filtered_derivative = 0.0
+        self.filtered_yaw_rate_cmd = 0.0
         self._last_yaw_cmd = None
         self._stale_attitude_warned = False
 
@@ -134,6 +133,7 @@ class YawController(Node):
         self.last_command_time = self.get_clock().now()
         self.yaw_integral = 0.0
         self.prev_error = 0.0
+        self.filtered_yaw_rate_cmd = 0.0
         self._last_yaw_cmd = self.target_yaw
         self._stale_attitude_warned = False
 
@@ -181,23 +181,25 @@ class YawController(Node):
 
         # Derivative
         yaw_derivative_raw = (yaw_error - self.prev_error) / dt if dt > 0.0 else 0.0
-        if 0.0 < self.derivative_filter_alpha < 1.0:
-            self.filtered_derivative = (
-                (1.0 - self.derivative_filter_alpha) * self.filtered_derivative +
-                self.derivative_filter_alpha * yaw_derivative_raw
-            )
-            yaw_derivative = self.filtered_derivative
-        else:
-            self.filtered_derivative = yaw_derivative_raw
-            yaw_derivative = yaw_derivative_raw
+        yaw_derivative = yaw_derivative_raw
         self.prev_error = yaw_error
 
-        yaw_rate_cmd = (
+        yaw_rate_cmd_raw = (
             self.kp_yaw * yaw_error +
             self.ki_yaw * self.yaw_integral +
             self.kd_yaw * yaw_derivative
         )
-        yaw_rate_cmd = float(np.clip(yaw_rate_cmd, -self.max_yaw_rate, self.max_yaw_rate))
+        yaw_rate_cmd_raw = float(np.clip(yaw_rate_cmd_raw, -self.max_yaw_rate, self.max_yaw_rate))
+
+        if 0.0 < self.cf_yaw_rate < 1.0:
+            self.filtered_yaw_rate_cmd = (
+                (1.0 - self.cf_yaw_rate) * self.filtered_yaw_rate_cmd +
+                self.cf_yaw_rate * yaw_rate_cmd_raw
+            )
+            yaw_rate_cmd = self.filtered_yaw_rate_cmd
+        else:
+            self.filtered_yaw_rate_cmd = yaw_rate_cmd_raw
+            yaw_rate_cmd = yaw_rate_cmd_raw
 
         cmd_msg = Vector3Stamped()
         cmd_msg.header.stamp = now.to_msg()

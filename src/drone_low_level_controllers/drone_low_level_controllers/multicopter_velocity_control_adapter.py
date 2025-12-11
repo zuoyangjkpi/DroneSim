@@ -34,24 +34,10 @@ class MulticopterVelocityControlAdapter(Node):
 
         # Parameters
         self.declare_parameter('control_frequency', 50.0)
-        self.declare_parameter('max_linear_velocity_xy', 5.0)
-        self.declare_parameter('max_linear_velocity_z', 4.0)
-        self.declare_parameter('max_angular_velocity_xy', 3.0)
-        self.declare_parameter('max_angular_velocity_z', 3.0)
-        self.declare_parameter('linear_cmd_filter_alpha', 0.3)
-        self.declare_parameter('yaw_rate_filter_alpha', 0.4)
         self.declare_parameter('velocity_setpoint_timeout', 0.8)
         self.declare_parameter('angular_setpoint_timeout', 0.8)
 
         self.control_frequency = self.get_parameter('control_frequency').value
-        self.max_linear_velocity_xy = self.get_parameter('max_linear_velocity_xy').value
-        self.max_linear_velocity_z = self.get_parameter('max_linear_velocity_z').value
-        self.max_angular_velocity_xy = self.get_parameter('max_angular_velocity_xy').value
-        self.max_angular_velocity_z = self.get_parameter('max_angular_velocity_z').value
-        self.linear_cmd_filter_alpha = float(np.clip(
-            self.get_parameter('linear_cmd_filter_alpha').value, 0.0, 1.0))
-        self.yaw_rate_filter_alpha = float(np.clip(
-            self.get_parameter('yaw_rate_filter_alpha').value, 0.0, 1.0))
         self.velocity_setpoint_timeout = float(self.get_parameter('velocity_setpoint_timeout').value)
         self.angular_setpoint_timeout = float(self.get_parameter('angular_setpoint_timeout').value)
 
@@ -94,8 +80,6 @@ class MulticopterVelocityControlAdapter(Node):
         # State
         self.desired_linear_world = np.zeros(3)
         self.desired_yaw_rate = 0.0
-        self.filtered_linear_world = np.zeros(3)
-        self.filtered_yaw_rate = 0.0
         self.rotation_world_from_body = None  # 3x3 matrix
         self.controller_active = False
         self._last_velocity_msg_time = None
@@ -143,15 +127,11 @@ class MulticopterVelocityControlAdapter(Node):
         if self.controller_active:
             self.get_logger().info('MulticopterVelocityControl adapter ENABLED')
             self.file_logger.info('mux_enabled')
-            self.filtered_linear_world = self.desired_linear_world.copy()
-            self.filtered_yaw_rate = float(self.desired_yaw_rate)
         else:
             self.get_logger().info('MulticopterVelocityControl adapter DISABLED -> zero cmd_vel')
             self.file_logger.info('mux_disabled_zero')
             self.desired_linear_world = np.zeros(3)
             self.desired_yaw_rate = 0.0
-            self.filtered_linear_world = np.zeros(3)
-            self.filtered_yaw_rate = 0.0
             self._publish_cmd()
 
     # ------------------------------------------------------------------
@@ -160,9 +140,9 @@ class MulticopterVelocityControlAdapter(Node):
 
         # Convert world linear velocity into body frame if attitude info is available
         if self.rotation_world_from_body is not None:
-            v_body = self.rotation_world_from_body.T @ self.filtered_linear_world
+            v_body = self.rotation_world_from_body.T @ self.desired_linear_world
         else:
-            v_body = self.filtered_linear_world
+            v_body = self.desired_linear_world
 
         cmd.linear.x = float(v_body[0])
         cmd.linear.y = float(v_body[1])
@@ -170,18 +150,9 @@ class MulticopterVelocityControlAdapter(Node):
 
         cmd.angular.x = 0.0
         cmd.angular.y = 0.0
-        cmd.angular.z = float(self.filtered_yaw_rate)
+        cmd.angular.z = float(self.desired_yaw_rate)
 
-        # Apply limits
-        xy_norm = np.linalg.norm([cmd.linear.x, cmd.linear.y])
-        if xy_norm > self.max_linear_velocity_xy > 0.0:
-            scale = self.max_linear_velocity_xy / xy_norm
-            cmd.linear.x *= scale
-            cmd.linear.y *= scale
-
-        cmd.linear.z = float(np.clip(cmd.linear.z, -self.max_linear_velocity_z, self.max_linear_velocity_z))
-        cmd.angular.z = float(np.clip(cmd.angular.z, -self.max_angular_velocity_z, self.max_angular_velocity_z))
-
+        # No limits or filtering applied - let Gazebo MulticopterVelocityControl handle saturation
         self.cmd_vel_pub.publish(cmd)
 
     def control_loop(self) -> None:
@@ -210,7 +181,6 @@ class MulticopterVelocityControlAdapter(Node):
                     f'No velocity setpoint for {age:.2f}s -> zeroing linear command')
                 self.file_logger.info('zero_linear_due_to_controller_stall')
             self.desired_linear_world = np.zeros(3)
-            self.filtered_linear_world = np.zeros(3)
             self._velocity_stale = True
         else:
             self._velocity_stale = False
@@ -222,26 +192,9 @@ class MulticopterVelocityControlAdapter(Node):
                     f'No angular setpoint for {age:.2f}s -> zeroing yaw rate')
                 self.file_logger.info('zero_yaw_due_to_controller_stall')
             self.desired_yaw_rate = 0.0
-            self.filtered_yaw_rate = 0.0
             self._angular_stale = True
         else:
             self._angular_stale = False
-
-        if 0.0 < self.linear_cmd_filter_alpha < 1.0:
-            self.filtered_linear_world = (
-                (1.0 - self.linear_cmd_filter_alpha) * self.filtered_linear_world +
-                self.linear_cmd_filter_alpha * self.desired_linear_world
-            )
-        else:
-            self.filtered_linear_world = self.desired_linear_world.copy()
-
-        if 0.0 < self.yaw_rate_filter_alpha < 1.0:
-            self.filtered_yaw_rate = (
-                (1.0 - self.yaw_rate_filter_alpha) * self.filtered_yaw_rate +
-                self.yaw_rate_filter_alpha * self.desired_yaw_rate
-            )
-        else:
-            self.filtered_yaw_rate = float(self.desired_yaw_rate)
 
         self._publish_cmd()
 

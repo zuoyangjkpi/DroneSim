@@ -259,7 +259,7 @@ text_prompt_test() {
     sleep 1
 
     print_status $YELLOW "Step 5/12: Launching RViz visualization..."
-    ros2 run visualization visualization_node > /tmp/visualization.log 2>&1 &
+    python3 -c "from visualization.visualization_node import main; main()" > /tmp/visualization.log 2>&1 &
     sleep 2
 
     # Step 6-9: State estimation chain
@@ -673,7 +673,7 @@ full_integration_test() {
     
     # Step 5: Start RViz visualization with trajectory display
     print_status $YELLOW "Step 5/12: Starting RViz visualization..."
-    python3 -m visualization.visualization_node > /tmp/visualization.log 2>&1 &
+    python3 -c "from visualization.visualization_node import main; main()" > /tmp/visualization.log 2>&1 &
     local viz_node_pid=$!
     sleep 2
 
