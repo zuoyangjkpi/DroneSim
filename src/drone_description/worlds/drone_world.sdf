@@ -13,7 +13,8 @@
     <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
       <render_engine>ogre2</render_engine>
     </plugin>
-    
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"></plugin>
+
     <!-- Pose publisher for all models -->
     <plugin filename="gz-sim8-pose-publisher-system" name="gz::sim::systems::PosePublisher">
       <publish_nested_model_pose>true</publish_nested_model_pose>
@@ -528,14 +529,14 @@
         <enableSubTopic>enable</enableSubTopic>
         <comLinkName>X3/base_link</comLinkName>
 
-        <!-- drone_world.sdf - 保守稳定配置 -->
-        <velocityGain>3.0 3.0 4.0</velocityGain>      <!-- 速度环带宽 ≈ 2 rad/s -->
-        <attitudeGain>4.0 4.0 5.0</attitudeGain>      <!-- 姿态环 -->
-        <angularRateGain>5.0 5.0 6.0</angularRateGain> <!-- 角速度环，yaw略低 -->
+        
+        <velocityGain>3.0 3.0 4.0</velocityGain>      
+        <attitudeGain>4.0 4.0 5.0</attitudeGain>      
+        <angularRateGain>5.0 5.0 6.0</angularRateGain> 
 
-        <maximumLinearVelocity>3.0 3.0 2.0</maximumLinearVelocity>
-        <maximumLinearAcceleration>3.0 3.0 3.0</maximumLinearAcceleration>
-        <maximumAngularVelocity>3.0 3.0 2.5</maximumAngularVelocity>
+        <maximumLinearVelocity>4.0 4.0 3.0</maximumLinearVelocity>
+        <maximumLinearAcceleration>4.0 4.0 4.0</maximumLinearAcceleration>
+        <maximumAngularVelocity>3.0 3.0 3.5</maximumAngularVelocity>
         
         <actuatorsTopic>command/motor_speed</actuatorsTopic>
         <rotorConfiguration>

@@ -1,37 +1,36 @@
 waypoint_controller:
   ros__parameters:
-    control_frequency: 50.0      # 降低控制频率，减少噪声
+    control_frequency: 50.0      
     position_tolerance: 0.3
     velocity_tolerance: 0.1
     waypoint_timeout: 5.0
 
-    # 保守的纯P为主控制
-    kp_xy: 0.8                   # 带宽 ≈ 0.8 rad/s
-    ki_xy: 0.01                  # 极小积分，仅消除稳态误差
-    kd_xy: 0.0                   # 无微分！低层已有速度环
+    kp_xy: 0.8                  
+    ki_xy: 0.01                  
+    kd_xy: 0.0                   
 
-    kp_z: 0.6                    # Z轴更保守
+    kp_z: 0.6                    
     ki_z: 0.01
     kd_z: 0.0
 
-    max_velocity_xy: 2.0         # 限制输出速度
+    max_velocity_xy: 2.0         
     max_velocity_z: 1.5
 
     max_vertical_error: 1.5
     integral_limit_xy: 0.3
     integral_limit_z: 0.3
-    cf_v_xy: 0.8                 # 强滤波
+    cf_v_xy: 0.8                
     cf_v_z: 0.8
 
 yaw_controller:
   ros__parameters:
-    control_frequency: 50.0      # 与位置环同频
+    control_frequency: 50.0      
     yaw_tolerance: 0.05
-    kp_yaw: 1.8                  # 中等P增益
+    kp_yaw: 1.8                 
     ki_yaw: 0.01
-    kd_yaw: 0.0                  # 无微分
-    max_angular_velocity_yaw: 2.0
-    max_yaw_step: 0.5            # 限制步进
+    kd_yaw: 0.0                  
+    max_angular_velocity_yaw: 3.0
+    max_yaw_step: 0.5            
     cf_yaw_rate: 0.8
     yaw_integral_limit: 0.3
     attitude_command_timeout: 5.0
