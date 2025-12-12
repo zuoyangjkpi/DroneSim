@@ -2,6 +2,8 @@
 build/
 install/
 log/
+__pycache__/
+CMakeFiles/
 .vscode/
 frames_2025-06-17_22.43.34.gv
 frames_2025-06-17_22.43.34.pdf

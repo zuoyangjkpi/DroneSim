@@ -527,14 +527,15 @@
         <commandSubTopic>cmd_vel</commandSubTopic>
         <enableSubTopic>enable</enableSubTopic>
         <comLinkName>X3/base_link</comLinkName>
-        <!-- Reverted to previous "Optimized" tuning -->
-        <velocityGain>1.5 1.5 2.0</velocityGain> 
-        <attitudeGain>4.5 4.5 4.0</attitudeGain> 
-        <angularRateGain>6.0 6.0 5.5</angularRateGain> 
+
+        <!-- drone_world.sdf - 保守稳定配置 -->
+        <velocityGain>3.0 3.0 4.0</velocityGain>      <!-- 速度环带宽 ≈ 2 rad/s -->
+        <attitudeGain>4.0 4.0 5.0</attitudeGain>      <!-- 姿态环 -->
+        <angularRateGain>5.0 5.0 6.0</angularRateGain> <!-- 角速度环，yaw略低 -->
 
         <maximumLinearVelocity>3.0 3.0 2.0</maximumLinearVelocity>
-        <maximumLinearAcceleration>4.0 4.0 4.0</maximumLinearAcceleration>
-        <maximumAngularVelocity>4.0 4.0 3.0</maximumAngularVelocity>
+        <maximumLinearAcceleration>3.0 3.0 3.0</maximumLinearAcceleration>
+        <maximumAngularVelocity>3.0 3.0 2.5</maximumAngularVelocity>
         
         <actuatorsTopic>command/motor_speed</actuatorsTopic>
         <rotorConfiguration>
