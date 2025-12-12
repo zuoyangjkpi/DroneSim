@@ -51,11 +51,23 @@ def generate_launch_description():
         output='screen'
     )
 
-    # Gazebo MulticopterVelocityControl adapter node
-    multicopter_velocity_control_adapter_node = Node(
+    # Gazebo MulticopterVelocityControl adapter node (OLD - replaced by controller_node)
+    # multicopter_velocity_control_adapter_node = Node(
+    #     package='drone_low_level_controllers',
+    #     executable='multicopter_velocity_control_adapter.py',
+    #     name='multicopter_velocity_control_adapter',
+    #     parameters=[
+    #         velocity_config,
+    #         {'use_sim_time': LaunchConfiguration('use_sim_time')}
+    #     ],
+    #     output='screen'
+    # )
+
+    # Cascaded controller node (NEW - replaces Gazebo velocity control plugin)
+    controller_node = Node(
         package='drone_low_level_controllers',
-        executable='multicopter_velocity_control_adapter.py',
-        name='multicopter_velocity_control_adapter',
+        executable='controller_node.py',
+        name='multicopter_controller_node',
         parameters=[
             velocity_config,
             {'use_sim_time': LaunchConfiguration('use_sim_time')}
@@ -67,5 +79,6 @@ def generate_launch_description():
         use_sim_time_arg,
         waypoint_controller_node,
         yaw_controller_node,
-        multicopter_velocity_control_adapter_node,
+        # multicopter_velocity_control_adapter_node,  # OLD
+        controller_node,  # NEW
     ])

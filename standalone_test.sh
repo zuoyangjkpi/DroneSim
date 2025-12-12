@@ -320,6 +320,11 @@ text_prompt_test() {
         > /tmp/multicopter_velocity_control_adapter.log 2>&1 &
     sleep 2
 
+    ros2 run drone_low_level_controllers controller_node.py \
+        --ros-args --params-file "$velocity_params" \
+        > /tmp/controller_node.log 2>&1 &
+    sleep 2
+
     # Step 11b: Mission action manager
     print_status $YELLOW "Step 11/12: Starting mission action manager..."
     ros2 run mission_action_modules action_manager > /tmp/mission_action_manager.log 2>&1 &
@@ -839,6 +844,19 @@ full_integration_test() {
         return 1
     fi
 
+    print_status $YELLOW "Starting controller_node..."
+    ros2 run drone_low_level_controllers controller_node.py \
+        --ros-args --params-file "$velocity_params" \
+        > /tmp/controller_node.log 2>&1 &
+    sleep 2
+
+    if check_process "controller_node.py"; then
+        print_status $GREEN "✅ Controller node started successfully"
+    else
+        print_status $RED "❌ Controller node failed to start"
+        return 1
+    fi
+
     # Step 11b: Start mission action manager
     print_status $YELLOW "Step 11/12: Starting mission action manager..."
     ros2 run mission_action_modules action_manager > /tmp/mission_action_manager.log 2>&1 &
@@ -1244,6 +1262,21 @@ waypoint_controller_test() {
         return 1
     fi
 
+    print_status $YELLOW "  • Cascaded controller (velocity/attitude/rate/mixer)"
+    log_control_msg "Launching controller_node"
+    stdbuf -oL ros2 run drone_low_level_controllers controller_node.py \
+        --ros-args --params-file "$velocity_params" \
+        2>&1 | tee -a "$control_log" > /tmp/controller_node.log &
+    sleep 2
+    if check_process "controller_node.py"; then
+        print_status $GREEN "    ✅ Controller node running"
+        log_control_msg "Controller node running"
+    else
+        print_status $RED "    ❌ Controller node failed to start"
+        log_control_msg "Controller node failed to start"
+        return 1
+    fi
+
     print_status $YELLOW "Step 3/4: Enabling PX4 bridge interface (/X3/enable)"
     log_control_msg "Publishing /X3/enable true"
     ros2 topic pub --once /X3/enable std_msgs/msg/Bool "{data: true}" > /tmp/x3_enable.log 2>&1
@@ -1306,6 +1339,17 @@ manual_velocity_test() {
         print_status $GREEN "    ✅ Velocity adapter running"
     else
         print_status $RED "    ❌ Multicopter velocity adapter failed to start"
+        return 1
+    fi
+
+    ros2 run drone_low_level_controllers controller_node.py \
+        --ros-args --params-file "$velocity_params" \
+        > /tmp/controller_node.log 2>&1 &
+    sleep 2
+    if check_process "controller_node.py"; then
+        print_status $GREEN "    ✅ Controller node running"
+    else
+        print_status $RED "    ❌ Controller node failed to start"
         return 1
     fi
 
@@ -1475,6 +1519,7 @@ kill_all_processes() {
 
     # Control nodes (used by all options)
     pkill -f "multicopter_velocity_control_adapter.py" 2>/dev/null
+    pkill -f "controller_node.py" 2>/dev/null
     pkill -f "waypoint_controller" 2>/dev/null
     pkill -f "yaw_controller" 2>/dev/null
 
@@ -1497,6 +1542,7 @@ kill_all_processes() {
     pkill -9 -f "waypoint_controller" 2>/dev/null
     pkill -9 -f "yaw_controller" 2>/dev/null
     pkill -9 -f "multicopter_velocity_control_adapter" 2>/dev/null
+    pkill -9 -f "controller_node" 2>/dev/null
 
     sleep 1
     

@@ -522,7 +522,8 @@
         </output>
       </plugin>
       
-      <!-- Velocity controller plugin - load first -->
+      <!-- Velocity controller plugin - DISABLED (replaced by ROS2 controller_node.py) -->
+      <!--
       <plugin filename="gz-sim8-multicopter-control-system" name="gz::sim::systems::MulticopterVelocityControl">
         <robotNamespace>X3</robotNamespace>
         <commandSubTopic>cmd_vel</commandSubTopic>
@@ -586,6 +587,7 @@
           </rotor>
         </rotorConfiguration>
       </plugin>
+      -->
       
       <!-- Motor plugin -->
       <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">

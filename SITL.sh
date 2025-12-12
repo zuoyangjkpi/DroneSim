@@ -109,8 +109,9 @@ ros2 run ros_gz_bridge parameter_bridge \
     /camera/right/camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo \
     /X3/odometry@nav_msgs/msg/Odometry@gz.msgs.Odometry \
     /imu/data@sensor_msgs/msg/Imu@gz.msgs.IMU \
+    /X3/command/motor_speed@actuator_msgs/msg/Actuators@gz.msgs.Actuators \
     /X3/cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist \
-    /X3/enable@std_msgs/msg/Bool@gz.msgs.Boolean \
+    # /X3/enable@std_msgs/msg/Bool@gz.msgs.Boolean \
     /world/${WORLD_TOPIC_NAME}/dynamic_pose/info@geometry_msgs/msg/PoseArray@gz.msgs.Pose_V &
 BRIDGE_PID=$!
 sleep 2

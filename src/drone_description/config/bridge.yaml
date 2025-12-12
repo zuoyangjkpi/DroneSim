@@ -1,9 +1,17 @@
 # Command Velocity (from ROS to Gazebo)
-- 
+-
   ros_topic_name: "/X3/cmd_vel"
   gz_topic_name: "X3/cmd_vel"
   ros_type_name: "geometry_msgs/msg/Twist"
   gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
+
+# Motor Commands (from ROS to Gazebo) - for custom controller
+-
+  ros_topic_name: "/X3/command/motor_speed"
+  gz_topic_name: "/X3/command/motor_speed"
+  ros_type_name: "actuator_msgs/msg/Actuators"
+  gz_type_name: "gz.msgs.Actuators"
   direction: ROS_TO_GZ
 
 # Odometry (Gazebo proto -> ROS2)

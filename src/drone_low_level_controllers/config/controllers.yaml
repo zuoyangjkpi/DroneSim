@@ -5,3 +5,38 @@ multicopter_velocity_control_adapter:
     velocity_setpoint_timeout: 0.8
     angular_setpoint_timeout: 0.8
     # Note: Velocity limits and filtering removed - handled by guidance controllers and Gazebo MulticopterVelocityControl plugin
+
+# Cascaded controller parameters
+multicopter_controller_node:
+  ros__parameters:
+    # Control frequency
+    control_frequency: 160.0
+    cmd_vel_timeout: 0.5
+    start_enabled: true
+
+    # Velocity controller gains (from Gazebo MulticopterVelocityControl)
+    kp_vel_xy: 3.0
+    kp_vel_z: 4.0
+    kd_vel_xy: 0.5
+    kd_vel_z: 0.8
+
+    # Attitude controller gains (from Gazebo MulticopterVelocityControl)
+    kp_att_roll: 4.0
+    kp_att_pitch: 4.0
+    kp_att_yaw: 5.0
+
+    # Angular rate controller gains (from Gazebo MulticopterVelocityControl)
+    kp_rate_roll: 5.0
+    kp_rate_pitch: 5.0
+    kp_rate_yaw: 6.0
+
+    # Control limits
+    max_tilt_angle: 0.5  # rad (~28.6 degrees)
+    max_thrust: 150.0  # N (X3 max thrust: 2.85e-05 * 800^2 * 8 motors ≈ 146N)
+
+    # Vehicle parameters (from X3 model.sdf)
+    vehicle_mass: 4.6  # kg (X3 base_link inertial mass)
+    arm_length: 0.6  # m (rotor radius in X3 model.sdf)
+    inertia_xx: 0.423
+    inertia_yy: 0.423
+    inertia_zz: 0.828
