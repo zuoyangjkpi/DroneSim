@@ -103,6 +103,13 @@ private:
         }
       }
     }
+    // Precompute transpose for transforming world velocities to body frame
+    std::array<std::array<double, 3>, 3> R_enu_T{};
+    for (int i = 0; i < 3; ++i) {
+      for (int j = 0; j < 3; ++j) {
+        R_enu_T[i][j] = R_enu[j][i];
+      }
+    }
 
     // Rotation matrix -> quaternion
     double trace = R_enu[0][0] + R_enu[1][1] + R_enu[2][2];
@@ -134,7 +141,24 @@ private:
     }
     odom_msg.pose.pose.orientation = q_enu;
 
-    // No velocity info from SLAM pose; leave twist zero
+    // Linear velocity: NED(world) -> ENU(world) -> body FLU (child frame)
+    std::array<double, 3> v_enu{{msg->velocity.y, msg->velocity.x, -msg->velocity.z}};
+    std::array<double, 3> v_body{};
+    for (int i = 0; i < 3; ++i) {
+      v_body[i] = 0.0;
+      for (int j = 0; j < 3; ++j) {
+        v_body[i] += R_enu_T[i][j] * v_enu[j];
+      }
+    }
+    odom_msg.twist.twist.linear.x = v_body[0];
+    odom_msg.twist.twist.linear.y = v_body[1];
+    odom_msg.twist.twist.linear.z = v_body[2];
+
+    // Angular velocity: assume provided in body NED/FRD; convert to FLU
+    odom_msg.twist.twist.angular.x = msg->ang_velocity.y;
+    odom_msg.twist.twist.angular.y = msg->ang_velocity.x;
+    odom_msg.twist.twist.angular.z = -msg->ang_velocity.z;
+
     sim_odom_pub_->publish(odom_msg);
   }
 

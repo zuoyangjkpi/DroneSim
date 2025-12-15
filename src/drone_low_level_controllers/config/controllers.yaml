@@ -1,57 +1,96 @@
 multicopter_controller_node:
   ros__parameters:
-    # Control loop frequencies
+    # =========================
+    # Loop frequencies
+    # =========================
     control_frequency: 500.0
     vel_control_frequency: 100.0
     att_control_frequency: 250.0
+
+    # =========================
+    # Timeouts / enable
+    # =========================
     velocity_setpoint_timeout: 0.8
     angular_setpoint_timeout: 0.8
     start_enabled: true
 
-    # World velocity controller gains (WORLD frame ENU)
+    # =========================
+    # Odometry convention switch
+    # true  -> odom twist.linear treated as WORLD (ENU)
+    # false -> odom twist.linear treated as BODY (base_link)
+    # =========================
+    odom_twist_in_world: false
+
+    # =========================
+    # Velocity PID (world frame) -> accel_cmd
+    # =========================
     kp_vel_xy: 2.0
     ki_vel_xy: 0.0
     kd_vel_xy: 0.2
+
     kp_vel_z: 3.0
     ki_vel_z: 0.0
     kd_vel_z: 0.3
 
-    # Attitude controller gains (Euler PID -> desired rates)
+    vel_integral_limit: 0.1
+    vel_d_filter_tau: 0.05
+
+    # =========================
+    # Attitude P (euler error -> body rates)
+    # =========================
     kp_att_roll: 4.0
-    ki_att_roll: 0.0
-    kd_att_roll: 0.2
     kp_att_pitch: 4.0
-    ki_att_pitch: 0.0
-    kd_att_pitch: 0.2
     kp_att_yaw: 2.0
-    ki_att_yaw: 0.0
-    kd_att_yaw: 0.0
 
-    # Rate controller gains (PID -> torques)
-    kp_rate_roll: 2.5
-    ki_rate_roll: 0.1
-    kd_rate_roll: 0.02
-    kp_rate_pitch: 2.5
-    ki_rate_pitch: 0.1
-    kd_rate_pitch: 0.02
-    kp_rate_yaw: 2.0
-    ki_rate_yaw: 0.05
-    kd_rate_yaw: 0.0
+    # =========================
+    # Rate PID (body rates -> torques)
+    # =========================
+    kp_rate_roll: 0.20
+    ki_rate_roll: 0.02
+    kd_rate_roll: 0.00
 
-    # Anti-windup limits
-    vel_integral_limit: 3.0
-    att_integral_limit: 0.5
-    rate_integral_limit: 2.0
+    kp_rate_pitch: 0.20
+    ki_rate_pitch: 0.02
+    kd_rate_pitch: 0.00
 
-    # Physical limits
-    max_tilt_angle: 0.45  # rad (~25 degrees)
-    max_thrust: 150.0     # N
-    min_thrust: 0.0       # N
+    kp_rate_yaw: 0.15
+    ki_rate_yaw: 0.02
+    kd_rate_yaw: 0.00
 
+    rate_integral_limit: 3.0
+
+    # =========================
+    # Limits (VERY IMPORTANT)
+    # =========================
+    max_tilt_angle: 0.45      # rad
+    max_thrust: 150.0         # N
+    min_thrust: 0.0           # N
+
+    max_acc_xy: 3.0           # m/s^2
+    max_acc_z_up: 5.0         # m/s^2
+    max_acc_z_down: 3.0       # m/s^2
+
+    max_torque_xy: 3.0        # N*m
+    max_torque_z: 2.0         # N*m
+
+    max_rate_xy: 4.0          # rad/s
+    max_rate_yaw: 3.0         # rad/s
+
+    thrust_slew_rate: 0.0     # N/s, 0 disables; e.g. 200.0 to smooth punch
+
+    # =========================
     # Vehicle parameters
-    vehicle_mass: 4.6     # kg
-    gravity: 9.81         # m/s^2
+    # =========================
+    vehicle_mass: 4.6
+    gravity: 9.81
+
+    inertia_xx: 0.423
+    inertia_yy: 0.423
+    inertia_zz: 0.828
+
     force_constant: 2.85e-05
     moment_constant: 0.0533
+
     max_motor_speed: 800.0
     min_motor_speed: 0.0
+    num_motors: 8
