@@ -1,0 +1,741 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <world name="multicopter">
+
+    <physics name="4ms" type="ignored">
+      <max_step_size>0.004</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+    
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"></plugin>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"></plugin>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"></plugin>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"></plugin>
+
+    <!-- Pose publisher for all models -->
+    <plugin filename="gz-sim8-pose-publisher-system" name="gz::sim::systems::PosePublisher">
+      <publish_nested_model_pose>true</publish_nested_model_pose>
+      <publish_link_pose>false</publish_link_pose>
+      <publish_collision_pose>false</publish_collision_pose>
+      <publish_visual_pose>false</publish_visual_pose>
+      <use_pose_vector_msg>true</use_pose_vector_msg>
+      <static_publisher>false</static_publisher>
+      <update_frequency>50</update_frequency>
+    </plugin>
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <!-- Real grass ground plane -->
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>150 150</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>150 150</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.3 0.5 0.2 1</ambient>
+            <diffuse>0.4 0.6 0.25 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Tree 1 - Oak -->
+    <model name="tree_oak_1">
+      <static>true</static>
+      <pose>-8 5 0 0 0 0</pose>
+      <link name="trunk">
+        <visual name="trunk_visual">
+          <geometry>
+            <cylinder>
+              <radius>0.4</radius>
+              <length>4.0</length>
+            </cylinder>
+          </geometry>
+          <pose>0 0 2.0 0 0 0</pose>
+          <material>
+            <ambient>0.4 0.25 0.1 1</ambient>
+            <diffuse>0.5 0.3 0.15 1</diffuse>
+          </material>
+        </visual>
+        <collision name="trunk_collision">
+          <geometry>
+            <cylinder>
+              <radius>0.4</radius>
+              <length>4.0</length>
+            </cylinder>
+          </geometry>
+          <pose>0 0 2.0 0 0 0</pose>
+        </collision>
+        <visual name="foliage_visual">
+          <geometry>
+            <sphere>
+              <radius>2.5</radius>
+            </sphere>
+          </geometry>
+          <pose>0 0 5.5 0 0 0</pose>
+          <material>
+            <ambient>0.1 0.4 0.1 1</ambient>
+            <diffuse>0.15 0.5 0.15 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Tree 2 -->
+    <model name="tree_oak_2">
+      <static>true</static>
+      <pose>10 -6 0 0 0 0.5</pose>
+      <link name="trunk">
+        <visual name="trunk_visual">
+          <geometry>
+            <cylinder>
+              <radius>0.35</radius>
+              <length>3.5</length>
+            </cylinder>
+          </geometry>
+          <pose>0 0 1.75 0 0 0</pose>
+          <material>
+            <ambient>0.4 0.25 0.1 1</ambient>
+            <diffuse>0.5 0.3 0.15 1</diffuse>
+          </material>
+        </visual>
+        <collision name="trunk_collision">
+          <geometry>
+            <cylinder>
+              <radius>0.35</radius>
+              <length>3.5</length>
+            </cylinder>
+          </geometry>
+          <pose>0 0 1.75 0 0 0</pose>
+        </collision>
+        <visual name="foliage_visual">
+          <geometry>
+            <sphere>
+              <radius>2.2</radius>
+            </sphere>
+          </geometry>
+          <pose>0 0 4.8 0 0 0</pose>
+          <material>
+            <ambient>0.1 0.45 0.1 1</ambient>
+            <diffuse>0.15 0.55 0.15 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Tree 3 -->
+    <model name="tree_pine_1">
+      <static>true</static>
+      <pose>-12 -8 0 0 0 1.2</pose>
+      <link name="trunk">
+        <visual name="trunk_visual">
+          <geometry>
+            <cylinder>
+              <radius>0.3</radius>
+              <length>5.0</length>
+            </cylinder>
+          </geometry>
+          <pose>0 0 2.5 0 0 0</pose>
+          <material>
+            <ambient>0.35 0.22 0.08 1</ambient>
+            <diffuse>0.45 0.28 0.12 1</diffuse>
+          </material>
+        </visual>
+        <collision name="trunk_collision">
+          <geometry>
+            <cylinder>
+              <radius>0.3</radius>
+              <length>5.0</length>
+            </cylinder>
+          </geometry>
+          <pose>0 0 2.5 0 0 0</pose>
+        </collision>
+        <visual name="foliage_visual">
+          <geometry>
+            <cone>
+              <radius>1.8</radius>
+              <length>4.5</length>
+            </cone>
+          </geometry>
+          <pose>0 0 6.25 0 0 0</pose>
+          <material>
+            <ambient>0.05 0.35 0.05 1</ambient>
+            <diffuse>0.1 0.45 0.1 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Tree 4 -->
+    <model name="tree_oak_3">
+      <static>true</static>
+      <pose>8 10 0 0 0 2.1</pose>
+      <link name="trunk">
+        <visual name="trunk_visual">
+          <geometry>
+            <cylinder>
+              <radius>0.38</radius>
+              <length>3.8</length>
+            </cylinder>
+          </geometry>
+          <pose>0 0 1.9 0 0 0</pose>
+          <material>
+            <ambient>0.42 0.27 0.12 1</ambient>
+            <diffuse>0.52 0.32 0.17 1</diffuse>
+          </material>
+        </visual>
+        <collision name="trunk_collision">
+          <geometry>
+            <cylinder>
+              <radius>0.38</radius>
+              <length>3.8</length>
+            </cylinder>
+          </geometry>
+          <pose>0 0 1.9 0 0 0</pose>
+        </collision>
+        <visual name="foliage_visual">
+          <geometry>
+            <sphere>
+              <radius>2.3</radius>
+            </sphere>
+          </geometry>
+          <pose>0 0 5.0 0 0 0</pose>
+          <material>
+            <ambient>0.12 0.42 0.12 1</ambient>
+            <diffuse>0.17 0.52 0.17 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Bush 1 -->
+    <model name="bush_1">
+      <static>true</static>
+      <pose>-5 2 0 0 0 0</pose>
+      <link name="foliage">
+        <visual name="visual">
+          <geometry>
+            <sphere>
+              <radius>0.8</radius>
+            </sphere>
+          </geometry>
+          <pose>0 0 0.6 0 0 0</pose>
+          <material>
+            <ambient>0.15 0.45 0.15 1</ambient>
+            <diffuse>0.2 0.55 0.2 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <sphere>
+              <radius>0.8</radius>
+            </sphere>
+          </geometry>
+          <pose>0 0 0.6 0 0 0</pose>
+        </collision>
+      </link>
+    </model>
+
+    <!-- Bush 2 -->
+    <model name="bush_2">
+      <static>true</static>
+      <pose>4 7 0 0 0 0.8</pose>
+      <link name="foliage">
+        <visual name="visual">
+          <geometry>
+            <sphere>
+              <radius>0.7</radius>
+            </sphere>
+          </geometry>
+          <pose>0 0 0.5 0 0 0</pose>
+          <material>
+            <ambient>0.12 0.4 0.12 1</ambient>
+            <diffuse>0.17 0.5 0.17 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Bush 3 -->
+    <model name="bush_3">
+      <static>true</static>
+      <pose>-3 -4 0 0 0 1.5</pose>
+      <link name="foliage">
+        <visual name="visual">
+          <geometry>
+            <sphere>
+              <radius>0.6</radius>
+            </sphere>
+          </geometry>
+          <pose>0 0 0.45 0 0 0</pose>
+          <material>
+            <ambient>0.18 0.48 0.18 1</ambient>
+            <diffuse>0.23 0.58 0.23 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Flower patch 1 - red blossoms -->
+    <model name="flowers_red">
+      <static>true</static>
+      <pose>2 3 0 0 0 0</pose>
+      <link name="flowers">
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>1.2 1.2 0.3</size>
+            </box>
+          </geometry>
+          <pose>0 0 0.15 0 0 0</pose>
+          <material>
+            <ambient>0.8 0.2 0.2 1</ambient>
+            <diffuse>0.9 0.3 0.3 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Flower patch 2 - yellow blossoms -->
+    <model name="flowers_yellow">
+      <static>true</static>
+      <pose>-2 5 0 0 0 0.5</pose>
+      <link name="flowers">
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>1.0 1.0 0.25</size>
+            </box>
+          </geometry>
+          <pose>0 0 0.125 0 0 0</pose>
+          <material>
+            <ambient>0.9 0.8 0.2 1</ambient>
+            <diffuse>1.0 0.9 0.3 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Flower patch 3 - purple blossoms -->
+    <model name="flowers_purple">
+      <static>true</static>
+      <pose>6 -2 0 0 0 1.8</pose>
+      <link name="flowers">
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>0.9 0.9 0.28</size>
+            </box>
+          </geometry>
+          <pose>0 0 0.14 0 0 0</pose>
+          <material>
+            <ambient>0.6 0.2 0.7 1</ambient>
+            <diffuse>0.7 0.3 0.8 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Rock decoration 1 -->
+    <model name="rock_1">
+      <static>true</static>
+      <pose>-6 -2 0 0 0 0.3</pose>
+      <link name="rock">
+        <visual name="visual">
+          <geometry>
+            <sphere>
+              <radius>0.5</radius>
+            </sphere>
+          </geometry>
+          <pose>0 0 0.3 0 0 0</pose>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <sphere>
+              <radius>0.5</radius>
+            </sphere>
+          </geometry>
+          <pose>0 0 0.3 0 0 0</pose>
+        </collision>
+      </link>
+    </model>
+
+    <!-- Rock decoration 2 -->
+    <model name="rock_2">
+      <static>true</static>
+      <pose>7 4 0 0 0 1.2</pose>
+      <link name="rock">
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>0.8 0.6 0.5</size>
+            </box>
+          </geometry>
+          <pose>0 0 0.25 0.1 0.2 0</pose>
+          <material>
+            <ambient>0.55 0.55 0.55 1</ambient>
+            <diffuse>0.65 0.65 0.65 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>0.8 0.6 0.5</size>
+            </box>
+          </geometry>
+          <pose>0 0 0.25 0.1 0.2 0</pose>
+        </collision>
+      </link>
+    </model>
+
+    <!-- Walking actor - irregular spline path -->
+    <actor name="walking_person">
+      <skin>
+        <filename>model://actor/meshes/walk.dae</filename>
+        <scale>1.0</scale>
+      </skin>
+      <animation name="walking">
+        <filename>model://actor/meshes/walk.dae</filename>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+      <script>
+        <loop>true</loop>
+        <delay_start>3.0</delay_start>
+        <auto_start>true</auto_start>
+        <!-- Higher tension for a smooth spline trajectory -->
+        <trajectory id="0" type="walking" tension="0.8">
+            <!-- Start -->
+            <waypoint>
+                <time>0</time>
+                <pose>0 0 1.0 0 0 0</pose>
+            </waypoint>
+            <!-- Move toward the northeast -->
+            <waypoint>
+                <time>5</time>
+                <pose>2.5 2 1.0 0 0 0.6</pose>
+            </waypoint>
+            <!-- Turn toward the southeast -->
+            <waypoint>
+                <time>10</time>
+                <pose>4 0 1.0 0 0 -0.8</pose>
+            </waypoint>
+            <!-- Move toward the south -->
+            <waypoint>
+                <time>15</time>
+                <pose>3 -3 1.0 0 0 -2.2</pose>
+            </waypoint>
+            <!-- Turn toward the southwest -->
+            <waypoint>
+                <time>20</time>
+                <pose>0 -4 1.0 0 0 3.0</pose>
+            </waypoint>
+            <!-- Move toward the northwest -->
+            <waypoint>
+                <time>25</time>
+                <pose>-3 -3 1.0 0 0 2.4</pose>
+            </waypoint>
+            <!-- Turn north -->
+            <waypoint>
+                <time>30</time>
+                <pose>-4 0 1.0 0 0 1.6</pose>
+            </waypoint>
+            <!-- Return to the northeast -->
+            <waypoint>
+                <time>35</time>
+                <pose>-2.5 2.5 1.0 0 0 0.8</pose>
+            </waypoint>
+            <!-- Turn east -->
+            <waypoint>
+                <time>40</time>
+                <pose>0 3.5 1.0 0 0 0.2</pose>
+            </waypoint>
+            <!-- Curve back to the start -->
+            <waypoint>
+                <time>45</time>
+                <pose>2 2 1.0 0 0 -0.6</pose>
+            </waypoint>
+            <waypoint>
+                <time>50</time>
+                <pose>0 0 1.0 0 0 0</pose>
+            </waypoint>
+        </trajectory>
+      </script>
+
+      <!-- Actor pose publisher plugin -->
+      <plugin filename="gz-sim8-pose-publisher-system" name="gz::sim::systems::PosePublisher">
+        <publish_nested_model_pose>true</publish_nested_model_pose>
+        <publish_link_pose>true</publish_link_pose>
+        <publish_collision_pose>false</publish_collision_pose>
+        <publish_visual_pose>false</publish_visual_pose>
+        <use_pose_vector_msg>true</use_pose_vector_msg>
+        <static_publisher>false</static_publisher>
+        <static_update_frequency>50</static_update_frequency>
+        <update_frequency>50</update_frequency>
+      </plugin>
+    </actor>
+
+    <!-- 🔧 Fix: load the velocity controller first by reordering plugins -->
+    <include>
+      <uri>model://x3_stereo/model_sitl.sdf</uri>
+      <pose>3 0 0.2 0 0.2 3.14159</pose>
+      
+      <!-- ✅ Drone startup script -->  
+      <plugin filename="gz-sim8-triggered-publisher-system" name="gz::sim::systems::TriggeredPublisher">
+        <input type="gz.msgs.StringMsg" topic="/trigger_enable">
+          <match field="data">enable_drone</match>
+        </input>
+        <output type="gz.msgs.Boolean" topic="X3/enable">
+          data: true
+        </output>
+      </plugin>
+      
+      <!-- Velocity controller plugin - DISABLED (replaced by ROS2 controller_node.py) -->
+      <!--
+      <plugin filename="gz-sim8-multicopter-control-system" name="gz::sim::systems::MulticopterVelocityControl">
+        <robotNamespace>X3</robotNamespace>
+        <commandSubTopic>cmd_vel</commandSubTopic>
+        <enableSubTopic>enable</enableSubTopic>
+        <comLinkName>X3/base_link</comLinkName>
+        <velocityGain>3.0 3.0 4.0</velocityGain>
+        <attitudeGain>4.0 4.0 5.0</attitudeGain>
+        <angularRateGain>5.0 5.0 6.0</angularRateGain>
+        <maximumLinearVelocity>4.0 4.0 3.0</maximumLinearVelocity>
+        <maximumLinearAcceleration>4.0 4.0 4.0</maximumLinearAcceleration>
+        <maximumAngularVelocity>3.0 3.0 3.5</maximumAngularVelocity>
+        <actuatorsTopic>command/motor_speed</actuatorsTopic>
+        <rotorConfiguration>
+          <rotor>
+            <jointName>X3/rotor_0_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_1_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>-1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_2_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_3_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>-1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_4_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>-1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_5_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_6_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>-1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_7_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>1</direction>
+          </rotor>
+        </rotorConfiguration>
+      </plugin>
+      -->
+      
+      <!-- Motor plugin -->
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_0_joint</jointName>
+        <linkName>X3/rotor_0</linkName>
+        <turningDirection>ccw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>0</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/0</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_4_joint</jointName>
+        <linkName>X3/rotor_4</linkName>
+        <turningDirection>cw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>4</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/4</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_5_joint</jointName>
+        <linkName>X3/rotor_5</linkName>
+        <turningDirection>ccw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>5</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/5</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_6_joint</jointName>
+        <linkName>X3/rotor_6</linkName>
+        <turningDirection>cw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>6</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/6</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_7_joint</jointName>
+        <linkName>X3/rotor_7</linkName>
+        <turningDirection>ccw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>7</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/7</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_1_joint</jointName>
+        <linkName>X3/rotor_1</linkName>
+        <turningDirection>cw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>1</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/1</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_2_joint</jointName>
+        <linkName>X3/rotor_2</linkName>
+        <turningDirection>ccw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>2</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/2</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_3_joint</jointName>
+        <linkName>X3/rotor_3</linkName>
+        <turningDirection>cw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>3</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/3</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      
+    </include>
+    
+  </world>
+</sdf>

@@ -1,43 +1,40 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 """
-Cascaded Multicopter Controller Node
+Cascaded Multicopter Controller Node - World Frame Velocity Control (robust)
 
-Implements a full control stack from velocity commands to motor speeds:
-1. Velocity Controller: cmd_vel → desired attitude + thrust
-2. Attitude Controller: desired attitude → desired angular rates
-3. Angular Rate Controller: desired angular rates → torques
-4. Mixer: thrust + torques → individual motor speeds
-
-Coordinate frames:
-- Body frame (FRD): Forward-Right-Down
-- World frame (ENU): East-North-Up (ROS2 standard)
+Key fixes vs your latest version:
+1) Odometry twist.linear is assumed in CHILD frame (base_link) by default (ROS Odometry convention)
+   -> convert v_world = R_world_from_body @ v_body
+2) Tilt limiting is done on thrust direction b3, and thrust is recomputed via projection:
+   thrust_cmd = dot(F_world, b3_limited)
+3) Add acceleration / force / torque saturations + derivative low-pass filtering
 """
 
 import logging
 from logging.handlers import RotatingFileHandler
 from dataclasses import dataclass
-from typing import Optional
+from typing import Tuple
 
 import numpy as np
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy, QoSHistoryPolicy
-from geometry_msgs.msg import Twist
+
+from geometry_msgs.msg import TwistStamped, Vector3Stamped
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Bool
-
-# For Gazebo communication via ros_gz_bridge
 from actuator_msgs.msg import Actuators
 
-LOG_PATH = '/tmp/drone_low_level_controllers.log'
+LOG_PATH = "/tmp/drone_low_level_controllers.log"
 
 
 def _init_file_logger(name: str) -> logging.Logger:
-    """Initialize file logger for external monitoring."""
     logger = logging.getLogger(name)
     if not logger.handlers:
         handler = RotatingFileHandler(LOG_PATH, maxBytes=5 * 1024 * 1024, backupCount=2)
-        handler.setFormatter(logging.Formatter('%(asctime)s [%(name)s] %(message)s'))
+        handler.setFormatter(logging.Formatter("%(asctime)s [%(name)s] %(message)s"))
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)
         logger.propagate = False
@@ -46,593 +43,534 @@ def _init_file_logger(name: str) -> logging.Logger:
 
 @dataclass
 class ControllerGains:
-    """Controller gain parameters."""
-    # Velocity controller gains (P-D control)
-    kp_vel_xy: float = 3.0  # From Gazebo velocityGain
+    # Velocity controller (outer loop)
+    kp_vel_xy: float = 3.0
+    ki_vel_xy: float = 0.0
+    kd_vel_xy: float = 0.4
     kp_vel_z: float = 4.0
-    kd_vel_xy: float = 0.5
-    kd_vel_z: float = 0.8
+    ki_vel_z: float = 0.0
+    kd_vel_z: float = 0.6
 
-    # Attitude controller gains (P control)
-    kp_att_roll: float = 4.0  # From Gazebo attitudeGain
-    kp_att_pitch: float = 4.0
-    kp_att_yaw: float = 5.0
+    # Attitude controller (middle loop) -> outputs desired body rates [p,q,r]
+    kp_att_roll: float = 5.0
+    kp_att_pitch: float = 5.0
+    kp_att_yaw: float = 3.0
 
-    # Angular rate controller gains (P control)
-    kp_rate_roll: float = 5.0  # From Gazebo angularRateGain
-    kp_rate_pitch: float = 5.0
-    kp_rate_yaw: float = 6.0
+    # Rate controller (inner loop) -> outputs body torques [tau_x, tau_y, tau_z]
+    kp_rate_roll: float = 0.20
+    ki_rate_roll: float = 0.02
+    kd_rate_roll: float = 0.00
+    kp_rate_pitch: float = 0.20
+    ki_rate_pitch: float = 0.02
+    kd_rate_pitch: float = 0.00
+    kp_rate_yaw: float = 0.15
+    ki_rate_yaw: float = 0.02
+    kd_rate_yaw: float = 0.00
+
+    # Anti-windup
+    vel_integral_limit: float = 3.0
+    rate_integral_limit: float = 3.0
 
     # Limits
-    max_tilt_angle: float = 0.5  # rad (~28.6 degrees)
-    # X3 max thrust (~2.85e-05 * 800^2 * 8 ≈ 146 N)
-    max_thrust: float = 150.0  # N (a bit above physical max to avoid clipping)
-    min_thrust: float = 0.0  # N
+    max_tilt_angle: float = 0.5          # rad
+    max_thrust: float = 150.0            # N (total)
+    min_thrust: float = 0.0              # N
+
+    max_acc_xy: float = 3.0              # m/s^2
+    max_acc_z_up: float = 5.0            # m/s^2
+    max_acc_z_down: float = 3.0          # m/s^2  (positive magnitude, applied to negative accel)
+
+    max_torque_xy: float = 3.0           # N*m
+    max_torque_z: float = 2.0            # N*m
+
+    vel_d_filter_tau: float = 0.05       # s (derivative low-pass)
 
 
 @dataclass
 class VehicleParameters:
-    """Physical parameters of the vehicle."""
-    mass: float = 4.6  # kg (from X3 base_link inertial)
-    arm_length: float = 0.6  # m (rotor radius in model.sdf)
-    gravity: float = 9.81  # m/s^2
-    inertia_xx: float = 0.423  # kg·m^2 (from X3 base_link)
+    mass: float = 4.6
+    gravity: float = 9.81
+    inertia_xx: float = 0.423
     inertia_yy: float = 0.423
     inertia_zz: float = 0.828
 
-    # Motor parameters (from SDF)
-    force_constant: float = 2.85e-05  # Force per motor speed squared
-    moment_constant: float = 0.0533  # Moment arm coefficient
+    # thrust = k_f * omega^2
+    force_constant: float = 2.85e-05
 
-    # Motor speed limits
-    max_motor_speed: float = 800.0  # rad/s (from SDF)
-    min_motor_speed: float = 0.0  # rad/s
+    # Here moment_constant is assumed as (k_m / k_f) ratio (common trick),
+    # so yaw torque contribution per rotor: tau_z = (k_f * moment_constant) * dir * omega^2
+    moment_constant: float = 0.0533
 
-    # Number of motors
+    max_motor_speed: float = 800.0
+    min_motor_speed: float = 0.0
     num_motors: int = 8
 
 
-class VelocityController:
-    """
-    Velocity controller: converts body-frame velocity commands to desired attitude and thrust.
-
-    Input: desired velocity (body frame), current velocity (body frame)
-    Output: desired roll, pitch angles and total thrust
-    """
+class WorldVelocityToForce:
+    """World ENU velocity PID -> desired world force F_world (includes gravity compensation)."""
 
     def __init__(self, gains: ControllerGains, params: VehicleParameters):
-        self.gains = gains
-        self.params = params
+        self.g = gains
+        self.p = params
+        self.int_err = np.zeros(3)
+        self.prev_err = np.zeros(3)
+        self.prev_d = np.zeros(3)
 
-    def compute(
-        self,
-        vel_cmd: np.ndarray,  # [vx, vy, vz] in body frame
-        vel_current: np.ndarray,  # [vx, vy, vz] in body frame
-        accel_current: np.ndarray,  # [ax, ay, az] in body frame (optional, can be zeros)
-        yaw_current: float,  # Current yaw angle (rad)
-    ) -> tuple[float, float, float, float]:  # (roll_des, pitch_des, yaw_des, thrust)
-        """
-        Compute desired attitude and thrust from velocity commands.
+    def reset(self):
+        self.int_err[:] = 0.0
+        self.prev_err[:] = 0.0
+        self.prev_d[:] = 0.0
 
-        Returns:
-            roll_des: Desired roll angle (rad)
-            pitch_des: Desired pitch angle (rad)
-            yaw_des: Desired yaw angle (rad) - currently just maintains current yaw
-            thrust: Total thrust command (N)
-        """
-        # Velocity error (body frame)
-        vel_error = vel_cmd - vel_current
+    def compute(self, v_sp_w: np.ndarray, v_w: np.ndarray, dt: float) -> np.ndarray:
+        dt = max(1e-4, float(dt))
+        err = v_sp_w - v_w
 
-        # Desired acceleration (PD control)
-        desired_accel = (
-            self.gains.kp_vel_xy * vel_error[:2] -
-            self.gains.kd_vel_xy * accel_current[:2]
-        ) / self.params.mass
-        desired_accel_z = (
-            self.gains.kp_vel_z * vel_error[2] -
-            self.gains.kd_vel_z * accel_current[2]
-        ) / self.params.mass
+        kp = np.array([self.g.kp_vel_xy, self.g.kp_vel_xy, self.g.kp_vel_z], dtype=float)
+        ki = np.array([self.g.ki_vel_xy, self.g.ki_vel_xy, self.g.ki_vel_z], dtype=float)
+        kd = np.array([self.g.kd_vel_xy, self.g.kd_vel_xy, self.g.kd_vel_z], dtype=float)
 
-        # Convert horizontal accelerations to desired roll/pitch
-        # In body frame:
-        # - positive roll (right) causes acceleration in +Y (right)
-        # - positive pitch (nose up) causes acceleration in -X (backward)
-        g = self.params.gravity
+        # integral
+        self.int_err += err * dt
+        self.int_err = np.clip(self.int_err, -self.g.vel_integral_limit, self.g.vel_integral_limit)
 
-        # Desired roll from desired Y acceleration
-        roll_des = np.arctan2(desired_accel[1], g)
+        # derivative (with low-pass)
+        d_raw = (err - self.prev_err) / dt
+        self.prev_err = err.copy()
 
-        # Desired pitch from desired X acceleration
-        # Note: pitch is negative of X acceleration direction
-        pitch_des = np.arctan2(-desired_accel[0], g)
+        alpha = float(np.exp(-dt / max(1e-4, self.g.vel_d_filter_tau)))
+        d_filt = alpha * self.prev_d + (1.0 - alpha) * d_raw
+        self.prev_d = d_filt.copy()
 
-        # Limit tilt angles
-        roll_des = np.clip(roll_des, -self.gains.max_tilt_angle, self.gains.max_tilt_angle)
-        pitch_des = np.clip(pitch_des, -self.gains.max_tilt_angle, self.gains.max_tilt_angle)
+        # accel command
+        a_cmd = kp * err + ki * self.int_err + kd * d_filt
 
-        # Compute required thrust (mass * (g + az_des) / cos(roll) / cos(pitch))
-        # This compensates for the tilt of the thrust vector
-        cos_roll = np.cos(roll_des)
-        cos_pitch = np.cos(pitch_des)
-        thrust = self.params.mass * (g + desired_accel_z) / (cos_roll * cos_pitch)
+        # accel saturation
+        a_xy = a_cmd[:2]
+        axy_norm = float(np.linalg.norm(a_xy))
+        if axy_norm > self.g.max_acc_xy and axy_norm > 1e-6:
+            a_cmd[:2] = a_xy / axy_norm * self.g.max_acc_xy
 
-        # Limit thrust
-        thrust = np.clip(thrust, self.gains.min_thrust, self.gains.max_thrust)
+        # z saturation (note: world z is UP)
+        a_cmd[2] = float(np.clip(a_cmd[2], -self.g.max_acc_z_down, self.g.max_acc_z_up))
 
-        # For now, maintain current yaw (yaw rate control handled separately)
-        yaw_des = yaw_current
+        # desired world force (include gravity compensation)
+        F_w = self.p.mass * a_cmd + np.array([0.0, 0.0, self.p.mass * self.p.gravity], dtype=float)
 
-        return roll_des, pitch_des, yaw_des, thrust
+        # physical: multirotor can't generate downward world force via thrust direction when upright.
+        # If F_w has negative z, clamp it (still allow horizontal for tilt)
+        F_w[2] = max(0.0, float(F_w[2]))
+        return F_w
 
 
-class AttitudeController:
+class ForceToAttitudeAndThrust:
     """
-    Attitude controller: converts desired attitude to desired angular rates.
-
-    Input: desired attitude (roll, pitch, yaw), current attitude
-    Output: desired angular rates (p, q, r) in body frame
+    Map desired world force F_w to:
+    - desired roll/pitch (keeping yaw at current yaw)
+    - thrust command (along body +Z), after tilt limiting and projection
     """
 
     def __init__(self, gains: ControllerGains):
-        self.gains = gains
+        self.g = gains
 
-    def compute(
-        self,
-        attitude_des: np.ndarray,  # [roll, pitch, yaw] desired
-        attitude_current: np.ndarray,  # [roll, pitch, yaw] current
-    ) -> np.ndarray:  # [p, q, r] desired angular rates
-        """
-        Compute desired angular rates from attitude error.
+    def compute(self, F_w: np.ndarray, yaw_current: float) -> Tuple[float, float, float, float]:
+        # if force is tiny -> level
+        F_norm = float(np.linalg.norm(F_w))
+        if F_norm < 1e-3:
+            return 0.0, 0.0, float(yaw_current), 0.0
 
-        Returns:
-            angular_rate_des: [p, q, r] in body frame (rad/s)
-        """
-        # Attitude error
-        attitude_error = attitude_des - attitude_current
+        # desired thrust direction b3 (world)
+        b3 = F_w / F_norm
+        if b3[2] < 1e-6:
+            # avoid degeneracy
+            b3 = np.array([0.0, 0.0, 1.0], dtype=float)
 
-        # Wrap yaw error to [-pi, pi]
-        attitude_error[2] = self._wrap_angle(attitude_error[2])
+        # tilt limit directly on b3
+        max_tilt = float(self.g.max_tilt_angle)
+        cos_max = float(np.cos(max_tilt))
+        if b3[2] < cos_max:
+            h = b3[:2]
+            h_norm = float(np.linalg.norm(h))
+            if h_norm < 1e-8:
+                b3 = np.array([0.0, 0.0, 1.0], dtype=float)
+            else:
+                b3_xy = h / h_norm * float(np.sin(max_tilt))
+                b3 = np.array([b3_xy[0], b3_xy[1], cos_max], dtype=float)
 
-        # P controller
-        p_des = (self.gains.kp_att_roll / self.params.inertia_xx) * attitude_error[0]
-        q_des = (self.gains.kp_att_pitch / self.params.inertia_yy) * attitude_error[1]
-        r_des = (self.gains.kp_att_yaw / self.params.inertia_zz) * attitude_error[2]
+        # build body axes in world, keeping yaw
+        b1_yaw = np.array([np.cos(yaw_current), np.sin(yaw_current), 0.0], dtype=float)
+        b2 = np.cross(b3, b1_yaw)
+        b2_norm = float(np.linalg.norm(b2))
+        if b2_norm < 1e-6:
+            # pick perpendicular horizontal if degenerate
+            b1_perp = np.array([-np.sin(yaw_current), np.cos(yaw_current), 0.0], dtype=float)
+            b2 = np.cross(b3, b1_perp)
+            b2_norm = max(1e-6, float(np.linalg.norm(b2)))
+        b2 /= b2_norm
+        b1 = np.cross(b2, b3)
 
-        return np.array([p_des, q_des, r_des])
+        R_w_b = np.column_stack((b1, b2, b3))  # world_from_body
+
+        roll, pitch, yaw = self._rotation_matrix_to_euler_zyx(R_w_b)
+
+        # IMPORTANT: thrust command after tilt limiting -> projection
+        thrust_cmd = float(np.dot(F_w, b3))  # along body+Z (after limiting)
+        thrust_cmd = float(np.clip(thrust_cmd, self.g.min_thrust, self.g.max_thrust))
+
+        # we keep yaw at current (yaw control is via rate setpoint)
+        return float(roll), float(pitch), float(yaw_current), thrust_cmd
 
     @staticmethod
-    def _wrap_angle(angle: float) -> float:
-        """Wrap angle to [-pi, pi]."""
-        return (angle + np.pi) % (2 * np.pi) - np.pi
+    def _rotation_matrix_to_euler_zyx(R: np.ndarray) -> Tuple[float, float, float]:
+        # ZYX: R = Rz(yaw) * Ry(pitch) * Rx(roll)
+        pitch = float(np.arcsin(np.clip(-R[2, 0], -1.0, 1.0)))
+        roll = float(np.arctan2(R[2, 1], R[2, 2]))
+        yaw = float(np.arctan2(R[1, 0], R[0, 0]))
+        return roll, pitch, yaw
 
 
-class AngularRateController:
-    """
-    Angular rate controller: converts desired angular rates to torques.
-
-    Input: desired angular rates (p, q, r), current angular rates
-    Output: torques (tau_x, tau_y, tau_z)
-    """
-
+class AttitudeToRates:
+    """Simple P controller on euler angles -> desired body rates."""
     def __init__(self, gains: ControllerGains):
-        self.gains = gains
+        self.g = gains
 
-    def compute(
-        self,
-        rate_des: np.ndarray,  # [p, q, r] desired
-        rate_current: np.ndarray,  # [p, q, r] current
-    ) -> np.ndarray:  # [tau_x, tau_y, tau_z] torques
-        """
-        Compute torques from angular rate error.
+    @staticmethod
+    def _wrap(a: float) -> float:
+        return (a + np.pi) % (2 * np.pi) - np.pi
 
-        Returns:
-            torques: [tau_roll, tau_pitch, tau_yaw] (N·m)
-        """
-        # Angular rate error
-        rate_error = rate_des - rate_current
+    def compute(self, att_sp: np.ndarray, att: np.ndarray) -> np.ndarray:
+        err = att_sp - att
+        err[2] = self._wrap(float(err[2]))
+        pqr_sp = np.array([
+            self.g.kp_att_roll * err[0],
+            self.g.kp_att_pitch * err[1],
+            self.g.kp_att_yaw * err[2],
+        ], dtype=float)
+        return pqr_sp
 
-        # P controller
-        tau_x = self.params.inertia_xx * self.gains.kp_rate_roll * rate_error[0]
-        tau_y = self.params.inertia_yy * self.gains.kp_rate_pitch * rate_error[1]
-        tau_z = self.params.inertia_zz * self.gains.kp_rate_yaw * rate_error[2]
 
-        return np.array([tau_x, tau_y, tau_z])
+class RatesToTorques:
+    """PID on body rates -> body torques, with inertia scaling and saturation."""
+    def __init__(self, gains: ControllerGains, params: VehicleParameters):
+        self.g = gains
+        self.I = np.array([params.inertia_xx, params.inertia_yy, params.inertia_zz], dtype=float)
+        self.int_err = np.zeros(3)
+        self.prev_err = np.zeros(3)
+
+    def reset(self):
+        self.int_err[:] = 0.0
+        self.prev_err[:] = 0.0
+
+    def compute(self, pqr_sp: np.ndarray, pqr: np.ndarray, dt: float) -> np.ndarray:
+        dt = max(1e-4, float(dt))
+        err = pqr_sp - pqr
+
+        self.int_err += err * dt
+        self.int_err = np.clip(self.int_err, -self.g.rate_integral_limit, self.g.rate_integral_limit)
+
+        derr = (err - self.prev_err) / dt
+        self.prev_err = err.copy()
+
+        kp = np.array([self.g.kp_rate_roll, self.g.kp_rate_pitch, self.g.kp_rate_yaw], dtype=float)
+        ki = np.array([self.g.ki_rate_roll, self.g.ki_rate_pitch, self.g.ki_rate_yaw], dtype=float)
+        kd = np.array([self.g.kd_rate_roll, self.g.kd_rate_pitch, self.g.kd_rate_yaw], dtype=float)
+
+        # desired angular acceleration ~ PID, torque = I * alpha
+        alpha_cmd = kp * err + ki * self.int_err + kd * derr
+        tau = self.I * alpha_cmd
+
+        tau[0] = float(np.clip(tau[0], -self.g.max_torque_xy, self.g.max_torque_xy))
+        tau[1] = float(np.clip(tau[1], -self.g.max_torque_xy, self.g.max_torque_xy))
+        tau[2] = float(np.clip(tau[2], -self.g.max_torque_z, self.g.max_torque_z))
+        return tau
 
 
 class MotorMixer:
-    """
-    Motor mixer: converts thrust and torques to individual motor speeds.
-
-    Layout matches the X3 model.sdf (8 rotors evenly spaced at 45° on a 0.6 m
-    radius ring, nose pointing +X):
-
-           2
-        1     3
-      0         4
-        7     5
-           6
-
-    Motor directions (from SDF):
-    0(CCW/+1), 1(CW/-1), 2(CCW/+1), 3(CW/-1),
-    4(CW/-1), 5(CCW/+1), 6(CW/-1), 7(CCW/+1)
-    """
-
+    """Octo mixer (FLU body): thrust + torques -> motor speeds."""
     def __init__(self, params: VehicleParameters):
-        self.params = params
+        self.p = params
 
-        # Motor positions (x, y, z) with +X forward, +Y left, radius = arm_length
-        angles = np.linspace(0, 2 * np.pi, params.num_motors, endpoint=False)
-        self.motor_positions = np.stack(
-            [params.arm_length * np.cos(angles),
-             params.arm_length * np.sin(angles),
-             np.zeros_like(angles)],
-            axis=1,
-        )
+        self.motor_positions = np.array([
+            [ 0.6,     0.0,    0.0],
+            [ 0.4243,  0.4243, 0.0],
+            [ 0.0,     0.6,    0.0],
+            [-0.4243,  0.4243, 0.0],
+            [-0.6,     0.0,    0.0],
+            [-0.4243, -0.4243, 0.0],
+            [ 0.0,    -0.6,    0.0],
+            [ 0.4243, -0.4243, 0.0],
+        ], dtype=float)
 
-        # Motor directions: +1 for CCW, -1 for CW
-        self.motor_directions = np.array([1, -1, 1, -1, -1, 1, -1, 1])
+        # IMPORTANT: make sure this matches your motor-model plugin directions in the world/sdf!
+        # +1 / -1 only affects yaw mixing.
+        self.motor_directions = np.array([+1, -1, +1, -1, +1, -1, +1, -1], dtype=float)
 
-        # Build mixing matrix: [thrust; tau_x; tau_y; tau_z] -> [motor_speeds^2]
-        self._build_mixing_matrix()
+        self._build()
 
-    def _build_mixing_matrix(self):
-        """
-        Build the mixing matrix that maps [thrust, tau_x, tau_y, tau_z] to motor speeds.
+    def _build(self):
+        kf = float(self.p.force_constant)
+        km_ratio = float(self.p.moment_constant)
+        km = kf * km_ratio
 
-        For each motor i:
-            F_i = k_f * omega_i^2  (thrust force)
-            M_i = k_m * omega_i^2 * dir_i  (reaction torque, dir: +1=CCW, -1=CW)
+        n = int(self.p.num_motors)
+        A = np.zeros((4, n), dtype=float)
+        for i in range(n):
+            x, y, _ = self.motor_positions[i]
+            d = self.motor_directions[i]
+            # [T, tau_x, tau_y, tau_z] = A * omega^2
+            A[0, i] = kf            # thrust
+            A[1, i] = kf * y        # tau_x = y * Fz
+            A[2, i] = kf * (-x)     # tau_y = -x * Fz
+            A[3, i] = km * d        # yaw torque
 
-        Total thrust: T = sum(F_i) = k_f * sum(omega_i^2)
-        Roll torque: tau_x = sum(F_i * y_i) = k_f * sum(omega_i^2 * y_i)
-        Pitch torque: tau_y = sum(F_i * x_i) = k_f * sum(omega_i^2 * x_i)
-        Yaw torque: tau_z = sum(M_i) = k_m * sum(omega_i^2 * dir_i)
+        self.A_pinv = np.linalg.pinv(A)
 
-        Mixing matrix A such that: [T; tau_x; tau_y; tau_z] = A * [omega_0^2; ...; omega_7^2]
-        """
-        k_f = self.params.force_constant
-        k_m = self.params.moment_constant
-
-        num_motors = self.params.num_motors
-        A = np.zeros((4, num_motors))
-
-        for i in range(num_motors):
-            x_i = self.motor_positions[i, 0]
-            y_i = self.motor_positions[i, 1]
-            dir_i = self.motor_directions[i]
-
-            # Thrust row
-            A[0, i] = k_f
-
-            # Roll torque row (torque = force * moment_arm_y)
-            A[1, i] = k_f * y_i
-
-            # Pitch torque row (torque = force * moment_arm_x)
-            # Note: positive pitch is nose up, which requires more thrust at rear
-            A[2, i] = k_f * (-x_i)  # Negative because we want rear motors to increase for positive pitch
-
-            # Yaw torque row (reaction torque)
-            A[3, i] = k_f * k_m * dir_i
-
-        # Compute pseudo-inverse for control allocation
-        # omega_squared = pinv(A) * [T; tau_x; tau_y; tau_z]
-        self.mixing_matrix_inv = np.linalg.pinv(A)
-
-    def compute(
-        self,
-        thrust: float,  # Total thrust (N)
-        torques: np.ndarray,  # [tau_x, tau_y, tau_z] (N·m)
-    ) -> np.ndarray:  # motor speeds (rad/s) for 8 motors
-        """
-        Compute individual motor speeds from thrust and torques.
-
-        Args:
-            thrust: Total thrust command (N)
-            torques: [tau_roll, tau_pitch, tau_yaw] (N·m)
-
-        Returns:
-            motor_speeds: Array of 8 motor speeds (rad/s)
-        """
-        # Command vector
-        cmd = np.array([thrust, torques[0], torques[1], torques[2]])
-
-        # Compute motor speeds squared using pseudo-inverse
-        motor_speeds_squared = self.mixing_matrix_inv @ cmd
-
-        # Clamp to non-negative and take square root
-        motor_speeds_squared = np.maximum(motor_speeds_squared, 0.0)
-        motor_speeds = np.sqrt(motor_speeds_squared)
-
-        # Apply motor speed limits
-        motor_speeds = np.clip(
-            motor_speeds,
-            self.params.min_motor_speed,
-            self.params.max_motor_speed
-        )
-
-        return motor_speeds
+    def compute(self, thrust: float, tau: np.ndarray) -> np.ndarray:
+        cmd = np.array([thrust, tau[0], tau[1], tau[2]], dtype=float)
+        omega2 = self.A_pinv @ cmd
+        omega2 = np.maximum(omega2, 0.0)
+        omega = np.sqrt(omega2)
+        return np.clip(omega, self.p.min_motor_speed, self.p.max_motor_speed)
 
 
 class MulticopterControllerNode(Node):
-    """
-    Main controller node that implements the full cascaded control stack.
-    """
-
     def __init__(self):
-        super().__init__('multicopter_controller_node')
+        super().__init__("multicopter_controller_node")
 
-        # Declare parameters
         self._declare_parameters()
+        self.g = self._load_gains()
+        self.p = self._load_params()
 
-        # Load parameters
-        gains = self._load_gains()
-        params = self._load_vehicle_params()
+        self.vel2F = WorldVelocityToForce(self.g, self.p)
+        self.F2att = ForceToAttitudeAndThrust(self.g)
+        self.att2rate = AttitudeToRates(self.g)
+        self.rate2tau = RatesToTorques(self.g, self.p)
+        self.mixer = MotorMixer(self.p)
 
-        # Initialize controllers
-        self.velocity_controller = VelocityController(gains, params)
-        self.attitude_controller = AttitudeController(gains)
-        self.rate_controller = AngularRateController(gains)
-        self.mixer = MotorMixer(params)
+        self.file_logger = _init_file_logger("multicopter_controller")
 
-        # State variables
-        self.current_velocity_body = np.zeros(3)
-        self.current_acceleration_body = np.zeros(3)
-        self.current_attitude = np.zeros(3)  # [roll, pitch, yaw]
-        self.current_angular_rate = np.zeros(3)  # [p, q, r]
-        self.current_yaw_rate_cmd = 0.0  # From cmd_vel.angular.z
+        # State
+        self.pos_w = np.zeros(3)
+        self.v_body = np.zeros(3)
+        self.v_w = np.zeros(3)
+        self.pqr = np.zeros(3)
+        self.att = np.zeros(3)  # roll, pitch, yaw
+        self.R_w_b = np.eye(3)
 
-        self.cmd_vel = Twist()
-        self.controller_enabled = bool(self.get_parameter('start_enabled').value)
-        self.last_cmd_vel_time = None
+        # Setpoints
+        self.v_sp_w = np.zeros(3)
+        self.yaw_rate_sp = 0.0
 
-        # Publishers
-        self.motor_cmd_pub = self.create_publisher(
-            Actuators,
-            '/X3/command/motor_speed',
-            10
+        # Enable
+        self.enabled = bool(self.get_parameter("start_enabled").value)
+        self.last_control_time = None
+
+        # timeouts
+        self.last_vsp_time = None
+        self.last_wsp_time = None
+
+        # QoS for enable topic
+        enable_qos = QoSProfile(
+            depth=1,
+            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            history=QoSHistoryPolicy.KEEP_LAST,
         )
 
-        # Subscribers
-        self.cmd_vel_sub = self.create_subscription(
-            Twist,
-            '/X3/cmd_vel',
-            self.cmd_vel_callback,
-            10
-        )
+        # pub/sub
+        self.motor_pub = self.create_publisher(Actuators, "/X3/command/motor_speed", 10)
+        self.create_subscription(TwistStamped, "/drone/control/velocity_setpoint", self._cb_vsp, 10)
+        self.create_subscription(Vector3Stamped, "/drone/control/angular_velocity_setpoint", self._cb_wsp, 10)
+        self.create_subscription(Bool, "/drone/control/velocity_enable", self._cb_enable, enable_qos)
+        self.create_subscription(Odometry, "/X3/odometry", self._cb_odom, 10)
 
-        self.odom_sub = self.create_subscription(
-            Odometry,
-            '/X3/odometry',
-            self.odometry_callback,
-            10
-        )
+        hz = float(self.get_parameter("control_frequency").value)
+        self.timer = self.create_timer(1.0 / hz, self._loop)
 
-        self.enable_sub = self.create_subscription(
-            Bool,
-            '/X3/enable',
-            self.enable_callback,
-            10  # Match ros_gz_bridge default: QoSReliabilityPolicy.RELIABLE + DURABILITY_VOLATILE
-        )
-
-        # Control loop timer
-        control_freq = self.get_parameter('control_frequency').value
-        self.control_timer = self.create_timer(
-            1.0 / control_freq,
-            self.control_loop
-        )
-
-        # File logger
-        self.file_logger = _init_file_logger('multicopter_controller')
-
-        self.get_logger().info(f'Multicopter Controller Node initialized at {control_freq} Hz')
-        self.get_logger().info(f'Publishing motor commands to /X3/command/motor_speed')
-        if self.controller_enabled:
-            self.get_logger().info('Controller START_ENABLED -> enabled on startup')
-            self.file_logger.info('controller_enabled_startup')
+        self.get_logger().info(f"[OK] Controller running at {hz:.1f} Hz (world-velocity outer loop)")
 
     def _declare_parameters(self):
-        """Declare ROS parameters."""
-        self.declare_parameter('control_frequency', 160.0)
-        self.declare_parameter('cmd_vel_timeout', 0.5)
-        self.declare_parameter('start_enabled', True)
+        self.declare_parameter("control_frequency", 500.0)
+        self.declare_parameter("velocity_setpoint_timeout", 0.8)
+        self.declare_parameter("angular_setpoint_timeout", 0.8)
+        self.declare_parameter("start_enabled", True)
 
-        # Velocity controller gains
-        self.declare_parameter('kp_vel_xy', 3.0)
-        self.declare_parameter('kp_vel_z', 4.0)
-        self.declare_parameter('kd_vel_xy', 0.5)
-        self.declare_parameter('kd_vel_z', 0.8)
+        # gains (keep as your defaults, but rate gains here are more unit-consistent)
+        self.declare_parameter("kp_vel_xy", 3.0)
+        self.declare_parameter("ki_vel_xy", 0.0)
+        self.declare_parameter("kd_vel_xy", 0.4)
+        self.declare_parameter("kp_vel_z", 4.0)
+        self.declare_parameter("ki_vel_z", 0.0)
+        self.declare_parameter("kd_vel_z", 0.6)
 
-        # Attitude controller gains
-        self.declare_parameter('kp_att_roll', 4.0)
-        self.declare_parameter('kp_att_pitch', 4.0)
-        self.declare_parameter('kp_att_yaw', 5.0)
+        self.declare_parameter("kp_att_roll", 5.0)
+        self.declare_parameter("kp_att_pitch", 5.0)
+        self.declare_parameter("kp_att_yaw", 3.0)
 
-        # Rate controller gains
-        self.declare_parameter('kp_rate_roll', 5.0)
-        self.declare_parameter('kp_rate_pitch', 5.0)
-        self.declare_parameter('kp_rate_yaw', 6.0)
+        self.declare_parameter("kp_rate_roll", 0.20)
+        self.declare_parameter("ki_rate_roll", 0.02)
+        self.declare_parameter("kd_rate_roll", 0.00)
+        self.declare_parameter("kp_rate_pitch", 0.20)
+        self.declare_parameter("ki_rate_pitch", 0.02)
+        self.declare_parameter("kd_rate_pitch", 0.00)
+        self.declare_parameter("kp_rate_yaw", 0.15)
+        self.declare_parameter("ki_rate_yaw", 0.02)
+        self.declare_parameter("kd_rate_yaw", 0.00)
 
-        # Limits
-        self.declare_parameter('max_tilt_angle', 0.5)
-        self.declare_parameter('max_thrust', 150.0)
+        self.declare_parameter("vel_integral_limit", 3.0)
+        self.declare_parameter("rate_integral_limit", 3.0)
 
-        # Vehicle parameters
-        self.declare_parameter('vehicle_mass', 4.6)
-        self.declare_parameter('arm_length', 0.6)
-        self.declare_parameter('inertia_xx', 0.423)
-        self.declare_parameter('inertia_yy', 0.423)
-        self.declare_parameter('inertia_zz', 0.828)
+        self.declare_parameter("max_tilt_angle", 0.5)
+        self.declare_parameter("max_thrust", 150.0)
+        self.declare_parameter("min_thrust", 0.0)
+
+        self.declare_parameter("max_acc_xy", 3.0)
+        self.declare_parameter("max_acc_z_up", 5.0)
+        self.declare_parameter("max_acc_z_down", 3.0)
+
+        self.declare_parameter("max_torque_xy", 3.0)
+        self.declare_parameter("max_torque_z", 2.0)
+        self.declare_parameter("vel_d_filter_tau", 0.05)
+
+        self.declare_parameter("vehicle_mass", 4.6)
+        self.declare_parameter("inertia_xx", 0.423)
+        self.declare_parameter("inertia_yy", 0.423)
+        self.declare_parameter("inertia_zz", 0.828)
 
     def _load_gains(self) -> ControllerGains:
-        """Load controller gains from parameters."""
-        gains = ControllerGains()
-        gains.kp_vel_xy = self.get_parameter('kp_vel_xy').value
-        gains.kp_vel_z = self.get_parameter('kp_vel_z').value
-        gains.kd_vel_xy = self.get_parameter('kd_vel_xy').value
-        gains.kd_vel_z = self.get_parameter('kd_vel_z').value
+        g = ControllerGains()
+        for k in g.__dataclass_fields__.keys():
+            if self.has_parameter(k):
+                setattr(g, k, float(self.get_parameter(k).value))
+        return g
 
-        gains.kp_att_roll = self.get_parameter('kp_att_roll').value
-        gains.kp_att_pitch = self.get_parameter('kp_att_pitch').value
-        gains.kp_att_yaw = self.get_parameter('kp_att_yaw').value
+    def _load_params(self) -> VehicleParameters:
+        p = VehicleParameters()
+        p.mass = float(self.get_parameter("vehicle_mass").value)
+        p.inertia_xx = float(self.get_parameter("inertia_xx").value)
+        p.inertia_yy = float(self.get_parameter("inertia_yy").value)
+        p.inertia_zz = float(self.get_parameter("inertia_zz").value)
+        return p
 
-        gains.kp_rate_roll = self.get_parameter('kp_rate_roll').value
-        gains.kp_rate_pitch = self.get_parameter('kp_rate_pitch').value
-        gains.kp_rate_yaw = self.get_parameter('kp_rate_yaw').value
+    def _cb_vsp(self, msg: TwistStamped):
+        self.v_sp_w = np.array([msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z], dtype=float)
+        self.last_vsp_time = self.get_clock().now()
 
-        gains.max_tilt_angle = self.get_parameter('max_tilt_angle').value
-        gains.max_thrust = self.get_parameter('max_thrust').value
+    def _cb_wsp(self, msg: Vector3Stamped):
+        self.yaw_rate_sp = float(msg.vector.z)
+        self.last_wsp_time = self.get_clock().now()
 
-        return gains
-
-    def _load_vehicle_params(self) -> VehicleParameters:
-        """Load vehicle parameters."""
-        params = VehicleParameters()
-        params.mass = self.get_parameter('vehicle_mass').value
-        params.arm_length = self.get_parameter('arm_length').value
-        params.inertia_xx = self.get_parameter('inertia_xx').value
-        params.inertia_yy = self.get_parameter('inertia_yy').value
-        params.inertia_zz = self.get_parameter('inertia_zz').value
-        return params
-
-    def cmd_vel_callback(self, msg: Twist):
-        """Receive velocity commands."""
-        self.cmd_vel = msg
-        self.current_yaw_rate_cmd = msg.angular.z
-        self.last_cmd_vel_time = self.get_clock().now()
-
-    def odometry_callback(self, msg: Odometry):
-        """Receive odometry feedback."""
-        # Extract velocity (body frame)
-        self.current_velocity_body = np.array([
-            msg.twist.twist.linear.x,
-            msg.twist.twist.linear.y,
-            msg.twist.twist.linear.z,
-        ])
-
-        # Extract angular velocity (body frame)
-        self.current_angular_rate = np.array([
-            msg.twist.twist.angular.x,
-            msg.twist.twist.angular.y,
-            msg.twist.twist.angular.z,
-        ])
-
-        # Extract attitude from quaternion
-        q = msg.pose.pose.orientation
-        self.current_attitude = self._quaternion_to_euler(
-            q.x, q.y, q.z, q.w
-        )
-
-        # Estimate acceleration (simple finite difference - could be improved)
-        # For now, set to zero (PD controller will work with P only)
-        # TODO: implement proper acceleration estimation
-
-    def enable_callback(self, msg: Bool):
-        """Enable/disable controller."""
-        self.controller_enabled = msg.data
-        if self.controller_enabled:
-            self.get_logger().info('Controller ENABLED')
-            self.file_logger.info('controller_enabled')
+    def _cb_enable(self, msg: Bool):
+        self.enabled = bool(msg.data)
+        if not self.enabled:
+            self.vel2F.reset()
+            self.rate2tau.reset()
+            self._publish_motors(np.zeros(8, dtype=float))
+            self.get_logger().warn("Controller disabled -> motors zeroed")
         else:
-            self.get_logger().info('Controller DISABLED - sending zero motor commands')
-            self.file_logger.info('controller_disabled')
-            self._publish_zero_motors()
+            self.get_logger().info("Controller enabled")
 
-    def control_loop(self):
-        """Main control loop - runs at control_frequency."""
-        if not self.controller_enabled:
+    def _cb_odom(self, msg: Odometry):
+        self.pos_w = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z], dtype=float)
+
+        q = msg.pose.pose.orientation
+        self.att = self._quat_to_euler(q.x, q.y, q.z, q.w)
+        self.R_w_b = self._quat_to_R_w_b(q.x, q.y, q.z, q.w)
+
+        # IMPORTANT: Odometry twist is typically in child_frame_id (base_link) coordinates
+        self.v_body = np.array([msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.linear.z], dtype=float)
+        self.v_w = self.R_w_b @ self.v_body
+
+        # angular rate is in body
+        self.pqr = np.array([msg.twist.twist.angular.x, msg.twist.twist.angular.y, msg.twist.twist.angular.z], dtype=float)
+
+    def _loop(self):
+        if not self.enabled:
             return
 
-        # Check cmd_vel timeout
-        if self.last_cmd_vel_time is not None:
-            age = (self.get_clock().now() - self.last_cmd_vel_time).nanoseconds / 1e9
-            timeout = self.get_parameter('cmd_vel_timeout').value
-            if age > timeout:
-                self.get_logger().warn(f'cmd_vel timeout ({age:.2f}s) - zeroing commands', throttle_duration_sec=2.0)
-                self.cmd_vel = Twist()
+        now = self.get_clock().now()
+        hz = float(self.get_parameter("control_frequency").value)
+        if self.last_control_time is None:
+            dt = 1.0 / hz
+        else:
+            dt = (now - self.last_control_time).nanoseconds / 1e9
+        self.last_control_time = now
+        dt = max(1e-4, float(dt))
 
-        # Extract velocity command (body frame)
-        vel_cmd = np.array([
-            self.cmd_vel.linear.x,
-            self.cmd_vel.linear.y,
-            self.cmd_vel.linear.z,
-        ])
+        # timeouts
+        v_to = float(self.get_parameter("velocity_setpoint_timeout").value)
+        w_to = float(self.get_parameter("angular_setpoint_timeout").value)
 
-        # Step 1: Velocity Controller
-        roll_des, pitch_des, yaw_des, thrust = self.velocity_controller.compute(
-            vel_cmd,
-            self.current_velocity_body,
-            self.current_acceleration_body,
-            self.current_attitude[2],  # current yaw
-        )
+        if self.last_vsp_time is None or (now - self.last_vsp_time).nanoseconds / 1e9 > v_to:
+            self.v_sp_w[:] = 0.0
+        if self.last_wsp_time is None or (now - self.last_wsp_time).nanoseconds / 1e9 > w_to:
+            self.yaw_rate_sp = 0.0
 
-        # Override yaw with yaw rate integration (if yaw rate command is provided)
-        # For now, we'll use direct yaw rate control instead of yaw angle control
-        # This is more common for velocity-based control
+        # Outer: v_world -> F_world
+        F_w = self.vel2F.compute(self.v_sp_w, self.v_w, dt)
 
-        # Step 2: Attitude Controller
-        attitude_des = np.array([roll_des, pitch_des, yaw_des])
-        rate_des = self.attitude_controller.compute(
-            attitude_des,
-            self.current_attitude
-        )
+        # F_world -> (roll,pitch,yaw,thrust)
+        roll_sp, pitch_sp, yaw_sp, thrust = self.F2att.compute(F_w, float(self.att[2]))
 
-        # Override yaw rate with direct command
-        rate_des[2] = self.current_yaw_rate_cmd
+        # Attitude -> body rate setpoint
+        att_sp = np.array([roll_sp, pitch_sp, yaw_sp], dtype=float)
+        pqr_sp = self.att2rate.compute(att_sp, self.att)
+        pqr_sp[2] = float(self.yaw_rate_sp)  # override yaw with yaw-rate command
 
-        # Step 3: Angular Rate Controller
-        torques = self.rate_controller.compute(
-            rate_des,
-            self.current_angular_rate
-        )
+        # Rate -> torques
+        tau = self.rate2tau.compute(pqr_sp, self.pqr, dt)
 
-        # Step 4: Motor Mixer
-        motor_speeds = self.mixer.compute(thrust, torques)
+        # Mix -> motor speeds
+        omega = self.mixer.compute(thrust, tau)
+        self._publish_motors(omega)
 
-        # Publish motor commands
-        self._publish_motor_commands(motor_speeds)
-
-    def _publish_motor_commands(self, motor_speeds: np.ndarray):
-        """Publish motor speed commands."""
+    def _publish_motors(self, omega: np.ndarray):
         msg = Actuators()
-        msg.velocity = motor_speeds.tolist()
-        self.motor_cmd_pub.publish(msg)
-
-    def _publish_zero_motors(self):
-        """Publish zero motor commands."""
-        zero_speeds = np.zeros(8)
-        self._publish_motor_commands(zero_speeds)
+        msg.velocity = omega.tolist()
+        self.motor_pub.publish(msg)
 
     @staticmethod
-    def _quaternion_to_euler(x: float, y: float, z: float, w: float) -> np.ndarray:
-        """
-        Convert quaternion to Euler angles (roll, pitch, yaw).
-        Convention: ZYX (yaw-pitch-roll)
-        """
-        # Roll (x-axis rotation)
-        sinr_cosp = 2 * (w * x + y * z)
-        cosr_cosp = 1 - 2 * (x * x + y * y)
+    def _quat_to_euler(x: float, y: float, z: float, w: float) -> np.ndarray:
+        # roll
+        sinr_cosp = 2.0 * (w * x + y * z)
+        cosr_cosp = 1.0 - 2.0 * (x * x + y * y)
         roll = np.arctan2(sinr_cosp, cosr_cosp)
 
-        # Pitch (y-axis rotation)
-        sinp = 2 * (w * y - z * x)
+        # pitch
+        sinp = 2.0 * (w * y - z * x)
         if abs(sinp) >= 1:
-            pitch = np.copysign(np.pi / 2, sinp)  # Use 90 degrees if out of range
+            pitch = np.copysign(np.pi / 2, sinp)
         else:
             pitch = np.arcsin(sinp)
 
-        # Yaw (z-axis rotation)
-        siny_cosp = 2 * (w * z + x * y)
-        cosy_cosp = 1 - 2 * (y * y + z * z)
+        # yaw
+        siny_cosp = 2.0 * (w * z + x * y)
+        cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
         yaw = np.arctan2(siny_cosp, cosy_cosp)
 
-        return np.array([roll, pitch, yaw])
+        return np.array([roll, pitch, yaw], dtype=float)
+
+    @staticmethod
+    def _quat_to_R_w_b(x: float, y: float, z: float, w: float) -> np.ndarray:
+        # Rotation matrix world_from_body (v_world = R @ v_body)
+        n = x * x + y * y + z * z + w * w
+        if n < 1e-12:
+            return np.eye(3)
+        s = 2.0 / n
+
+        xx, yy, zz = x * x * s, y * y * s, z * z * s
+        xy, xz, yz = x * y * s, x * z * s, y * z * s
+        wx, wy, wz = w * x * s, w * y * s, w * z * s
+
+        return np.array([
+            [1.0 - (yy + zz), xy - wz, xz + wy],
+            [xy + wz, 1.0 - (xx + zz), yz - wx],
+            [xz - wy, yz + wx, 1.0 - (xx + yy)],
+        ], dtype=float)
 
 
 def main(args=None):
-    """Main entry point."""
     rclpy.init(args=args)
     node = MulticopterControllerNode()
-
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
@@ -642,5 +580,5 @@ def main(args=None):
         rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

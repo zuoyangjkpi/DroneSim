@@ -1,0 +1,623 @@
+<?xml version='1.0' encoding='ASCII'?>
+<sdf version='1.7'>
+  <world name='world_demo'>
+    <gravity>0 0 -9.8</gravity>
+    <physics type='ode'>
+      <max_step_size>0.01</max_step_size>
+      <real_time_factor>1</real_time_factor>
+      <max_contacts>10</max_contacts>
+    </physics>
+    <plugin name='ignition::gazebo::systems::Physics' filename='libignition-gazebo-physics-system.so'/>
+    <plugin name='ignition::gazebo::systems::UserCommands' filename='libignition-gazebo-user-commands-system.so'/>
+    <plugin name='ignition::gazebo::systems::SceneBroadcaster' filename='libignition-gazebo-scene-broadcaster-system.so'/>
+    <plugin name='ignition::gazebo::systems::Imu' filename='ignition-gazebo-imu-system'/>
+    <plugin name='ignition::gazebo::systems::Sensors' filename='ignition-gazebo-sensors-system'>
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin
+      filename="gz-sim8-pose-publisher-system"
+      name="gz::sim::systems::PosePublisher">
+      <publish_nested_model_pose>true</publish_nested_model_pose>
+      <publish_link_pose>false</publish_link_pose>
+      <publish_collision_pose>false</publish_collision_pose>
+      <publish_visual_pose>false</publish_visual_pose>
+      <use_pose_vector_msg>true</use_pose_vector_msg>
+      <static_publisher>false</static_publisher>
+      <update_frequency>50</update_frequency>
+    </plugin>
+
+    <!-- GUI plugins copied from factory_rc -->
+    <gui fullscreen="0">
+      <plugin filename="GzScene3D" name="3D View">
+        <ignition-gui>
+          <title>3D View</title>
+          <property type="bool" key="showTitleBar">false</property>
+          <property type="string" key="state">docked</property>
+        </ignition-gui>
+        <engine>ogre2</engine>
+        <scene>scene</scene>
+        <ambient_light>0.4 0.4 0.4</ambient_light>
+        <background_color>0.8 0.8 0.8</background_color>
+        <camera_pose>13.4 -6.1 2.23 0 0.4 -1.83</camera_pose>
+      </plugin>
+      <plugin filename="WorldControl" name="World control">
+        <ignition-gui>
+          <title>World control</title>
+          <property type="bool" key="showTitleBar">false</property>
+          <property type="bool" key="resizable">false</property>
+          <property type="double" key="height">72</property>
+          <property type="double" key="width">121</property>
+          <property type="double" key="z">1</property>
+          <property type="string" key="state">floating</property>
+          <anchors target="3D View">
+            <line own="left" target="left"/>
+            <line own="bottom" target="bottom"/>
+          </anchors>
+        </ignition-gui>
+        <play_pause>true</play_pause>
+        <step>true</step>
+        <start_paused>true</start_paused>
+      </plugin>
+      <plugin filename="WorldStats" name="World stats">
+        <ignition-gui>
+          <title>World stats</title>
+          <property type="bool" key="showTitleBar">false</property>
+          <property type="bool" key="resizable">false</property>
+          <property type="double" key="height">110</property>
+          <property type="double" key="width">290</property>
+          <property type="double" key="z">1</property>
+          <property type="string" key="state">floating</property>
+          <anchors target="3D View">
+            <line own="right" target="right"/>
+            <line own="bottom" target="bottom"/>
+          </anchors>
+        </ignition-gui>
+        <sim_time>true</sim_time>
+        <real_time>true</real_time>
+        <real_time_factor>true</real_time_factor>
+        <iterations>true</iterations>
+      </plugin>
+    </gui>
+
+    <!-- Original factory_rc scene -->
+    <!-- Ground plane and depot / shelves copied from factory_rc.sdf -->
+    <model name='ground_plane'>
+      <static>true</static>
+      <link name='link'>
+        <collision name='collision'>
+          <geometry>
+            <plane>
+              <normal>0.0 0.0 1</normal>
+              <size>1 1</size>
+            </plane>
+          </geometry>
+        </collision>
+      </link>
+      <pose>0 0 0 0 0 0</pose>
+    </model>
+
+    <!-- Base warehouse and objects from factory_rc.sdf -->
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/OpenRobotics/models/Warehouse
+      </uri>
+      <name>warehouse</name>
+      <pose>0 0 -0.09 0 0 0</pose>
+    </include>
+
+    <!-- Tugbot and charging station -->
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/Tugbot-charging-station
+      </uri>
+      <name>charging_station</name>
+      <pose>14.7 -10.6 -0.04 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/Tugbot
+      </uri>
+      <name>tugbot</name>
+      <pose>13.9 -10.6 0.1 0 0 0</pose>
+    </include>
+
+    <!-- Cart -->
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/cart_model_2
+      </uri>
+      <name>cart1</name>
+      <pose>-5.73 15 0.25 0 -0 0</pose>
+    </include>
+
+    <!-- Shelves and pallets -->
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf_big
+      </uri>
+      <name>shelf_big_0</name>
+      <pose>-9.34177 -13.5598 0 0 -0 0</pose>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf
+      </uri>
+      <name>shelf</name>
+      <pose>-4.41528 -0.690987 0 0 -0 0</pose>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf
+      </uri>
+      <name>shelf_0</name>
+      <pose>-4.41528 2.30697 0 0 -0 0</pose>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf
+      </uri>
+      <name>shelf_1</name>
+      <pose>-4.41528 5.30708 0 0 -0 0</pose>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf
+      </uri>
+      <name>shelf_2</name>
+      <pose>-4.41528 8.34352 0 0 -0 0</pose>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf
+      </uri>
+      <name>shelf_3</name>
+      <pose>5.60144 8.34352 0 0 -0 0</pose>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf
+      </uri>
+      <name>shelf_4</name>
+      <pose>5.60144 5.30708 0 0 -0 0</pose>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf
+      </uri>
+      <name>shelf_5</name>
+      <pose>5.60144 -0.690987 0 0 -0 0</pose>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf
+      </uri>
+      <name>shelf_6</name>
+      <pose>5.60144 2.30697 0 0 -0 0</pose>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/pallet_box_mobile
+      </uri>
+      <name>pallet_box_mobile</name>
+      <pose>4.4161 14.6952 0.01 0 -0 0</pose>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/pallet_box_mobile
+      </uri>
+      <name>pallet_box_mobile_0</name>
+      <pose>4.45415 13.6212 0.01 0 -0 0</pose>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/pallet_box_mobile
+      </uri>
+      <name>pallet_box_mobile_1</name>
+      <pose>4.4468 12.229 0.01 0 -0 0</pose>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/pallet_box_mobile
+      </uri>
+      <name>pallet_box</name>
+      <pose>-6.11913 13.7079 0.01 0 -0 0</pose>
+      <static>true</static>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf_big
+      </uri>
+      <name>shelf_big_1</name>
+      <pose>13.9821 15.319 0 0 -0 0</pose>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf_big
+      </uri>
+      <name>shelf_big_2</name>
+      <pose>6.19777 -12.9647 0 0 -0 0</pose>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf_big
+      </uri>
+      <name>shelf_big_3</name>
+      <pose>0.594376 -12.9647 0 0 -0 0</pose>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf_big
+      </uri>
+      <name>shelf_big_4</name>
+      <pose>-5.36284 -12.9647 0 0 -0 0</pose>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf
+      </uri>
+      <name>shelf_7</name>
+      <pose>13.3818 -21.2416 0 0 -0 0</pose>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf
+      </uri>
+      <name>shelf_8</name>
+      <pose>13.3818 -19.0028 0 0 -0 0</pose>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf
+      </uri>
+      <name>shelf_9</name>
+      <pose>13.3818 -16.4478 0 0 -0 0</pose>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf
+      </uri>
+      <name>shelf_10</name>
+      <pose>13.3818 -14.1028 0 0 -0 0</pose>
+    </include>
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/pallet_box_mobile
+      </uri>
+      <name>pallet_box_0</name>
+      <pose>14.0222 -24.335 0.01 0 -0 0</pose>
+      <static>true</static>
+    </include>
+
+    <!-- X3 stereo multicopter -->
+    <include>
+      <uri>model://x3_stereo/model_sitl.sdf</uri>
+      <pose>0 0 1.0 0 0 0</pose>
+
+      <!-- Drone startup script -->
+      <plugin filename="gz-sim8-triggered-publisher-system" name="gz::sim::systems::TriggeredPublisher">
+        <input type="gz.msgs.StringMsg" topic="/trigger_enable">
+          <match field="data">enable_drone</match>
+        </input>
+        <output type="gz.msgs.Boolean" topic="X3/enable">
+          data: true
+        </output>
+      </plugin>
+
+      <!-- Velocity controller plugin -->
+      <plugin filename="gz-sim8-multicopter-control-system" name="gz::sim::systems::MulticopterVelocityControl">
+        <robotNamespace>X3</robotNamespace>
+        <commandSubTopic>cmd_vel</commandSubTopic>
+        <enableSubTopic>enable</enableSubTopic>
+        <comLinkName>X3/base_link</comLinkName>
+        <velocityGain>3.0 3.0 4.0</velocityGain>
+        <attitudeGain>4.0 4.0 5.0</attitudeGain>
+        <angularRateGain>5.0 5.0 6.0</angularRateGain>
+        <maximumLinearVelocity>4.0 4.0 3.0</maximumLinearVelocity>
+        <maximumLinearAcceleration>4.0 4.0 4.0</maximumLinearAcceleration>
+        <maximumAngularVelocity>3.0 3.0 3.5</maximumAngularVelocity>
+        <actuatorsTopic>command/motor_speed</actuatorsTopic>
+        <rotorConfiguration>
+          <rotor>
+            <jointName>X3/rotor_0_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_1_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>-1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_2_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_3_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>-1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_4_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>-1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_5_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_6_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>-1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_7_joint</jointName>
+            <forceConstant>2.85e-05</forceConstant>
+            <momentConstant>0.0533</momentConstant>
+            <direction>1</direction>
+          </rotor>
+        </rotorConfiguration>
+      </plugin>
+
+      <!-- Motor plugins -->
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_0_joint</jointName>
+        <linkName>X3/rotor_0</linkName>
+        <turningDirection>ccw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>0</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/0</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_4_joint</jointName>
+        <linkName>X3/rotor_4</linkName>
+        <turningDirection>cw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>4</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/4</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_5_joint</jointName>
+        <linkName>X3/rotor_5</linkName>
+        <turningDirection>ccw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>5</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/5</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_6_joint</jointName>
+        <linkName>X3/rotor_6</linkName>
+        <turningDirection>cw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>6</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/6</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_7_joint</jointName>
+        <linkName>X3/rotor_7</linkName>
+        <turningDirection>ccw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>7</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/7</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_1_joint</jointName>
+        <linkName>X3/rotor_1</linkName>
+        <turningDirection>cw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>1</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/1</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_2_joint</jointName>
+        <linkName>X3/rotor_2</linkName>
+        <turningDirection>ccw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>2</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/2</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim8-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_3_joint</jointName>
+        <linkName>X3/rotor_3</linkName>
+        <turningDirection>cw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>2.85e-05</motorConstant>
+        <momentConstant>0.0533</momentConstant>
+        <commandSubTopic>command/motor_speed</commandSubTopic>
+        <actuator_number>3</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/3</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+    </include>
+
+    <!-- Walking actors (slow roaming within a small area) -->
+    <actor name="walker_1">
+      <!-- Initial pose: yaw aligned with first segment direction -->
+      <pose>2 0 1.0 0 0 1.249</pose>
+      <skin>
+        <filename>model://actor/meshes/walk.dae</filename>
+        <scale>1.2</scale>
+      </skin>
+      <animation name="walk">
+        <filename>model://actor/meshes/walk.dae</filename>
+        <scale>1.2</scale>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+
+      <script>
+        <loop>true</loop>
+        <auto_start>true</auto_start>
+
+        <!-- A gentle multi-waypoint loop to mimic free walking -->
+        <trajectory id="0" type="walk">
+          <waypoint>
+            <time>0</time>
+            <pose>2 0 0 0 0 1.249</pose>
+          </waypoint>
+          <waypoint>
+            <time>8</time>
+            <pose>3 3 0 0 0 2.820</pose>
+          </waypoint>
+          <waypoint>
+            <time>16</time>
+            <pose>0 4 0 0 0 -2.554</pose>
+          </waypoint>
+          <waypoint>
+            <time>24</time>
+            <pose>-3 2 0 0 0 -1.326</pose>
+          </waypoint>
+          <waypoint>
+            <time>32</time>
+            <pose>-2 -2 0 0 0 -0.322</pose>
+          </waypoint>
+          <waypoint>
+            <time>40</time>
+            <pose>1 -3 0 0 0 1.249</pose>
+          </waypoint>
+          <waypoint>
+            <time>48</time>
+            <pose>2 0 0 0 0 1.249</pose>
+          </waypoint>
+        </trajectory>
+      </script>
+    </actor>
+
+
+    <actor name="walker_2">
+      <pose>-2 0 1.0 0 0 1.893</pose>
+      <skin>
+        <filename>model://actor/meshes/walk.dae</filename>
+        <scale>0.8</scale>
+      </skin>
+      <animation name="walk">
+        <filename>model://actor/meshes/walk.dae</filename>
+        <scale>0.8</scale>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+
+      <script>
+        <loop>true</loop>
+        <auto_start>true</auto_start>
+
+        <trajectory id="0" type="walk">
+          <waypoint>
+            <time>0</time>
+            <pose>-2 0 0 0 0 1.893</pose>
+          </waypoint>
+          <waypoint>
+            <time>8</time>
+            <pose>-3 3 0 0 0 0.464</pose>
+          </waypoint>
+          <waypoint>
+            <time>16</time>
+            <pose>-1 4 0 0 0 -0.588</pose>
+          </waypoint>
+          <waypoint>
+            <time>24</time>
+            <pose>2 2 0 0 0 -1.326</pose>
+          </waypoint>
+          <waypoint>
+            <time>32</time>
+            <pose>3 -2 0 0 0 -2.554</pose>
+          </waypoint>
+          <waypoint>
+            <time>40</time>
+            <pose>0 -4 0 0 0 2.034</pose>
+          </waypoint>
+          <waypoint>
+            <time>48</time>
+            <pose>-2 0 0 0 0 2.034</pose>
+          </waypoint>
+        </trajectory>
+      </script>
+    </actor>
+
+
+  </world>
+</sdf>

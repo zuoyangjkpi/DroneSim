@@ -1,0 +1,811 @@
+<sdf version='1.6'>
+  <model name='X3'>
+    <!-- Model pose in world -->
+    <pose>0 0 0.053302 0 0 0</pose>
+
+    <!-- ===================== -->
+    <!-- Base link + visuals   -->
+    <!-- ===================== -->
+    <link name='X3/base_link'>
+      <pose>0 0 0 0 0 0</pose>
+
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>4.6</mass>
+        <inertia>
+          <ixx>0.423</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.423</iyy>
+          <iyz>0</iyz>
+          <izz>0.828</izz>
+        </inertia>
+      </inertial>
+
+      <collision name='X3/base_link_inertia_collision'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>1.2 1.2 0.15</size>
+          </box>
+        </geometry>
+      </collision>
+
+      <visual name='X3/base_link_inertia_visual'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://x3/meshes/x3.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+
+      <!-- Octocopter carbon arms for visual reference -->
+      <visual name='arm_0'>
+        <pose>0.3 0.0 0 0 1.5708 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.6</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <diffuse>0.1 0.1 0.1 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name='arm_1'>
+        <pose>0.2121 0.2121 0 0 1.5708 0.7854</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.6</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <diffuse>0.1 0.1 0.1 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name='arm_2'>
+        <pose>0.0 0.3 0 0 1.5708 1.5708</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.6</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <diffuse>0.1 0.1 0.1 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name='arm_3'>
+        <pose>-0.2121 0.2121 0 0 1.5708 2.35619</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.6</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <diffuse>0.1 0.1 0.1 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name='arm_4'>
+        <pose>-0.3 0.0 0 0 1.5708 3.14159</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.6</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <diffuse>0.1 0.1 0.1 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name='arm_5'>
+        <pose>-0.2121 -0.2121 0 0 1.5708 -2.35619</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.6</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <diffuse>0.1 0.1 0.1 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name='arm_6'>
+        <pose>0.0 -0.3 0 0 1.5708 -1.5708</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.6</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <diffuse>0.1 0.1 0.1 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name='arm_7'>
+        <pose>0.2121 -0.2121 0 0 1.5708 -0.7854</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.6</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <diffuse>0.1 0.1 0.1 1</diffuse>
+        </material>
+      </visual>
+
+      <!-- IMU Sensor -->
+      <sensor name="imu_sensor" type="imu">
+        <pose>0 0 0 0 0 0</pose>
+        <always_on>1</always_on>
+        <update_rate>100</update_rate>
+        <topic>/imu/data</topic>
+        <imu>
+          <angular_velocity>
+            <x>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>0.0001</stddev>
+              </noise>
+            </x>
+            <y>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>0.0001</stddev>
+              </noise>
+            </y>
+            <z>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>0.0001</stddev>
+              </noise>
+            </z>
+          </angular_velocity>
+          <linear_acceleration>
+            <x>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>0.001</stddev>
+              </noise>
+            </x>
+            <y>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>0.001</stddev>
+              </noise>
+            </y>
+            <z>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>0.001</stddev>
+              </noise>
+            </z>
+          </linear_acceleration>
+          <enable_orientation>true</enable_orientation>
+        </imu>
+      </sensor>
+    </link>
+
+
+    <!-- ============================================ -->
+    <!-- ELP-USB3DGS1200P01-V90 Stereo Camera Configuration              -->
+    <!-- Calibrated intrinsics (usb_stereo_camera.yaml):                 -->
+    <!--   fx=fy≈369.36, cx≈330.62, cy≈269.47                            -->
+    <!-- Resolution: 640x480, Baseline ≈ 0.061m (geometry + SLAM config) -->
+    <!-- HFOV ≈ 1.426 rad (derived from fx & width)                      -->
+    <!-- Mount: 10 cm forward of body origin, pitched down 45 deg        -->
+    <!-- ============================================ -->
+
+    <!-- Left Camera Link -->
+    <link name='stereo_camera_left_link'>
+      <!-- 10 cm forward, +Y (left), pitched down 45 deg -->
+      <pose relative_to='X3/base_link'>0.10 0.0305 0 0 0.785398 0</pose>
+
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>0.001</mass>
+        <inertia>
+          <ixx>1e-6</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>1e-6</iyy>
+          <iyz>0</iyz>
+          <izz>1e-6</izz>
+        </inertia>
+      </inertial>
+
+      <sensor name="camera_left" type="camera">
+        <pose>0 0 0 0 0 0</pose>
+        <always_on>1</always_on>
+        <update_rate>30</update_rate>
+        <topic>/camera/left/image_raw</topic>
+
+        <camera>
+          <horizontal_fov>1.426</horizontal_fov>
+          <distortion>
+            <k1>0.0</k1>
+            <k2>0.0</k2>
+            <k3>0.0</k3>
+            <p1>0.0</p1>
+            <p2>0.0</p2>
+            <center>0.517 0.561</center>
+          </distortion>
+          <image>
+            <width>640</width>
+            <height>480</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>0.5</near>
+            <far>300</far>
+          </clip>
+          <noise>
+            <type>gaussian</type>
+            <mean>0</mean>
+            <stddev>0.005</stddev>
+          </noise>
+
+          <frame_id>X3/stereo_camera_left_optical</frame_id>
+          <camera_info_topic>/camera/left/camera_info</camera_info_topic>
+        </camera>
+      </sensor>
+    </link>
+
+
+    <!-- Right Camera Link -->
+    <link name='stereo_camera_right_link'>
+      <!-- 10 cm forward, -Y (right), pitched down 45 deg -->
+      <pose relative_to='X3/base_link'>0.10 -0.0305 0 0 0.785398 0</pose>
+
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>0.001</mass>
+        <inertia>
+          <ixx>1e-6</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>1e-6</iyy>
+          <iyz>0</iyz>
+          <izz>1e-6</izz>
+        </inertia>
+      </inertial>
+
+      <sensor name="camera_right" type="camera">
+        <pose>0 0 0 0 0 0</pose>
+        <always_on>1</always_on>
+        <update_rate>30</update_rate>
+        <topic>/camera/right/image_raw</topic>
+
+        <camera>
+          <horizontal_fov>1.426</horizontal_fov>
+          <distortion>
+            <k1>0.0</k1>
+            <k2>0.0</k2>
+            <k3>0.0</k3>
+            <p1>0.0</p1>
+            <p2>0.0</p2>
+            <center>0.517 0.561</center>
+          </distortion>
+          <image>
+            <width>640</width>
+            <height>480</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>0.5</near>
+            <far>300</far>
+          </clip>
+          <noise>
+            <type>gaussian</type>
+            <mean>0</mean>
+            <stddev>0.005</stddev>
+          </noise>
+
+          <frame_id>X3/stereo_camera_right_optical</frame_id>
+          <camera_info_topic>/camera/right/camera_info</camera_info_topic>
+        </camera>
+      </sensor>
+    </link>
+
+
+    <!-- Optical frames for ROS convention -->
+    <!-- Keep these as a pure transform relative to the camera links -->
+    <link name='stereo_camera_left_optical'>
+      <pose relative_to='stereo_camera_left_link'>0 0 0 -1.5708 0 -1.5708</pose>
+      <inertial>
+        <mass>0.001</mass>
+        <inertia>
+          <ixx>1e-6</ixx><ixy>0</ixy><ixz>0</ixz>
+          <iyy>1e-6</iyy><iyz>0</iyz><izz>1e-6</izz>
+        </inertia>
+      </inertial>
+    </link>
+
+    <link name='stereo_camera_right_optical'>
+      <pose relative_to='stereo_camera_right_link'>0 0 0 -1.5708 0 -1.5708</pose>
+      <inertial>
+        <mass>0.001</mass>
+        <inertia>
+          <ixx>1e-6</ixx><ixy>0</ixy><ixz>0</ixz>
+          <iyy>1e-6</iyy><iyz>0</iyz><izz>1e-6</izz>
+        </inertia>
+      </inertial>
+    </link>
+
+
+    <!-- Fixed joints for stereo cameras -->
+    <joint name='stereo_camera_left_joint' type='fixed'>
+      <child>stereo_camera_left_link</child>
+      <parent>X3/base_link</parent>
+    </joint>
+
+    <joint name='stereo_camera_right_joint' type='fixed'>
+      <child>stereo_camera_right_link</child>
+      <parent>X3/base_link</parent>
+    </joint>
+
+    <joint name='stereo_camera_left_optical_joint' type='fixed'>
+      <child>stereo_camera_left_optical</child>
+      <parent>stereo_camera_left_link</parent>
+    </joint>
+
+    <joint name='stereo_camera_right_optical_joint' type='fixed'>
+      <child>stereo_camera_right_optical</child>
+      <parent>stereo_camera_right_link</parent>
+    </joint>
+
+
+    <!-- ===================== -->
+    <!-- Rotors (0..7)         -->
+    <!-- ===================== -->
+
+    <link name='X3/rotor_0'>
+      <pose relative_to='X3/base_link'>0.6 0.0 0.03 0 0 0</pose>
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>0.05</mass>
+        <inertia>
+          <ixx>9.75e-06</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>4.17041e-04</iyy>
+          <iyz>0</iyz>
+          <izz>4.26041e-04</izz>
+        </inertia>
+      </inertial>
+      <collision name='X3/rotor_0_collision'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <length>0.01</length>
+            <radius>0.12</radius>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name='X3/rotor_0_visual'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>0.12 0.12 0.12</scale>
+            <uri>model://x3/meshes/propeller_ccw.dae</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <script>
+            <name>Gazebo/Blue</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <joint name='X3/rotor_0_joint' type='revolute'>
+      <child>X3/rotor_0</child>
+      <parent>X3/base_link</parent>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e+16</lower>
+          <upper>1e+16</upper>
+        </limit>
+        <use_parent_model_frame>1</use_parent_model_frame>
+      </axis>
+    </joint>
+
+
+    <link name='X3/rotor_1'>
+      <pose relative_to='X3/base_link'>0.4243 0.4243 0.03 0 0 0</pose>
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>0.05</mass>
+        <inertia>
+          <ixx>9.75e-06</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>4.17041e-04</iyy>
+          <iyz>0</iyz>
+          <izz>4.26041e-04</izz>
+        </inertia>
+      </inertial>
+      <collision name='X3/rotor_1_collision'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <length>0.01</length>
+            <radius>0.12</radius>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name='X3/rotor_1_visual'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>0.12 0.12 0.12</scale>
+            <uri>model://x3/meshes/propeller_cw.dae</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <script>
+            <name>Gazebo/Red</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <joint name='X3/rotor_1_joint' type='revolute'>
+      <child>X3/rotor_1</child>
+      <parent>X3/base_link</parent>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e+16</lower>
+          <upper>1e+16</upper>
+        </limit>
+        <use_parent_model_frame>1</use_parent_model_frame>
+      </axis>
+    </joint>
+
+
+    <link name='X3/rotor_2'>
+      <pose relative_to='X3/base_link'>0.0 0.6 0.03 0 0 0</pose>
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>0.05</mass>
+        <inertia>
+          <ixx>9.75e-06</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>4.17041e-04</iyy>
+          <iyz>0</iyz>
+          <izz>4.26041e-04</izz>
+        </inertia>
+      </inertial>
+      <collision name='X3/rotor_2_collision'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <length>0.01</length>
+            <radius>0.12</radius>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name='X3/rotor_2_visual'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>0.12 0.12 0.12</scale>
+            <uri>model://x3/meshes/propeller_ccw.dae</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <script>
+            <name>Gazebo/Blue</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <joint name='X3/rotor_2_joint' type='revolute'>
+      <child>X3/rotor_2</child>
+      <parent>X3/base_link</parent>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e+16</lower>
+          <upper>1e+16</upper>
+        </limit>
+        <use_parent_model_frame>1</use_parent_model_frame>
+      </axis>
+    </joint>
+
+
+    <link name='X3/rotor_3'>
+      <pose relative_to='X3/base_link'>-0.4243 0.4243 0.03 0 0 0</pose>
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>0.05</mass>
+        <inertia>
+          <ixx>9.75e-06</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>4.17041e-04</iyy>
+          <iyz>0</iyz>
+          <izz>4.26041e-04</izz>
+        </inertia>
+      </inertial>
+      <collision name='X3/rotor_3_collision'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <length>0.01</length>
+            <radius>0.12</radius>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name='X3/rotor_3_visual'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>0.12 0.12 0.12</scale>
+            <uri>model://x3/meshes/propeller_cw.dae</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <script>
+            <name>Gazebo/Red</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <joint name='X3/rotor_3_joint' type='revolute'>
+      <child>X3/rotor_3</child>
+      <parent>X3/base_link</parent>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e+16</lower>
+          <upper>1e+16</upper>
+        </limit>
+        <use_parent_model_frame>1</use_parent_model_frame>
+      </axis>
+    </joint>
+
+
+    <link name='X3/rotor_4'>
+      <pose relative_to='X3/base_link'>-0.6 0.0 0.03 0 0 0</pose>
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>0.05</mass>
+        <inertia>
+          <ixx>9.75e-06</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>4.17041e-04</iyy>
+          <iyz>0</iyz>
+          <izz>4.26041e-04</izz>
+        </inertia>
+      </inertial>
+      <collision name='X3/rotor_4_collision'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <length>0.01</length>
+            <radius>0.12</radius>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name='X3/rotor_4_visual'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>0.12 0.12 0.12</scale>
+            <uri>model://x3/meshes/propeller_ccw.dae</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <script>
+            <name>Gazebo/Blue</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <joint name='X3/rotor_4_joint' type='revolute'>
+      <child>X3/rotor_4</child>
+      <parent>X3/base_link</parent>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e+16</lower>
+          <upper>1e+16</upper>
+        </limit>
+        <use_parent_model_frame>1</use_parent_model_frame>
+      </axis>
+    </joint>
+
+
+    <link name='X3/rotor_5'>
+      <pose relative_to='X3/base_link'>-0.4243 -0.4243 0.03 0 0 0</pose>
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>0.05</mass>
+        <inertia>
+          <ixx>9.75e-06</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>4.17041e-04</iyy>
+          <iyz>0</iyz>
+          <izz>4.26041e-04</izz>
+        </inertia>
+      </inertial>
+      <collision name='X3/rotor_5_collision'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <length>0.01</length>
+            <radius>0.12</radius>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name='X3/rotor_5_visual'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>0.12 0.12 0.12</scale>
+            <uri>model://x3/meshes/propeller_cw.dae</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <script>
+            <name>Gazebo/Red</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <joint name='X3/rotor_5_joint' type='revolute'>
+      <child>X3/rotor_5</child>
+      <parent>X3/base_link</parent>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e+16</lower>
+          <upper>1e+16</upper>
+        </limit>
+        <use_parent_model_frame>1</use_parent_model_frame>
+      </axis>
+    </joint>
+
+
+    <link name='X3/rotor_6'>
+      <pose relative_to='X3/base_link'>0.0 -0.6 0.03 0 0 0</pose>
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>0.05</mass>
+        <inertia>
+          <ixx>9.75e-06</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>4.17041e-04</iyy>
+          <iyz>0</iyz>
+          <izz>4.26041e-04</izz>
+        </inertia>
+      </inertial>
+      <collision name='X3/rotor_6_collision'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <length>0.01</length>
+            <radius>0.12</radius>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name='X3/rotor_6_visual'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>0.12 0.12 0.12</scale>
+            <uri>model://x3/meshes/propeller_ccw.dae</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <script>
+            <name>Gazebo/Blue</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <joint name='X3/rotor_6_joint' type='revolute'>
+      <child>X3/rotor_6</child>
+      <parent>X3/base_link</parent>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e+16</lower>
+          <upper>1e+16</upper>
+        </limit>
+        <use_parent_model_frame>1</use_parent_model_frame>
+      </axis>
+    </joint>
+
+
+    <link name='X3/rotor_7'>
+      <pose relative_to='X3/base_link'>0.4243 -0.4243 0.03 0 0 0</pose>
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>0.05</mass>
+        <inertia>
+          <ixx>9.75e-06</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>4.17041e-04</iyy>
+          <iyz>0</iyz>
+          <izz>4.26041e-04</izz>
+        </inertia>
+      </inertial>
+      <collision name='X3/rotor_7_collision'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <length>0.01</length>
+            <radius>0.12</radius>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name='X3/rotor_7_visual'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>0.12 0.12 0.12</scale>
+            <uri>model://x3/meshes/propeller_cw.dae</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <script>
+            <name>Gazebo/Red</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <joint name='X3/rotor_7_joint' type='revolute'>
+      <child>X3/rotor_7</child>
+      <parent>X3/base_link</parent>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e+16</lower>
+          <upper>1e+16</upper>
+        </limit>
+        <use_parent_model_frame>1</use_parent_model_frame>
+      </axis>
+    </joint>
+
+
+    <!-- ===================== -->
+    <!-- Odometry publisher    -->
+    <!-- ===================== -->
+    <plugin filename="gz-sim8-odometry-publisher-system"
+            name="gz::sim::systems::OdometryPublisher">
+      <odom_frame>world</odom_frame>
+      <robot_base_frame>X3/base_link</robot_base_frame>
+      <dimensions>3</dimensions>
+      <odom_topic>/X3/odometry</odom_topic>
+      <odom_publish_frequency>50</odom_publish_frequency>
+    </plugin>
+
+  </model>
+</sdf>

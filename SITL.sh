@@ -4,7 +4,7 @@
 # Launches Gazebo simulation, Guidance Controller, RViz, and SLAM Bridge
 
 # Parse arguments
-WORLD_FILE="drone_world_stereo.sdf"
+WORLD_FILE="drone_world_stereo_sitl.sdf"
 WORLD_MODE="default"
 
 case "$1" in
@@ -57,15 +57,15 @@ export GZ_GUI_PLUGIN_PATH="/opt/ros/jazzy/opt/gz_gui_vendor/lib/gz-gui-8/plugins
 # Use stereo RViz config for all modes
 case "$WORLD_MODE" in
   lake)
-    WORLD_PATH="$DRONE_DESC_PATH/worlds/x3_lake_world.sdf"
+    WORLD_PATH="$DRONE_DESC_PATH/worlds/x3_lake_world_sitl.sdf"
     WORLD_TOPIC_NAME="Fortress"
     ;;
   factory)
-    WORLD_PATH="$DRONE_DESC_PATH/worlds/x3_factory_world.sdf"
+    WORLD_PATH="$DRONE_DESC_PATH/worlds/x3_factory_world_sitl.sdf"
     WORLD_TOPIC_NAME="world_demo"
     ;;
   factory_rc)
-    WORLD_PATH="$DRONE_DESC_PATH/worlds/x3_factory_rc_world.sdf"
+    WORLD_PATH="$DRONE_DESC_PATH/worlds/x3_factory_rc_world_sitl.sdf"
     WORLD_TOPIC_NAME="world_demo"
     ;;
   *)
