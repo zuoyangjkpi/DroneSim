@@ -111,7 +111,6 @@ ros2 run ros_gz_bridge parameter_bridge \
     /imu/data@sensor_msgs/msg/Imu@gz.msgs.IMU \
     /X3/command/motor_speed@actuator_msgs/msg/Actuators@gz.msgs.Actuators \
     /X3/cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist \
-    # /X3/enable@std_msgs/msg/Bool@gz.msgs.Boolean \
     /world/${WORLD_TOPIC_NAME}/dynamic_pose/info@geometry_msgs/msg/PoseArray@gz.msgs.Pose_V &
 BRIDGE_PID=$!
 sleep 2
@@ -131,6 +130,19 @@ ros2 run drone_description waypoint_controller &
 CTRL_PID=$!
 sleep 2
 
+# 4.5. Launch Low-Level Controller (C++)
+echo "⚙️  Starting Low-Level Controller..."
+VELOCITY_PARAMS="$PWD/src/drone_low_level_controllers/config/controllers.yaml"
+# Check params file exists
+if [ ! -f "$VELOCITY_PARAMS" ]; then
+    echo "❌ Error: Controller params not found at $VELOCITY_PARAMS"
+    exit 1
+fi
+ros2 run drone_low_level_controllers controller_node \
+    --ros-args --params-file "$VELOCITY_PARAMS" &
+LL_PID=$!
+sleep 2
+
 # 5. Launch SLAM Bridge
 echo "🔗 Starting SLAM-Sim Bridge..."
 ros2 run slam_sim_bridge bridge_node &
@@ -142,7 +154,7 @@ echo "   - Gazebo: Running ($(basename $WORLD_PATH))"
 echo "   - ROS-GZ Bridge: Running"
 echo "   - RViz: Running"
 echo "   - Waypoint Controller: Running"
-echo "   - Velocity Adapter: Running"
+echo "   - Low-Level Controller (C++): Running"
 echo "   - SLAM Bridge: Running"
 echo ""
 echo "📷 Stereo Camera Topics:"
@@ -157,7 +169,7 @@ echo "Press Ctrl+C to stop all processes."
 cleanup() {
     echo ""
     echo "🛑 Stopping all processes..."
-    kill $GZ_PID $BRIDGE_PID $RVIZ_PID $CTRL_PID $SLAM_BRIDGE_PID 2>/dev/null
+    kill $GZ_PID $BRIDGE_PID $RVIZ_PID $CTRL_PID $LL_PID $SLAM_BRIDGE_PID 2>/dev/null
     pkill -f "gz sim" 2>/dev/null
     exit
 }

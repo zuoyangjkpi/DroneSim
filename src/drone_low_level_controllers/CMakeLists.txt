@@ -3,11 +3,32 @@ project(drone_low_level_controllers)
 
 # Find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(actuator_msgs REQUIRED)
+find_package(Eigen3 REQUIRED)
 
-# Install Python executables
-install(PROGRAMS
-  drone_low_level_controllers/multicopter_velocity_control_adapter.py
-  drone_low_level_controllers/controller_node.py
+# ==============================================================================
+# Build C++ Controller Node
+# ==============================================================================
+add_executable(controller_node src/controller_node.cpp)
+target_link_libraries(controller_node Eigen3::Eigen)
+ament_target_dependencies(controller_node
+  rclcpp
+  geometry_msgs
+  nav_msgs
+  sensor_msgs
+  std_msgs
+  actuator_msgs
+)
+
+# ==============================================================================
+# Install Targets
+# ==============================================================================
+install(TARGETS controller_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

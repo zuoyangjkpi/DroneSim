@@ -320,7 +320,7 @@ text_prompt_test() {
     #     > /tmp/multicopter_velocity_control_adapter.log 2>&1 &
     # sleep 2
 
-    ros2 run drone_low_level_controllers controller_node.py \
+    ros2 run drone_low_level_controllers controller_node \
         --ros-args --params-file "$velocity_params" \
         > /tmp/controller_node.log 2>&1 &
     sleep 2
@@ -831,12 +831,12 @@ full_integration_test() {
     fi
 
     print_status $YELLOW "Starting controller_node..."
-    ros2 run drone_low_level_controllers controller_node.py \
+    ros2 run drone_low_level_controllers controller_node \
         --ros-args --params-file "$velocity_params" \
         > /tmp/controller_node.log 2>&1 &
     sleep 2
 
-    if check_process "controller_node.py"; then
+    if check_process "controller_node"; then
         print_status $GREEN "✅ Controller node started successfully"
     else
         print_status $RED "❌ Controller node failed to start"
@@ -1235,11 +1235,11 @@ waypoint_controller_test() {
 
     print_status $YELLOW "  • Cascaded controller (velocity/attitude/rate/mixer)"
     log_control_msg "Launching controller_node"
-    stdbuf -oL ros2 run drone_low_level_controllers controller_node.py \
+    stdbuf -oL ros2 run drone_low_level_controllers controller_node \
         --ros-args --params-file "$velocity_params" \
         2>&1 | tee -a "$control_log" > /tmp/controller_node.log &
     sleep 2
-    if check_process "controller_node.py"; then
+    if check_process "controller_node"; then
         print_status $GREEN "    ✅ Controller node running"
         log_control_msg "Controller node running"
     else
@@ -1302,11 +1302,11 @@ manual_velocity_test() {
     fi
 
     print_status $YELLOW "Step 2/4: Starting controller_node..."
-    ros2 run drone_low_level_controllers controller_node.py \
+    ros2 run drone_low_level_controllers controller_node \
         --ros-args --params-file "$velocity_params" \
         > /tmp/controller_node.log 2>&1 &
     sleep 2
-    if check_process "controller_node.py"; then
+    if check_process "controller_node"; then
         print_status $GREEN "    ✅ Controller node running"
     else
         print_status $RED "    ❌ Controller node failed to start"
@@ -1478,7 +1478,7 @@ kill_all_processes() {
 
     # Control nodes (used by all options)
     pkill -f "multicopter_velocity_control_adapter.py" 2>/dev/null
-    pkill -f "controller_node.py" 2>/dev/null
+    pkill -f "controller_node" 2>/dev/null
     pkill -f "waypoint_controller" 2>/dev/null
     pkill -f "yaw_controller" 2>/dev/null
 

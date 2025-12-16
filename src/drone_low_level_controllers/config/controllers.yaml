@@ -1,18 +1,17 @@
 multicopter_controller_node:
   ros__parameters:
     # =========================
-    # Loop frequencies
+    # Control Loop Frequencies (Hz)
     # =========================
-    control_frequency: 500.0
-    vel_control_frequency: 100.0
-    att_control_frequency: 250.0
+    outer_loop_frequency: 200.0  # Velocity control (50-200 Hz recommended)
+    inner_loop_frequency: 500.0  # Attitude + Rate control (250-1000 Hz recommended)
 
     # =========================
     # Timeouts / enable
     # =========================
     velocity_setpoint_timeout: 0.8
     angular_setpoint_timeout: 0.8
-    start_enabled: true
+    control_enabled: false  # Enabled by action modules via /drone/control/velocity_enable
 
     # =========================
     # Odometry convention switch
@@ -38,9 +37,9 @@ multicopter_controller_node:
     # =========================
     # Attitude P (euler error -> body rates)
     # =========================
-    kp_att_roll: 6.0
-    kp_att_pitch: 6.0
-    kp_att_yaw: 4.0
+    kp_att_roll: 5.0
+    kp_att_pitch: 5.0
+    kp_att_yaw: 5.0
 
     # =========================
     # Rate PID (body rates -> torques)
@@ -53,9 +52,9 @@ multicopter_controller_node:
     ki_rate_pitch: 2.0
     kd_rate_pitch: 0.30
 
-    kp_rate_yaw: 10.0
-    ki_rate_yaw: 1.0
-    kd_rate_yaw: 0.15
+    kp_rate_yaw: 15.0
+    ki_rate_yaw: 2.0
+    kd_rate_yaw: 0.30
 
     rate_integral_limit: 5.0
 

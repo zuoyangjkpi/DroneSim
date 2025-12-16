@@ -11,8 +11,8 @@ class BridgeNode : public rclcpp::Node {
 public:
   BridgeNode() : Node("slam_sim_bridge") {
     // Parameters - Simulation topics (outputs to Gazebo / controller)
-    declare_parameter("sim_odom_topic", "/X3/odometry");   // ENU odom output
-    declare_parameter("sim_imu_topic", "/imu/data");       // passthrough IMU
+    declare_parameter("sim_odom_topic", "/X3/odometry"); // ENU odom output
+    declare_parameter("sim_imu_topic", "/imu/data");     // passthrough IMU
 
     // Parameters - SLAM topics (inputs from SLAM system)
     // NOTE: Camera topics are NOT bridged here.
@@ -20,8 +20,8 @@ public:
     //         /camera/left/right/image_raw
     //         /camera/left/right/camera_info
     //       provided directly by hardware drivers or ros_gz_bridge.
-    declare_parameter("slam_pose_topic", "/machine_1/pose");      // NED pose input
-    declare_parameter("slam_imu_topic", "/machine_1/imu");        // FRD IMU output
+    declare_parameter("slam_pose_topic", "/machine_1/pose"); // NED pose input
+    declare_parameter("slam_imu_topic", "/imu");             // FRD IMU output
 
     // Parameters - Command topics
     declare_parameter("slam_command_topic", "/machine_1/command");
@@ -79,11 +79,15 @@ private:
     // Orientation: R_enu = T * R_ned * T (since T^{-1} = T)
     const auto &q = msg->orientation;
     std::array<std::array<double, 3>, 3> R_ned{
-        {{1 - 2 * (q.y * q.y + q.z * q.z), 2 * (q.x * q.y - q.z * q.w), 2 * (q.x * q.z + q.y * q.w)},
-         {2 * (q.x * q.y + q.z * q.w), 1 - 2 * (q.x * q.x + q.z * q.z), 2 * (q.y * q.z - q.x * q.w)},
-         {2 * (q.x * q.z - q.y * q.w), 2 * (q.y * q.z + q.x * q.w), 1 - 2 * (q.x * q.x + q.y * q.y)}}};
+        {{1 - 2 * (q.y * q.y + q.z * q.z), 2 * (q.x * q.y - q.z * q.w),
+          2 * (q.x * q.z + q.y * q.w)},
+         {2 * (q.x * q.y + q.z * q.w), 1 - 2 * (q.x * q.x + q.z * q.z),
+          2 * (q.y * q.z - q.x * q.w)},
+         {2 * (q.x * q.z - q.y * q.w), 2 * (q.y * q.z + q.x * q.w),
+          1 - 2 * (q.x * q.x + q.y * q.y)}}};
 
-    const std::array<std::array<double, 3>, 3> T{{{0, 1, 0}, {1, 0, 0}, {0, 0, -1}}};
+    const std::array<std::array<double, 3>, 3> T{
+        {{0, 1, 0}, {1, 0, 0}, {0, 0, -1}}};
 
     std::array<std::array<double, 3>, 3> R_tmp{};
     for (int i = 0; i < 3; ++i) {
@@ -142,7 +146,8 @@ private:
     odom_msg.pose.pose.orientation = q_enu;
 
     // Linear velocity: NED(world) -> ENU(world) -> body FLU (child frame)
-    std::array<double, 3> v_enu{{msg->velocity.y, msg->velocity.x, -msg->velocity.z}};
+    std::array<double, 3> v_enu{
+        {msg->velocity.y, msg->velocity.x, -msg->velocity.z}};
     std::array<double, 3> v_body{};
     for (int i = 0; i < 3; ++i) {
       v_body[i] = 0.0;
@@ -175,10 +180,14 @@ private:
     // Orientation NED -> ENU using same T transform
     const auto &q = msg->orientation;
     std::array<std::array<double, 3>, 3> R_ned{
-        {{1 - 2 * (q.y * q.y + q.z * q.z), 2 * (q.x * q.y - q.z * q.w), 2 * (q.x * q.z + q.y * q.w)},
-         {2 * (q.x * q.y + q.z * q.w), 1 - 2 * (q.x * q.x + q.z * q.z), 2 * (q.y * q.z - q.x * q.w)},
-         {2 * (q.x * q.z - q.y * q.w), 2 * (q.y * q.z + q.x * q.w), 1 - 2 * (q.x * q.x + q.y * q.y)}}};
-    const std::array<std::array<double, 3>, 3> T{{{0, 1, 0}, {1, 0, 0}, {0, 0, -1}}};
+        {{1 - 2 * (q.y * q.y + q.z * q.z), 2 * (q.x * q.y - q.z * q.w),
+          2 * (q.x * q.z + q.y * q.w)},
+         {2 * (q.x * q.y + q.z * q.w), 1 - 2 * (q.x * q.x + q.z * q.z),
+          2 * (q.y * q.z - q.x * q.w)},
+         {2 * (q.x * q.z - q.y * q.w), 2 * (q.y * q.z + q.x * q.w),
+          1 - 2 * (q.x * q.x + q.y * q.y)}}};
+    const std::array<std::array<double, 3>, 3> T{
+        {{0, 1, 0}, {1, 0, 0}, {0, 0, -1}}};
 
     std::array<std::array<double, 3>, 3> R_tmp{};
     for (int i = 0; i < 3; ++i) {
@@ -236,14 +245,18 @@ private:
     imu_out.header.frame_id = "machine_1/imu";
 
     // ENU/FLU -> NED/FRD using same T transform
-    const std::array<std::array<double, 3>, 3> T{{{0, 1, 0}, {1, 0, 0}, {0, 0, -1}}};
+    const std::array<std::array<double, 3>, 3> T{
+        {{0, 1, 0}, {1, 0, 0}, {0, 0, -1}}};
 
     // Orientation
     const auto &q = imu_out.orientation;
     std::array<std::array<double, 3>, 3> R_enu{
-        {{1 - 2 * (q.y * q.y + q.z * q.z), 2 * (q.x * q.y - q.z * q.w), 2 * (q.x * q.z + q.y * q.w)},
-         {2 * (q.x * q.y + q.z * q.w), 1 - 2 * (q.x * q.x + q.z * q.z), 2 * (q.y * q.z - q.x * q.w)},
-         {2 * (q.x * q.z - q.y * q.w), 2 * (q.y * q.z + q.x * q.w), 1 - 2 * (q.x * q.x + q.y * q.y)}}};
+        {{1 - 2 * (q.y * q.y + q.z * q.z), 2 * (q.x * q.y - q.z * q.w),
+          2 * (q.x * q.z + q.y * q.w)},
+         {2 * (q.x * q.y + q.z * q.w), 1 - 2 * (q.x * q.x + q.z * q.z),
+          2 * (q.y * q.z - q.x * q.w)},
+         {2 * (q.x * q.z - q.y * q.w), 2 * (q.y * q.z + q.x * q.w),
+          1 - 2 * (q.x * q.x + q.y * q.y)}}};
     std::array<std::array<double, 3>, 3> R_tmp{};
     for (int i = 0; i < 3; ++i) {
       for (int j = 0; j < 3; ++j) {
@@ -309,7 +322,8 @@ private:
   // Publishers
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr sim_odom_pub_;
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr slam_imu_pub_;
-  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr sim_waypoint_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr
+      sim_waypoint_pub_;
 
   // Subscribers
   rclcpp::Subscription<uav_msgs::msg::UAVPose>::SharedPtr slam_pose_sub_;
