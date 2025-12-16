@@ -31,7 +31,7 @@ from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy, QoS
 
 from geometry_msgs.msg import TwistStamped, Vector3Stamped
 from nav_msgs.msg import Odometry
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, Float64MultiArray
 from actuator_msgs.msg import Actuators
 
 LOG_PATH = "/tmp/drone_low_level_controllers.log"
@@ -304,7 +304,7 @@ class MotorMixer:
         ], dtype=float)
 
         # Make sure this matches your motor plugin directions (only affects yaw)!
-        self.motor_directions = np.array([+1, -1, +1, -1, +1, -1, +1, -1], dtype=float)
+        self.motor_directions = np.array([-1, +1, -1, +1, -1, +1, -1, +1], dtype=float)
 
         self._build()
 
@@ -396,6 +396,9 @@ class MulticopterControllerNode(Node):
 
         # pub/sub
         self.motor_pub = self.create_publisher(Actuators, "/X3/command/motor_speed", 10)
+        self.debug_accel_pub = self.create_publisher(Vector3Stamped, "/drone/debug/accel_setpoint", 10)
+        self.debug_att_pub = self.create_publisher(Vector3Stamped, "/drone/debug/att_setpoint", 10)
+        self.debug_mixer_pub = self.create_publisher(Float64MultiArray, "/drone/debug/mixer_input", 10)
         self.create_subscription(TwistStamped, "/drone/control/velocity_setpoint", self._cb_vsp, 10)
         self.create_subscription(Vector3Stamped, "/drone/control/angular_velocity_setpoint", self._cb_wsp, 10)
         self.create_subscription(Bool, "/drone/control/velocity_enable", self._cb_enable, enable_qos)
@@ -560,6 +563,24 @@ class MulticopterControllerNode(Node):
             dt_vel = dt * self.vel_decim
             F_w = self.vel2F.compute(self.v_sp_w, self.v_w, dt_vel)
             roll_sp, pitch_sp, yaw_sp, thrust = self.F2att.compute(F_w, float(self.att[2]))
+            a_cmd = (F_w - np.array([0.0, 0.0, self.p.mass * self.p.gravity], dtype=float)) / self.p.mass
+
+            stamp_msg = self.get_clock().now().to_msg()
+            accel_msg = Vector3Stamped()
+            accel_msg.header.stamp = stamp_msg
+            accel_msg.header.frame_id = "world"
+            accel_msg.vector.x = float(a_cmd[0])
+            accel_msg.vector.y = float(a_cmd[1])
+            accel_msg.vector.z = float(a_cmd[2])
+            self.debug_accel_pub.publish(accel_msg)
+
+            att_msg = Vector3Stamped()
+            att_msg.header.stamp = stamp_msg
+            att_msg.header.frame_id = "world"
+            att_msg.vector.x = float(roll_sp)
+            att_msg.vector.y = float(pitch_sp)
+            att_msg.vector.z = float(yaw_sp)
+            self.debug_att_pub.publish(att_msg)
 
             # thrust slew limit
             slew = float(self.g.thrust_slew_rate)
@@ -591,6 +612,10 @@ class MulticopterControllerNode(Node):
         # Mix
         omega = self.mixer.compute(self.cached_thrust, tau)
         self._publish_motors(omega)
+
+        mixer_msg = Float64MultiArray()
+        mixer_msg.data = [float(self.cached_thrust), float(tau[0]), float(tau[1]), float(tau[2])]
+        self.debug_mixer_pub.publish(mixer_msg)
 
     def _publish_motors(self, omega: np.ndarray):
         msg = Actuators()

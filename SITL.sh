@@ -131,12 +131,6 @@ ros2 run drone_description waypoint_controller &
 CTRL_PID=$!
 sleep 2
 
-# 4.5. Launch Velocity Control Adapter
-echo "🔄 Starting Velocity Control Adapter..."
-ros2 run drone_low_level_controllers multicopter_velocity_control_adapter &
-VELOCITY_ADAPTER_PID=$!
-sleep 1
-
 # 5. Launch SLAM Bridge
 echo "🔗 Starting SLAM-Sim Bridge..."
 ros2 run slam_sim_bridge bridge_node &
@@ -163,7 +157,7 @@ echo "Press Ctrl+C to stop all processes."
 cleanup() {
     echo ""
     echo "🛑 Stopping all processes..."
-    kill $GZ_PID $BRIDGE_PID $RVIZ_PID $CTRL_PID $VELOCITY_ADAPTER_PID $SLAM_BRIDGE_PID 2>/dev/null
+    kill $GZ_PID $BRIDGE_PID $RVIZ_PID $CTRL_PID $SLAM_BRIDGE_PID 2>/dev/null
     pkill -f "gz sim" 2>/dev/null
     exit
 }

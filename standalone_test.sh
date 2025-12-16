@@ -315,10 +315,10 @@ text_prompt_test() {
         > /tmp/yaw_controller.log 2>&1 &
     sleep 2
 
-    ros2 run drone_low_level_controllers multicopter_velocity_control_adapter.py \
-        --ros-args --params-file "$velocity_params" \
-        > /tmp/multicopter_velocity_control_adapter.log 2>&1 &
-    sleep 2
+    # ros2 run drone_low_level_controllers multicopter_velocity_control_adapter.py \
+    #     --ros-args --params-file "$velocity_params" \
+    #     > /tmp/multicopter_velocity_control_adapter.log 2>&1 &
+    # sleep 2
 
     ros2 run drone_low_level_controllers controller_node.py \
         --ros-args --params-file "$velocity_params" \
@@ -830,20 +830,6 @@ full_integration_test() {
         return 1
     fi
 
-    print_status $YELLOW "Step 11/12: Starting MulticopterVelocityControl adapter..."
-    ros2 run drone_low_level_controllers multicopter_velocity_control_adapter.py \
-        --ros-args --params-file "$velocity_params" \
-        > /tmp/multicopter_velocity_control_adapter.log 2>&1 &
-    local mc_adapter_pid=$!
-    sleep 2
-
-    if check_process "multicopter_velocity_control_adapter.py"; then
-        print_status $GREEN "✅ MulticopterVelocityControl adapter started successfully"
-    else
-        print_status $RED "❌ MulticopterVelocityControl adapter failed to start"
-        return 1
-    fi
-
     print_status $YELLOW "Starting controller_node..."
     ros2 run drone_low_level_controllers controller_node.py \
         --ros-args --params-file "$velocity_params" \
@@ -1247,21 +1233,6 @@ waypoint_controller_test() {
         return 1
     fi
 
-    print_status $YELLOW "  • Multicopter velocity adapter"
-    log_control_msg "Launching velocity adapter node"
-    stdbuf -oL ros2 run drone_low_level_controllers multicopter_velocity_control_adapter.py \
-        --ros-args --params-file "$velocity_params" \
-        2>&1 | tee -a "$control_log" > /tmp/multicopter_velocity_control_adapter.log &
-    sleep 2
-    if check_process "multicopter_velocity_control_adapter.py"; then
-        print_status $GREEN "    ✅ Velocity adapter running"
-        log_control_msg "Velocity adapter running"
-    else
-        print_status $RED "    ❌ Multicopter velocity adapter failed to start"
-        log_control_msg "Velocity adapter failed to start"
-        return 1
-    fi
-
     print_status $YELLOW "  • Cascaded controller (velocity/attitude/rate/mixer)"
     log_control_msg "Launching controller_node"
     stdbuf -oL ros2 run drone_low_level_controllers controller_node.py \
@@ -1330,18 +1301,7 @@ manual_velocity_test() {
         return 1
     fi
 
-    print_status $YELLOW "Step 2/4: Starting ONLY velocity adapter (NO PID controllers)..."
-    ros2 run drone_low_level_controllers multicopter_velocity_control_adapter.py \
-        --ros-args --params-file "$velocity_params" \
-        > /tmp/multicopter_velocity_control_adapter.log 2>&1 &
-    sleep 2
-    if check_process "multicopter_velocity_control_adapter.py"; then
-        print_status $GREEN "    ✅ Velocity adapter running"
-    else
-        print_status $RED "    ❌ Multicopter velocity adapter failed to start"
-        return 1
-    fi
-
+    print_status $YELLOW "Step 2/4: Starting controller_node..."
     ros2 run drone_low_level_controllers controller_node.py \
         --ros-args --params-file "$velocity_params" \
         > /tmp/controller_node.log 2>&1 &
@@ -1381,7 +1341,6 @@ manual_velocity_test() {
     if wait_for_node "/manual_velocity_tester" 10; then
         print_status $GREEN "✅ Manual velocity tester is running (PID $test_pid)"
         print_status $YELLOW "📄 Monitor progress: tail -f /tmp/manual_velocity_test.log"
-        print_status $YELLOW "📊 Watch adapter: tail -f /tmp/multicopter_velocity_control_adapter.log"
         print_status $BLUE "🔍 Test steps (fully manual control):"
         echo "   1. Manual takeoff: command vz = dz * 0.5 until altitude reaches 3 m."
         echo "   2. Horizontal flight: command vx = dx * 0.5, vy = dy * 0.5, yaw_rate = dyaw * 1.0."

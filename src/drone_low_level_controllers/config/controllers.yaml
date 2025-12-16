@@ -25,44 +25,44 @@ multicopter_controller_node:
     # Velocity PID (world frame) -> accel_cmd
     # =========================
     kp_vel_xy: 2.0
-    ki_vel_xy: 0.0
-    kd_vel_xy: 0.2
+    ki_vel_xy: 0.2
+    kd_vel_xy: 0.3
 
     kp_vel_z: 3.0
-    ki_vel_z: 0.0
-    kd_vel_z: 0.3
+    ki_vel_z: 1.0
+    kd_vel_z: 0.4
 
-    vel_integral_limit: 0.1
+    vel_integral_limit: 1.0
     vel_d_filter_tau: 0.05
 
     # =========================
     # Attitude P (euler error -> body rates)
     # =========================
-    kp_att_roll: 4.0
-    kp_att_pitch: 4.0
-    kp_att_yaw: 2.0
+    kp_att_roll: 6.0
+    kp_att_pitch: 6.0
+    kp_att_yaw: 4.0
 
     # =========================
     # Rate PID (body rates -> torques)
     # =========================
-    kp_rate_roll: 0.20
-    ki_rate_roll: 0.02
-    kd_rate_roll: 0.00
+    kp_rate_roll: 15.0
+    ki_rate_roll: 2.0
+    kd_rate_roll: 0.30
 
-    kp_rate_pitch: 0.20
-    ki_rate_pitch: 0.02
-    kd_rate_pitch: 0.00
+    kp_rate_pitch: 15.0
+    ki_rate_pitch: 2.0
+    kd_rate_pitch: 0.30
 
-    kp_rate_yaw: 0.15
-    ki_rate_yaw: 0.02
-    kd_rate_yaw: 0.00
+    kp_rate_yaw: 10.0
+    ki_rate_yaw: 1.0
+    kd_rate_yaw: 0.15
 
-    rate_integral_limit: 3.0
+    rate_integral_limit: 5.0
 
     # =========================
     # Limits (VERY IMPORTANT)
     # =========================
-    max_tilt_angle: 0.45      # rad
+    max_tilt_angle: 0.38      # rad
     max_thrust: 150.0         # N
     min_thrust: 0.0           # N
 
@@ -73,15 +73,15 @@ multicopter_controller_node:
     max_torque_xy: 3.0        # N*m
     max_torque_z: 2.0         # N*m
 
-    max_rate_xy: 4.0          # rad/s
-    max_rate_yaw: 3.0         # rad/s
+    max_rate_xy: 6.0          # rad/s
+    max_rate_yaw: 3.5         # rad/s
 
-    thrust_slew_rate: 0.0     # N/s, 0 disables; e.g. 200.0 to smooth punch
+    thrust_slew_rate: 180.0   # N/s, 0 disables; e.g. 200.0 to smooth punch
 
     # =========================
     # Vehicle parameters
     # =========================
-    vehicle_mass: 4.6
+    vehicle_mass: 5.0
     gravity: 9.81
 
     inertia_xx: 0.423

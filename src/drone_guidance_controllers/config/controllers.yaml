@@ -5,20 +5,20 @@ waypoint_controller:
     velocity_tolerance: 0.1
     waypoint_timeout: 5.0
 
-    kp_xy: 0.8                  
-    ki_xy: 0.01                  
+    kp_xy: 1.2                  
+    ki_xy: 0.05                  
     kd_xy: 0.0                   
 
-    kp_z: 0.6                    
-    ki_z: 0.01
+    kp_z: 1.0                    
+    ki_z: 0.05
     kd_z: 0.0
 
     max_velocity_xy: 2.0         
     max_velocity_z: 1.5
 
     max_vertical_error: 1.5
-    integral_limit_xy: 0.3
-    integral_limit_z: 0.3
+    integral_limit_xy: 1.0
+    integral_limit_z: 1.0
     cf_v_xy: 0.8                
     cf_v_z: 0.8
 
