@@ -6,21 +6,21 @@ waypoint_controller:
     waypoint_timeout: 5.0
 
     kp_xy: 1.2                  
-    ki_xy: 0.2                  
-    kd_xy: 0.7                   
+    ki_xy: 0.4                  
+    kd_xy: 0.5                   
 
-    kp_z: 1.2                    
-    ki_z: 0.2
-    kd_z: 0.7
+    kp_z: 1.0                    
+    ki_z: 0.3
+    kd_z: 1.5
 
-    max_velocity_xy: 2.0         
-    max_velocity_z: 1.5
+    max_velocity_xy: 4.0         
+    max_velocity_z: 4.0
 
     max_vertical_error: 1.5
     integral_limit_xy: 2.0
     integral_limit_z: 2.0
     cf_v_xy: 0.8                
-    cf_v_z: 0.8
+    cf_v_z: 0.9
 
 yaw_controller:
   ros__parameters:

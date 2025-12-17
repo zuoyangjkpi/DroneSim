@@ -80,7 +80,7 @@ class NMPCTrackerNode(Node):
         self.declare_parameter('tracking_phase_offset', 0.0)
         self.declare_parameter('tracking_height_offset', nmpc_config.TRACKING_HEIGHT_OFFSET)
         self.declare_parameter('person_position_filter_alpha', nmpc_config.PERSON_POSITION_FILTER_ALPHA)
-        self.declare_parameter('track_detection_confirmations', 1)
+        self.declare_parameter('track_detection_confirmations', 3)
         # Get parameter values
         self.control_frequency = self.get_parameter('control_frequency').value
         self.person_timeout = self.get_parameter('person_timeout').value
@@ -656,7 +656,7 @@ class NMPCTrackerNode(Node):
         self._perform_tracking()
 
     def _perform_tracking(self):
-        """Run NMPC optimization and push the resulting commands downstream."""
+        """Bypass NMPC optimization and push precomputed target/waypoints directly."""
         if not self.person_detected:
             # If TRACK mode loses the person, let higher-level logic switch modules
             self.get_logger().warn('TRACK mode has no target; ignoring tracking command')
@@ -668,17 +668,10 @@ class NMPCTrackerNode(Node):
             allow_phase_change=True,
         )
 
-        try:
-            control, info = self.controller.optimize()
-        except Exception as exc:  # Catch optimization failures to keep the node alive
-            self.get_logger().error(f'NMPC optimization failed: {exc}')
-            return
-
-        # Standard MPC: only execute the first point from the optimized sequence
-        self._send_tracking_commands_first_point_only(control, info)
-
-        if self.enable_visualization and info:
-            self._publish_visualization(info)
+        # Skip heavy optimization; directly send the current target/waypoint
+        dummy_control = None
+        dummy_info = {}
+        self._send_tracking_commands_first_point_only(dummy_control, dummy_info)
 
     def _send_tracking_commands_first_point_only(self, control: np.ndarray, info: dict):
         """Send only the first point from the optimized trajectory (standard MPC approach)."""

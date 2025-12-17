@@ -23,38 +23,38 @@ multicopter_controller_node:
     # =========================
     # Velocity PID (world frame) -> accel_cmd
     # =========================
-    kp_vel_xy: 2.0
-    ki_vel_xy: 0.2
-    kd_vel_xy: 0.3
+    kp_vel_xy: 2.5
+    ki_vel_xy: 0.1
+    kd_vel_xy: 0.0
 
-    kp_vel_z: 3.0
-    ki_vel_z: 1.0
-    kd_vel_z: 0.4
+    kp_vel_z: 3.5
+    ki_vel_z: 0.1
+    kd_vel_z: 0.0
 
-    vel_integral_limit: 1.0
+    vel_integral_limit: 0.5
     vel_d_filter_tau: 0.05
 
     # =========================
     # Attitude P (euler error -> body rates)
     # =========================
-    kp_att_roll: 5.0
-    kp_att_pitch: 5.0
-    kp_att_yaw: 5.0
+    kp_att_roll: 6.0
+    kp_att_pitch: 6.0
+    kp_att_yaw: 6.0
 
     # =========================
     # Rate PID (body rates -> torques)
     # =========================
-    kp_rate_roll: 15.0
-    ki_rate_roll: 2.0
-    kd_rate_roll: 0.30
+    kp_rate_roll: 12.0
+    ki_rate_roll: 2.5
+    kd_rate_roll: 0.0
 
-    kp_rate_pitch: 15.0
-    ki_rate_pitch: 2.0
-    kd_rate_pitch: 0.30
+    kp_rate_pitch: 12.0
+    ki_rate_pitch: 2.5
+    kd_rate_pitch: 0.0
 
-    kp_rate_yaw: 15.0
-    ki_rate_yaw: 2.0
-    kd_rate_yaw: 0.30
+    kp_rate_yaw: 12.0
+    ki_rate_yaw: 2.5
+    kd_rate_yaw: 0.0
 
     rate_integral_limit: 5.0
 
@@ -65,12 +65,12 @@ multicopter_controller_node:
     max_thrust: 150.0         # N
     min_thrust: 0.0           # N
 
-    max_acc_xy: 3.0           # m/s^2
-    max_acc_z_up: 5.0         # m/s^2
-    max_acc_z_down: 3.0       # m/s^2
+    max_acc_xy: 3.5           # m/s^2
+    max_acc_z_up: 2.5         # m/s^2
+    max_acc_z_down: 2.5       # m/s^2
 
-    max_torque_xy: 3.0        # N*m
-    max_torque_z: 2.0         # N*m
+    max_torque_xy: 5.0        # N*m
+    max_torque_z: 7.0         # N*m
 
     max_rate_xy: 6.0          # rad/s
     max_rate_yaw: 3.5         # rad/s
@@ -80,7 +80,7 @@ multicopter_controller_node:
     # =========================
     # Vehicle parameters
     # =========================
-    vehicle_mass: 5.0
+    vehicle_mass: 4.6
     gravity: 9.81
 
     inertia_xx: 0.423
