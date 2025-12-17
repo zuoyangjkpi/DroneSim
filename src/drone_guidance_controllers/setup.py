@@ -17,10 +17,10 @@ setup(
     ],
     install_requires=['setuptools', 'numpy'],
     zip_safe=False,
-    maintainer='zuoyangjkpi',
+    maintainer='Yang Zuo',
     maintainer_email='zuoyang0601@gmail.com',
     description='Guidance-layer controllers (waypoint & yaw) for the drone stack.',
-    license='MIT',
+    license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [

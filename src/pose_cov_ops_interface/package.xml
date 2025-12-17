@@ -4,7 +4,7 @@
   <name>pose_cov_ops_interface</name>
   <version>0.0.0</version>
   <description>ROS 2 interface for pose composition operations with covariance</description>
-  <maintainer email="mohmedsayed0990@gmail.com">Mohamed Abdelmawgod</maintainer>
+  <maintainer email="zuoyang0601@gmail.com">Yang Zuo</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

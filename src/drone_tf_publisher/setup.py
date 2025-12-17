@@ -13,10 +13,10 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='AVIANS Team',
-    maintainer_email='unknown@example.com',
+    maintainer='Yang Zuo',
+    maintainer_email='zuoyang0601@gmail.com',
     description='TF broadcaster for the X3 drone built on /X3/odometry.',
-    license='MIT',
+    license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [

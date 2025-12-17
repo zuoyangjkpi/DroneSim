@@ -13,10 +13,10 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='AVIANS Team',
-    maintainer_email='unknown@example.com',
+    maintainer='Yang Zuo',
+    maintainer_email='zuoyang0601@gmail.com',
     description='Visualization tools for AVIANS_ROS2 (RViz markers, paths, status).',
-    license='MIT',
+    license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [

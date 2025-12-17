@@ -13,10 +13,10 @@ setup(
     ],
     install_requires=['setuptools', 'requests', 'pyyaml'],
     zip_safe=False,
-    maintainer='AVIANS Team',
-    maintainer_email='zuoyangjkpi@example.com',
+    maintainer='Yang Zuo',
+    maintainer_email='zuoyang0601@gmail.com',
     description='Manual mission planner that uses a large language model to generate YAML plans.',
-    license='MIT',
+    license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [

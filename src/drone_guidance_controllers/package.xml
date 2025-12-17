@@ -4,8 +4,8 @@
   <name>drone_guidance_controllers</name>
   <version>0.1.0</version>
   <description>Waypoint and yaw guidance controllers for the AVIANS drone stack.</description>
-  <maintainer email="zuoyang0601@gmail.com">zuoyangjkpi</maintainer>
-  <license>MIT</license>
+  <maintainer email="zuoyang0601@gmail.com">Yang Zuo</maintainer>
+  <license>Apache-2.0</license>
 
   <depend>rclpy</depend>
   <depend>geometry_msgs</depend>

@@ -3,8 +3,8 @@
   <name>mission_executor</name>
   <version>0.1.0</version>
   <description>Behavior-tree inspired mission executor that consumes YAML missions and dispatches mission action modules.</description>
-  <maintainer email="zuoyangjkpi@example.com">AVIANS Team</maintainer>
-  <license>MIT</license>
+  <maintainer email="zuoyang0601@gmail.com">Yang Zuo</maintainer>
+  <license>Apache-2.0</license>
 
   <buildtool_depend>ament_python</buildtool_depend>
 

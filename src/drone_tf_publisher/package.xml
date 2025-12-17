@@ -4,8 +4,8 @@
   <version>0.0.1</version>
   <description>Publish TF frames for the X3 drone from /X3/odometry.</description>
 
-  <maintainer email="unknown@example.com">AVIANS Team</maintainer>
-  <license>MIT</license>
+  <maintainer email="zuoyang0601@gmail.com">Yang Zuo</maintainer>
+  <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   <buildtool_depend>ament_cmake_python</buildtool_depend>

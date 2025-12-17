@@ -5,7 +5,7 @@
   <version>1.0.0</version>
   <description>Node that converts drone odometry to UAV pose and generates optimal viewing waypoints for person tracking</description>
   
-  <maintainer email="your.email@example.com">Your Name</maintainer>
+  <maintainer email="zuoyang0601@gmail.com">Yang Zuo</maintainer>
   <license>Apache-2.0</license>
   
   <buildtool_depend>ament_cmake</buildtool_depend>

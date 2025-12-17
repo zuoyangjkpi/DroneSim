@@ -4,7 +4,7 @@
   <name>slam_sim_bridge</name>
   <version>0.0.1</version>
   <description>Bridge between Gazebo simulation and SLAM system</description>
-  <maintainer email="user@example.com">User</maintainer>
+  <maintainer email="zuoyang0601@gmail.com">Yang Zuo</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

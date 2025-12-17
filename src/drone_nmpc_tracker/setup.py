@@ -20,10 +20,10 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='Soja_the_First',
-    maintainer_email='zuoyang061@gmail.com',
+    maintainer='Yang Zuo',
+    maintainer_email='zuoyang0601@gmail.com',
     description='Nonlinear Model Predictive Control (NMPC) package for drone person tracking',
-    license='MIT',
+    license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [

@@ -5,10 +5,10 @@
   <version>2.0.0</version>
   <description>ROS2 package for projecting object detections to world coordinates using height models</description>
   
-  <maintainer email="mohmedsayed0990@gmail.com">Mohamed Abdelmawgoud</maintainer>
+  <maintainer email="zuoyang0601@gmail.com">Yang Zuo</maintainer>
   <license>Apache-2.0</license>
   
-  <author email="glawless@example.com">glawless</author>
+  <author email="zuoyang0601@gmail.com">Yang Zuo</author>
   
   <buildtool_depend>ament_cmake</buildtool_depend>
   

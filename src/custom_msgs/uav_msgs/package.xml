@@ -4,9 +4,9 @@
   <version>0.0.0</version>
   <description>The uav_msgs package containing messages for communication within ROS-packages</description>
 
-  <maintainer email="aamir.ahmad@tuebingen.mpg.de">Aamir Ahmad</maintainer>
+  <maintainer email="zuoyang0601@gmail.com">Yang Zuo</maintainer>
 
-  <license>GPLv3</license>
+  <license>Apache-2.0</license>
 
 
   <buildtool_depend>ament_cmake</buildtool_depend>

@@ -16,7 +16,7 @@ Compatible with:
 """
 
 __version__ = "1.0.0"
-__author__ = "Soja the First"
+__author__ = "Yang Zuo"
 __email__ = "zuoyang0601@gmail.com"
 
 # Package imports

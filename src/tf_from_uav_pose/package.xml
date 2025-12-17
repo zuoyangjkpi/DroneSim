@@ -5,8 +5,8 @@
   <version>1.0.0</version>
   <description>ROS2 migration of tf_from_uav_pose - publishes TF transforms and pose messages from UAV pose data</description>
 
-  <maintainer email="mohmedsayed0990@gmail.com">Mohamed Abdelmawgoud</maintainer>
-  <license>BSD-3-Clause</license>
+  <maintainer email="zuoyang0601@gmail.com">Yang Zuo</maintainer>
+  <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

@@ -13,10 +13,10 @@ setup(
     ],
     install_requires=['setuptools', 'pyyaml'],
     zip_safe=False,
-    maintainer='Soja',
-    maintainer_email='zuoyangjkpi@gmail.com',
+    maintainer='Yang Zuo',
+    maintainer_email='zuoyang0601@gmail.com',
     description='Behavior-tree style mission executor that consumes YAML plans and dispatches mission action modules.',
-    license='MIT',
+    license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [

@@ -5,7 +5,7 @@
   <version>1.0.0</version>
   <description>Distributed Kalman Filter for 3D target tracking - ROS2 version</description>
   
-  <maintainer email="mohmedsayed0990@gmail.com">Mohamed Abdelmawgoud</maintainer>
+  <maintainer email="zuoyang0601@gmail.com">Yang Zuo</maintainer>
   <license>Apache-2.0</license>
   
   <buildtool_depend>ament_cmake</buildtool_depend>

@@ -4,7 +4,7 @@
   <name>drone_description</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="mohmedsayed0990@gmail.com">Mohamed Abdelmawgoud</maintainer>
+  <maintainer email="zuoyang0601@gmail.com">Yang Zuo</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

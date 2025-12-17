@@ -5,10 +5,10 @@
   <version>1.0.0</version>
   <description>Nonlinear Model Predictive Control (NMPC) package for drone person tracking</description>
 
-  <maintainer email="zuoyang0601@gmail.com">Soja the First</maintainer>
-  <license>MIT</license>
+  <maintainer email="zuoyang0601@gmail.com">Yang Zuo</maintainer>
+  <license>Apache-2.0</license>
 
-  <author email="zuoyang0601@gmail.com">Soja the First</author>
+  <author email="zuoyang0601@gmail.com">Yang Zuo</author>
 
   <!-- Build dependencies -->
   <buildtool_depend>ament_cmake</buildtool_depend>
