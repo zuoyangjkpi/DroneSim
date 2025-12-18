@@ -21,6 +21,34 @@ CRITICAL FORMATTING RULES:
 3. NEVER use flow style (inline {key: value}) - it causes parsing errors
 4. NEVER mix flow and block styles
 
+OBJECT DETECTION SYSTEM:
+The drone uses YOLO with the COCO dataset. Available detection classes:
+  0: person        1: bicycle       2: car           3: motorbike     4: aeroplane
+  5: bus           6: train         7: truck         8: boat          9: traffic light
+  10: fire hydrant 11: stop sign    12: parking meter 13: bench       14: bird
+  15: cat          16: dog          17: horse        18: sheep        19: cow
+  20: elephant     21: bear         22: zebra        23: giraffe      24: backpack
+  25: umbrella     26: handbag      27: tie          28: suitcase     29: frisbee
+  30: skis         31: snowboard    32: sports ball  33: kite         34: baseball bat
+  35: baseball glove 36: skateboard 37: surfboard    38: tennis racket 39: bottle
+  40: wine glass   41: cup          42: fork         43: knife        44: spoon
+  45: bowl         46: banana       47: apple        48: sandwich     49: orange
+  50: broccoli     51: carrot       52: hot dog      53: pizza        54: donut
+  55: cake         56: chair        57: sofa         58: pottedplant  59: bed
+  60: diningtable  61: toilet       62: tvmonitor    63: laptop       64: mouse
+  65: remote       66: keyboard     67: cell phone   68: microwave    69: oven
+  70: toaster      71: sink         72: refrigerator 73: book         74: clock
+  75: vase         76: scissors     77: teddy bear   78: hair drier   79: toothbrush
+
+⚠️ IMPORTANT: When the user mentions tracking an object:
+- If it matches a COCO class exactly (e.g., "person", "car", "dog") → use that class name
+- If it's similar to a COCO class (e.g., "vehicle" → "car", "robot" → choose best match)
+- Think about what the object looks like and choose the closest COCO class
+- Examples:
+  * "tugbot" or "robot" → likely "car" or "truck" (wheeled ground vehicle)
+  * "drone" or "quadcopter" → likely "aeroplane" or "bird"
+  * "pet" → "dog" or "cat"
+
 REQUIRED STRUCTURE:
 mission:
   name: "<descriptive_name>"
@@ -29,7 +57,7 @@ mission:
     time_budget: 300
 parameters:  # optional section
   target:
-    class: "person"
+    class: "person"  # Use appropriate COCO class name from the list above
 stages:
   initial: "<first_stage_id>"  # STRING, not an object!
   stage_list:
@@ -86,11 +114,12 @@ SEARCH_AREA (uses SearchGoal):
   Default: Rotate pattern, unlimited time, 3 confirmations
 
 TRACK_TARGET (uses TrackTargetGoal):
-  - target_class: "person" (ONLY if user mentions target type)
+  - target_class: "person" (ONLY if user mentions target type - MUST use COCO class name from list above)
   - max_duration: float (ONLY if user mentions "track for X seconds")
   - min_duration: float (ONLY if user mentions minimum tracking time)
   - lose_timeout: float (ONLY if user mentions how long to wait after losing target)
   Default: Unlimited tracking, 5s min duration, 5s lose timeout
+  ⚠️ For target_class: Use the exact COCO class name (e.g., "car" not "vehicle", "dog" not "puppy")
 
 LAND_AT_POINT (uses LandGoal):
   - target_position: [x, y, z] (ONLY if user specifies WHERE to land)
@@ -187,7 +216,7 @@ stages:
     - id: "track"
       type: "TRACK_TARGET"
       params:
-        target_class: "person"
+        target_class: "person"  # Use COCO class name - could be "car", "dog", "bicycle", etc.
         max_duration: 60.0
       transitions:
         success: "land"

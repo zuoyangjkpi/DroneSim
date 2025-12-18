@@ -170,7 +170,7 @@ stages:
     - id: "track"
       type: "TRACK_TARGET"
       params:
-        target_class: "person"
+        target_class: "person"  # COCO class: person, car, truck, dog, etc.
         max_duration: 60.0
         min_duration: 5.0
         lose_timeout: 10.0

@@ -27,6 +27,7 @@ def generate_launch_description():
     world_file = LaunchConfiguration("world_file")
     use_gui_config = LaunchConfiguration("use_gui_config")
     gui_config = LaunchConfiguration("gui_config")
+    yolo_target_class = LaunchConfiguration("yolo_target_class")
 
     # Environment variables
     # Environment variables - DISABLED to fix crash with hardware drivers
@@ -49,6 +50,12 @@ def generate_launch_description():
         "gui_config",
         default_value=default_gui_config,
         description="Absolute path to Gazebo GUI configuration file",
+    )
+
+    declare_yolo_class_arg = DeclareLaunchArgument(
+        "yolo_target_class",
+        default_value="0",
+        description="YOLO target class ID (0=person, 2=car, 7=truck, etc. See coco.names)",
     )
 
     gazebo_resource_path = SetEnvironmentVariable(
@@ -173,7 +180,7 @@ def generate_launch_description():
             {'labels_path': default_labels_path},
             {'use_gpu': False},
             {'confidence_threshold': 0.5},
-            {'desired_class': 0},  # person class (COCO class 0)
+            {'desired_class': yolo_target_class},  # Configurable COCO class (0=person, 2=car, 7=truck, etc.)
             {'max_update_rate_hz': 1.0}
         ]
     )
@@ -185,6 +192,7 @@ def generate_launch_description():
         declare_world_arg,
         declare_use_gui_config_arg,
         declare_gui_config_arg,
+        declare_yolo_class_arg,
         gazebo_resource_path,
         gz_gui_resource_path,
         set_gazebo_model_path,

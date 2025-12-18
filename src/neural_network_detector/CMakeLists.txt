@@ -90,9 +90,11 @@ ament_target_dependencies(detection_visualizer_node
   std_msgs
   sensor_msgs
   nav_msgs
+  geometry_msgs
   cv_bridge
   image_transport
   neural_network_msgs
+  ament_index_cpp
   OpenCV
 )
 

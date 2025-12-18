@@ -9,6 +9,11 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/vector3_stamped.hpp>
 #include <cmath>
+#include <fstream>
+#include <vector>
+#include <string>
+#include <map>
+#include <ament_index_cpp/get_package_share_directory.hpp>
 
 class DetectionVisualizerNode : public rclcpp::Node
 {
@@ -42,10 +47,45 @@ public:
     {
         RCLCPP_INFO(this->get_logger(), "Detection visualizer node starting...");
 
+        // Load COCO class names
+        loadClassNames();
+
         // Use a one-shot timer to initialize after the object is fully constructed
         init_timer_ = this->create_wall_timer(
             std::chrono::milliseconds(100),
             std::bind(&DetectionVisualizerNode::initialize, this));
+    }
+
+    void loadClassNames() {
+        try {
+            std::string package_share_dir = ament_index_cpp::get_package_share_directory("neural_network_detector");
+            std::string labels_path = package_share_dir + "/models/coco.names";
+
+            std::ifstream file(labels_path);
+            if (!file.is_open()) {
+                RCLCPP_WARN(this->get_logger(), "Could not open coco.names at %s, using default class names", labels_path.c_str());
+                return;
+            }
+
+            std::string line;
+            while (std::getline(file, line)) {
+                if (!line.empty()) {
+                    class_names_.push_back(line);
+                }
+            }
+            file.close();
+
+            RCLCPP_INFO(this->get_logger(), "Loaded %zu COCO class names", class_names_.size());
+        } catch (const std::exception& e) {
+            RCLCPP_WARN(this->get_logger(), "Failed to load class names: %s", e.what());
+        }
+    }
+
+    std::string getClassName(int class_id) const {
+        if (class_id >= 0 && class_id < static_cast<int>(class_names_.size())) {
+            return class_names_[class_id];
+        }
+        return "unknown";
     }
 
     void initialize()
@@ -206,33 +246,46 @@ private:
         };
 
         if (current_detections_ && !current_detections_->detections.empty()) {
-            int detection_count = 0;
+            // Count detections per class
+            std::map<int, int> class_counts;
+
             for (const auto& detection : current_detections_->detections) {
-                if (detection.object_class == 0 && detection.detection_score > 0.3) { // Person class matching YOLO threshold
+                if (detection.detection_score > 0.3) { // YOLO threshold
                     // Draw green bounding box with thicker line for stability
                     cv::rectangle(cv_ptr->image,
                             cv::Point(static_cast<int>(detection.xmin), static_cast<int>(detection.ymin)),
                             cv::Point(static_cast<int>(detection.xmax), static_cast<int>(detection.ymax)),
                             cv::Scalar(0, 255, 0), 4);
-                        
-                        // Draw detection score with fixed precision
-                        char confidence_text[32];
-                        snprintf(confidence_text, sizeof(confidence_text), "Person: %.2f", detection.detection_score);
+
+                        // Draw detection score with dynamic class name
+                        std::string class_name = getClassName(detection.object_class);
+                        char confidence_text[64];
+                        snprintf(confidence_text, sizeof(confidence_text), "%s: %.2f",
+                                class_name.c_str(), detection.detection_score);
                         cv::putText(cv_ptr->image, confidence_text,
                             cv::Point(static_cast<int>(detection.xmin), static_cast<int>(detection.ymin) - 15),
                             cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 0), 2);
-                        detection_count++;
+
+                        // Count this class
+                        class_counts[detection.object_class]++;
                     }
                 }
-                
-                // Add detection count overlay
-                if (detection_count > 0) {
-                    put_status_line("Persons detected: " + std::to_string(detection_count),
-                        cv::Scalar(0, 255, 0), 0.8);
+
+                // Add detection count overlay with class names
+                if (!class_counts.empty()) {
+                    std::string status_text = "Detected: ";
+                    bool first = true;
+                    for (const auto& [class_id, count] : class_counts) {
+                        if (!first) status_text += ", ";
+                        status_text += std::to_string(count) + " " + getClassName(class_id);
+                        if (count > 1) status_text += "s";
+                        first = false;
+                    }
+                    put_status_line(status_text, cv::Scalar(0, 255, 0), 0.8);
                 }
             } else {
-                // Add "No detections" overlay when no person detected
-                put_status_line("No persons detected", cv::Scalar(0, 0, 255), 0.8);
+                // Add "No detections" overlay when no object detected
+                put_status_line("No detections", cv::Scalar(0, 0, 255), 0.8);
             }
 
             text_y += 5;
@@ -364,6 +417,9 @@ private:
     double delta_yaw_;
     bool waypoint_received_;
     bool attitude_received_;
+
+    // COCO class names for dynamic display
+    std::vector<std::string> class_names_;
 };
 
 int main(int argc, char** argv)
