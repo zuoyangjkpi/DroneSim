@@ -50,6 +50,24 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
+### 🔑 LLM API Key Configuration
+
+For LLM-based mission planning (option 1 in `standalone_test.sh`), configure your Aliyun DashScope API key:
+
+```bash
+# Navigate to the manual_mission_planner package
+cd ~/AVIANS_ROS2/src/manual_mission_planner/manual_mission_planner
+
+# Create .env file from template
+cp .env_example .env
+
+# Edit .env and add your API key
+nano .env
+# Set: DASHSCOPE_API_KEY=sk-your-api-key-here
+```
+
+**Get your API key**: [Aliyun DashScope Console](https://dashscope.console.aliyun.com/apiKey)
+
 ---
 
 ## 🎮 Launch Scripts

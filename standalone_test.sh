@@ -13,6 +13,41 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# World selection (non-SITL worlds only)
+WORLD_MODE="default"
+WORLD_FILE="drone_world.sdf"
+WORLD_PATH=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --lake)
+            WORLD_MODE="lake"
+            WORLD_FILE="x3_lake_world.sdf"
+            echo -e "${YELLOW}🌊 Using X3 lake world (monocular model)${NC}"
+            ;;
+        --factory)
+            WORLD_MODE="factory"
+            WORLD_FILE="x3_factory_world.sdf"
+            echo -e "${YELLOW}🏭 Using X3 factory world (monocular model)${NC}"
+            ;;
+        --factory_rc)
+            WORLD_MODE="factory_rc"
+            WORLD_FILE="x3_factory_rc_world.sdf"
+            echo -e "${YELLOW}🏭 Using X3 factory_rc world (monocular model)${NC}"
+            ;;
+        -h|--help)
+            echo "Usage: $0 [--lake|--factory|--factory_rc]"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Unknown argument: $1${NC}"
+            echo "Usage: $0 [--lake|--factory|--factory_rc]"
+            exit 1
+            ;;
+    esac
+    shift
+done
+
 # Function to print colored output
 print_status() {
     local color=$1
@@ -79,6 +114,21 @@ check_topic_rate() {
     else
         print_status $RED "❌ No data on topic: $topic_name"
         return 1
+    fi
+}
+
+# Resolve the absolute path to the selected (non-SITL) world file
+resolve_world_path() {
+    local ws_root=$1
+    local install_world="${ws_root}/install/drone_description/share/drone_description/worlds/${WORLD_FILE}"
+    local source_world="${ws_root}/src/drone_description/worlds/${WORLD_FILE}"
+
+    if [ -f "$install_world" ]; then
+        echo "$install_world"
+    elif [ -f "$source_world" ]; then
+        echo "$source_world"
+    else
+        echo ""
     fi
 }
 
@@ -346,19 +396,21 @@ text_prompt_test() {
     ros2 topic pub --once /X3/enable std_msgs/msg/Bool "{data: true}" > /tmp/x3_enable.log 2>&1
     sleep 2
 
-    # Trigger LLM
     print_status $GREEN "✅ Full system is running!"
+
+    # NOW generate the mission plan (after mission_executor is ready)
     print_status $YELLOW "🧠 Requesting YAML plan from Qwen..."
-    if ros2 run manual_mission_planner manual_prompt_runner --prompt "$mission_prompt"; then
-        print_status $GREEN "✅ Mission published to /mission_executor/plan"
-        print_status $YELLOW "ℹ️ Plan stored at ~/.ros/manual_mission_plan.yaml"
-        print_status $YELLOW "📊 Monitor mission execution:"
-        print_status $YELLOW "   - tail -f /tmp/mission_executor.log"
-        print_status $YELLOW "   - tail -f /tmp/mission_action_manager.log"
-        print_status $YELLOW "   - tail -f /tmp/nmpc_tracker.log"
-    else
+    # Use python3 -m to ensure conda environment Python is used
+    if ! python3 -c "from manual_mission_planner.prompt_runner import main; import sys; sys.argv = ['manual_prompt_runner', '--prompt', '$mission_prompt']; main()"; then
         print_status $RED "❌ Mission generation failed, check logs or network"
+        return 1
     fi
+    print_status $GREEN "✅ Mission plan generated and published to executor"
+
+    print_status $YELLOW "📊 Monitor mission execution:"
+    print_status $YELLOW "   - tail -f /tmp/mission_executor.log"
+    print_status $YELLOW "   - tail -f /tmp/mission_action_manager.log"
+    print_status $YELLOW "   - tail -f /tmp/nmpc_tracker.log"
 }
 
 # Main menu function
@@ -455,15 +507,31 @@ launch_gazebo() {
             return 0
         fi
     fi
+
+    if [[ "$WORLD_FILE" == *"sitl"* ]]; then
+        print_status $RED "❌ Non-SITL test suite should use non-SITL worlds. Selected: $WORLD_FILE"
+        return 1
+    fi
+
+    if [ -z "$WORLD_PATH" ]; then
+        WORLD_PATH=$(resolve_world_path "$(pwd)")
+    fi
+
+    if [ -z "$WORLD_PATH" ] || [ ! -f "$WORLD_PATH" ]; then
+        print_status $RED "❌ World file not found for selection: $WORLD_FILE"
+        return 1
+    fi
     
+    print_status $YELLOW "🌍 World: $(basename "$WORLD_PATH") (mode: $WORLD_MODE)"
+    print_status $YELLOW "   Path: $WORLD_PATH"
     print_status $YELLOW "🚀 Starting Gazebo..."
     print_status $YELLOW "   This may take 10-15 seconds..."
-    
+
     # Launch in background with proper environment
     export HOME="$HOME"
     export USER="$USER"
     export DISPLAY="${DISPLAY:-:0}"
-    ros2 launch drone_description gz.launch.py > /tmp/gazebo.log 2>&1 &
+    ros2 launch drone_description gz.launch.py world_file:="$WORLD_PATH" > /tmp/gazebo.log 2>&1 &
     local gazebo_pid=$!
     
     # Wait for Gazebo to start
@@ -1585,6 +1653,8 @@ main() {
         print_status $RED "❌ Error: Please run this script from the project root directory"
         exit 1
     fi
+
+    local WS_ROOT="$(pwd)"
     
     # Source ROS2 if available
     if [ -f "/opt/ros/jazzy/setup.bash" ]; then
@@ -1598,9 +1668,22 @@ main() {
         source install/setup.bash
     fi
 
+    if [[ "$WORLD_FILE" == *"sitl"* ]]; then
+        print_status $RED "❌ standalone_test.sh only launches non-SITL worlds. Selected: $WORLD_FILE"
+        exit 1
+    fi
+
+    WORLD_PATH="$(resolve_world_path "$WS_ROOT")"
+    if [ -z "$WORLD_PATH" ]; then
+        print_status $RED "❌ World file not found for selection '$WORLD_FILE' (checked install and src)"
+        exit 1
+    fi
+
+    print_status $YELLOW "🌍 Selected world: $(basename "$WORLD_PATH") (mode: $WORLD_MODE)"
+    print_status $YELLOW "   Path: $WORLD_PATH"
+
     # Gazebo rendering defaults (avoid Wayland EGL crashes and keep models visible)
-    local WS_ROOT="$(pwd)"
-    export GZ_SIM_RESOURCE_PATH="$WS_ROOT/install/drone_description/share/drone_description/models:$WS_ROOT/install/drone_description/share/drone_description:$WS_ROOT/install:${GZ_SIM_RESOURCE_PATH}"
+    export GZ_SIM_RESOURCE_PATH="$WS_ROOT/install/drone_description/share/drone_description/models:$WS_ROOT/install/drone_description/share/drone_description:$WS_ROOT/src/drone_description/models:$WS_ROOT/src/drone_description:$WS_ROOT/install:${GZ_SIM_RESOURCE_PATH}"
     export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb}"
     unset WAYLAND_DISPLAY
     export EGL_PLATFORM="${EGL_PLATFORM:-x11}"

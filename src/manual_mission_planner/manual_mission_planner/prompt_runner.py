@@ -235,7 +235,7 @@ class ManualMissionPlannerNode(Node):
         self.client = api_client or QwenMissionClient()
 
     def run(self) -> None:
-        self.get_logger().info("Requesting mission plan from Qwen Omni Turbo")
+        self.get_logger().info(f"Requesting mission plan from {self.client.model}")
         try:
             plan_text = self.client.generate_plan(SYSTEM_PROMPT, self.prompt)
             used_fallback = False

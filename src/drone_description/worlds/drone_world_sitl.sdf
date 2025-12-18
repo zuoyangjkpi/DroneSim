@@ -509,7 +509,7 @@
 
     <!-- 🔧 Fix: load the velocity controller first by reordering plugins -->
     <include>
-      <uri>model://x3/model_sitl.sdf</uri>
+      <uri>model://x3_stereo/model_sitl.sdf</uri>
       <pose>3 0 0.2 0 0.2 3.14159</pose>
       
       <!-- ✅ Drone startup script -->  

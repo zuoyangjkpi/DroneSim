@@ -9,14 +9,27 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-import requests
+from openai import OpenAI
 
 # Default model and endpoint for Aliyun DashScope OpenAI-compatible API
 DEFAULT_MODEL = "qwen-turbo"
-MODEL_ENV_VAR = "QWEN_MODEL_NAME"
-CONFIG_FILENAME = "llm_config.json"
-CONFIG_ENV_VAR = "QWEN_CONFIG_FILE"
-API_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+
+def _load_config() -> dict:
+    """Load configuration from llm_config.json file."""
+    config_dir = Path(__file__).parent
+    config_path = config_dir / "llm_config.json"
+
+    if not config_path.exists():
+        return {}
+
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Warning: Failed to load llm_config.json: {e}")
+        return {}
 
 
 class QwenAPIError(RuntimeError):
@@ -27,114 +40,80 @@ class QwenAPIError(RuntimeError):
 class QwenMissionClient:
     """Thin wrapper around the Aliyun DashScope OpenAI-compatible chat endpoint."""
 
-    # You can change the default here, e.g. "qwen2.5-72b-instruct"
     model: str = DEFAULT_MODEL
     timeout: int = 30
     api_key: Optional[str] = None
 
     def __post_init__(self) -> None:
-        # Optional: load API settings from a local JSON config file.
-        #   1) By default, looks for llm_config.json next to this file.
-        #   2) You can override the path with QWEN_CONFIG_FILE.
-        config_path_env = os.environ.get(CONFIG_ENV_VAR)
-        if config_path_env:
-            config_path = Path(config_path_env).expanduser()
-        else:
-            config_path = Path(__file__).with_name(CONFIG_FILENAME)
+        # Load configuration from llm_config.json
+        config = _load_config()
 
-        config: dict = {}
-        if config_path.is_file():
-            try:
-                with config_path.open("r", encoding="utf-8") as f:
-                    loaded = json.load(f)
-                if isinstance(loaded, dict):
-                    config = loaded
-            except Exception:
-                # If the config file is malformed, ignore it and fall back to
-                # environment variables / constructor defaults.
-                config = {}
-
-        # Apply model from config unless an explicit env override is set.
-        model_from_config = config.get("model")
-        if model_from_config and not os.environ.get(MODEL_ENV_VAR):
-            self.model = str(model_from_config)
-
-        # Apply API key from config as a low-priority source.
-        key_from_config = config.get("api_key")
-        if key_from_config and not self.api_key:
-            self.api_key = str(key_from_config)
-
-        # Allow overriding the model from environment:
-        #   export QWEN_MODEL_NAME="qwen2.5-72b-instruct"
-        model_from_env = os.environ.get(MODEL_ENV_VAR)
-        if model_from_env:
-            self.model = model_from_env
-
-        # Prefer explicit environment variables, fall back to any provided api_key.
-        # Recommended: export DASHSCOPE_API_KEY="sk-xxx"
-        env_key = (
-            os.environ.get("DASHSCOPE_API_KEY")
-            or os.environ.get("ALIYUN_API_KEY")
-        )
-        if env_key:
-            self.api_key = env_key
-        elif not self.api_key:
-            raise QwenAPIError(
-                "No API key provided. Set DASHSCOPE_API_KEY or ALIYUN_API_KEY."
+        # Get API key from config file or use the one provided in constructor
+        if not self.api_key:
+            self.api_key = (
+                config.get("dashscope_api_key")
+                or config.get("aliyun_api_key")
             )
+
+        if not self.api_key:
+            raise QwenAPIError(
+                "No API key provided. Please create llm_config.json file "
+                "at src/manual_mission_planner/manual_mission_planner/llm_config.json "
+                "with 'dashscope_api_key' field. See llm_config.json.example for reference."
+            )
+
+        # Get model from config file if set
+        model_from_config = config.get("model_name")
+        if model_from_config:
+            self.model = model_from_config
 
     def generate_plan(self, system_prompt: str, user_prompt: str) -> str:
-        """Call the LLM and return the raw assistant content."""
+        """Call the LLM with streaming and return the raw assistant content."""
 
-        # OpenAI-compatible /v1/chat/completions payload
-        payload = {
-            "model": self.model,
-            "messages": [
+        try:
+            # Create OpenAI client with DashScope endpoint
+            client = OpenAI(
+                api_key=self.api_key,
+                base_url=BASE_URL,
+            )
+
+            messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
-            ],
-            # You can tweak extra_body if you want "thinking" traces, etc.
-            "extra_body": {
-                "enable_thinking": True,
-            },
-        }
+            ]
 
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key}",
-        }
-
-        try:
-            response = requests.post(
-                API_URL,
-                headers=headers,
-                data=json.dumps(payload),
-                timeout=self.timeout,
-            )
-        except requests.RequestException as exc:  # pylint: disable=broad-except
-            raise QwenAPIError(f"Network error while calling Qwen API: {exc}") from exc
-        if response.status_code != 200:
-            raise QwenAPIError(
-                f"HTTP {response.status_code}: {response.text[:200]}"
+            # Use streaming with thinking enabled (but don't print the thinking process)
+            completion = client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                extra_body={"enable_thinking": True},
+                stream=True
             )
 
-        data = response.json()
-        try:
-            # OpenAI-compatible response shape:
-            #   {"choices": [{"message": {"role": "...", "content": "..."}}], ...}
-            content = data["choices"][0]["message"]["content"]
-        except (KeyError, IndexError) as exc:
-            raise QwenAPIError(f"Unexpected response: {data}") from exc
+            full_content = []  # Collect complete response content
+            is_first_content = True
 
-        if isinstance(content, list):
-            joined = "\n".join(
-                part.get("text", "") if isinstance(part, dict) else str(part)
-                for part in content
-            )
-        else:
-            joined = str(content)
+            for chunk in completion:
+                delta = chunk.choices[0].delta
 
-        return self._extract_yaml_block(joined)
+                # Skip reasoning_content (thinking process) - don't print it
+                # Only collect and print the final content
+                if hasattr(delta, "content") and delta.content:
+                    if is_first_content:
+                        print("\n" + "=" * 20 + "Generated Result" + "=" * 20)
+                        is_first_content = False
+                    print(delta.content, end="", flush=True)
+                    full_content.append(delta.content)
+
+            if full_content:
+                print("\n" + "=" * 50 + "\n")
+
+            # Merge complete content
+            joined = "".join(full_content)
+            return self._extract_yaml_block(joined)
+
+        except Exception as exc:
+            raise QwenAPIError(f"Error calling Qwen API: {exc}") from exc
 
     @staticmethod
     def _extract_yaml_block(text: str) -> str:

@@ -59,9 +59,9 @@
       <pose>7.19009 1.09982 0 0 0 0</pose>
     </include>
 
-    <!-- X3 stereo multicopter -->
+    <!-- X3 monocular multicopter -->
     <include>
-      <uri>model://x3_stereo</uri>
+      <uri>model://x3</uri>
       <pose>-3 1 0.2 0 0 0</pose>
 
       <!-- Drone startup script -->

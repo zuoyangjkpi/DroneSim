@@ -7,25 +7,33 @@ from launch.actions import (
     SetEnvironmentVariable,
     IncludeLaunchDescription,
     TimerAction,
+    DeclareLaunchArgument,
 )
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
-from launch.substitutions import Command, FindExecutable, PathJoinSubstitution
+from launch.substitutions import Command, LaunchConfiguration, TextSubstitution
 
 
 def generate_launch_description():
     # Paths
     drone_description = get_package_share_directory("drone_description")
     models_path = os.path.join(drone_description, "models")
-    world_file = os.path.join(drone_description, "worlds", "drone_world.sdf")
+    default_world_file = os.path.join(drone_description, "worlds", "drone_world.sdf")
     config_file = os.path.join(drone_description, "config", "bridge.yaml")
     rviz_config = os.path.join(drone_description, "config", "drone.rviz")
     urdf_file = os.path.join(drone_description, "urdf", "x3_drone.urdf")
+    world_file = LaunchConfiguration("world_file")
 
     # Environment variables
     # Environment variables - DISABLED to fix crash with hardware drivers
     # libgl_env = SetEnvironmentVariable(name="LIBGL_ALWAYS_SOFTWARE", value="1")
     # gallium_env = SetEnvironmentVariable(name="GALLIUM_DRIVER", value="llvmpipe")
+
+    declare_world_arg = DeclareLaunchArgument(
+        "world_file",
+        default_value=default_world_file,
+        description="Absolute path to Gazebo world file"
+    )
 
     gazebo_resource_path = SetEnvironmentVariable(
         name="GZ_SIM_RESOURCE_PATH",
@@ -52,7 +60,7 @@ def generate_launch_description():
             os.path.join(get_package_share_directory("ros_gz_sim"), "launch", "gz_sim.launch.py")
         ),
         launch_arguments=[
-            ("gz_args", f"-v 4 -r {world_file}")
+            ("gz_args", [TextSubstitution(text="-v 4 -r "), world_file])
         ]
     )
 
@@ -132,8 +140,7 @@ def generate_launch_description():
     # We'll use the existing odometry from Gazebo plugins instead
 
     return LaunchDescription([
-        # libgl_env,
-        # gallium_env,
+        declare_world_arg,
         gazebo_resource_path,
         set_gazebo_model_path,
         yolo_node,

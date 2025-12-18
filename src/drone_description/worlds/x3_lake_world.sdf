@@ -256,9 +256,9 @@
       </uri>
     </include>
 
-    <!-- X3 stereo multicopter -->
+    <!-- X3 monocular multicopter -->
     <include>
-      <uri>model://x3_stereo</uri>
+      <uri>model://x3</uri>
       <pose>3 0 0.2 0 0.2 3.14159</pose>
 
       <!-- Drone startup script -->

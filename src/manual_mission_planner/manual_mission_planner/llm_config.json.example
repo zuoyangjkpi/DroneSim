@@ -1,5 +1,6 @@
 {
-  "api_key": "sk-your-dashscope-key-here",
-  "model": "qwen-turbo"
+  "dashscope_api_key": "sk-your-api-key-here",
+  "model_name": "qwen-turbo",
+  "timeout": 30,
+  "_comment": "Copy this file to llm_config.json and fill in your real API key from https://dashscope.console.aliyun.com/apiKey"
 }
-
