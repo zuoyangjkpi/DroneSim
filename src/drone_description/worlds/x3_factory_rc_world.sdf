@@ -507,11 +507,11 @@
     <actor name="walker_2">
       <pose>-2 0 1.0 0 0 1.893</pose>
       <skin>
-        <filename>model://actor/meshes/walk.dae</filename>
+        <filename>model://actor/meshes/moonwalk.dae</filename>
         <scale>0.8</scale>
       </skin>
       <animation name="walk">
-        <filename>model://actor/meshes/walk.dae</filename>
+        <filename>model://actor/meshes/moonwalk.dae</filename>
         <scale>0.8</scale>
         <interpolate_x>true</interpolate_x>
       </animation>

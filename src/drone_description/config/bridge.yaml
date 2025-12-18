@@ -37,6 +37,13 @@
   gz_type_name: "gz.msgs.Boolean"
   direction: BIDIRECTIONAL  
 
+# Tugbot control (ROS -> Gazebo)
+- ros_topic_name: "/tugbot/cmd_vel"
+  gz_topic_name: "/model/tugbot/cmd_vel"
+  ros_type_name: "geometry_msgs/msg/Twist"
+  gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
+
 - ros_topic_name: "/camera/image_raw"
   gz_topic_name: "/camera/image_raw"
   ros_type_name: "sensor_msgs/msg/Image"

@@ -738,8 +738,17 @@
         <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
         <motorType>velocity</motorType>
       </plugin>
-      
+
     </include>
-    
+
+    <!-- Tugbot for teleoperation testing -->
+    <include>
+      <uri>
+        https://fuel.ignitionrobotics.org/1.0/MovAi/models/Tugbot
+      </uri>
+      <name>tugbot</name>
+      <pose>5 5 0.132279 0 0 0</pose>
+    </include>
+
   </world>
 </sdf>

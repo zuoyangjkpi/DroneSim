@@ -9,6 +9,7 @@ from launch.actions import (
     TimerAction,
     DeclareLaunchArgument,
 )
+from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 from launch.substitutions import Command, LaunchConfiguration, TextSubstitution
@@ -20,9 +21,12 @@ def generate_launch_description():
     models_path = os.path.join(drone_description, "models")
     default_world_file = os.path.join(drone_description, "worlds", "drone_world.sdf")
     config_file = os.path.join(drone_description, "config", "bridge.yaml")
+    default_gui_config = os.path.join(drone_description, "config", "gui_tugbot_teleop.config")
     rviz_config = os.path.join(drone_description, "config", "drone.rviz")
     urdf_file = os.path.join(drone_description, "urdf", "x3_drone.urdf")
     world_file = LaunchConfiguration("world_file")
+    use_gui_config = LaunchConfiguration("use_gui_config")
+    gui_config = LaunchConfiguration("gui_config")
 
     # Environment variables
     # Environment variables - DISABLED to fix crash with hardware drivers
@@ -35,6 +39,18 @@ def generate_launch_description():
         description="Absolute path to Gazebo world file"
     )
 
+    declare_use_gui_config_arg = DeclareLaunchArgument(
+        "use_gui_config",
+        default_value="false",
+        description="Whether to pass --gui-config to Gazebo Sim",
+    )
+
+    declare_gui_config_arg = DeclareLaunchArgument(
+        "gui_config",
+        default_value=default_gui_config,
+        description="Absolute path to Gazebo GUI configuration file",
+    )
+
     gazebo_resource_path = SetEnvironmentVariable(
         name="GZ_SIM_RESOURCE_PATH",
         value=":".join([
@@ -44,24 +60,50 @@ def generate_launch_description():
         ])
     )
 
+    # Set custom GUI resource path for modified Teleop plugin
+    gz_gui_resource_path = SetEnvironmentVariable(
+        name="GZ_GUI_RESOURCE_PATH",
+        value=":".join([
+            os.path.join(drone_description, "config"),
+            os.environ.get("GZ_GUI_RESOURCE_PATH", "")
+        ])
+    )
+
     set_gazebo_model_path = SetEnvironmentVariable(
         name='GAZEBO_MODEL_PATH',
         value=models_path + ':' + os.environ.get('GAZEBO_MODEL_PATH', '')
     )
 
-    gz_plugin_path = SetEnvironmentVariable(
-        name="GZ_SIM_SYSTEM_PLUGIN_PATH",
-        value=os.path.join(drone_description, "lib")
+    gz_sim_launch = os.path.join(
+        get_package_share_directory("ros_gz_sim"),
+        "launch",
+        "gz_sim.launch.py",
     )
 
-    # Launch Gazebo
-    gazebo = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(get_package_share_directory("ros_gz_sim"), "launch", "gz_sim.launch.py")
-        ),
+    # Launch Gazebo (default GUI config)
+    gazebo_default = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(gz_sim_launch),
+        condition=UnlessCondition(use_gui_config),
         launch_arguments=[
             ("gz_args", [TextSubstitution(text="-v 4 -r "), world_file])
-        ]
+        ],
+    )
+
+    # Launch Gazebo with a custom GUI config (e.g. include Teleop panel for tugbot)
+    gazebo_with_gui_config = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(gz_sim_launch),
+        condition=IfCondition(use_gui_config),
+        launch_arguments=[
+            (
+                "gz_args",
+                [
+                    TextSubstitution(text="-v 4 -r --gui-config "),
+                    gui_config,
+                    TextSubstitution(text=" "),
+                    world_file,
+                ],
+            )
+        ],
     )
 
     # ROS-Gazebo bridge
@@ -141,11 +183,14 @@ def generate_launch_description():
 
     return LaunchDescription([
         declare_world_arg,
+        declare_use_gui_config_arg,
+        declare_gui_config_arg,
         gazebo_resource_path,
+        gz_gui_resource_path,
         set_gazebo_model_path,
         yolo_node,
-        gz_plugin_path,
-        gazebo,
+        gazebo_default,
+        gazebo_with_gui_config,
         gz_ros2_bridge,
         robot_state_publisher,
         # pose_to_odom_bridge removed

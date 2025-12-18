@@ -132,6 +132,144 @@ resolve_world_path() {
     fi
 }
 
+# Resolve the absolute path to the Gazebo GUI config (used for virtual tugbot teleop)
+resolve_gui_config_path() {
+    local ws_root=$1
+    local install_cfg="${ws_root}/install/drone_description/share/drone_description/config/gui_tugbot_teleop.config"
+    local source_cfg="${ws_root}/src/drone_description/config/gui_tugbot_teleop.config"
+
+    if [ -f "$install_cfg" ]; then
+        echo "$install_cfg"
+    elif [ -f "$source_cfg" ]; then
+        echo "$source_cfg"
+    else
+        echo ""
+    fi
+}
+
+# Some Fuel models (e.g. MovAi Tugbot) still reference legacy system plugin
+# filenames like "ignition-gazebo-diff-drive-system". On Gazebo Harmonic
+# (gz-sim8 / ROS Jazzy), the equivalent plugins are named "gz-sim-*-system".
+# This helper creates lightweight symlinks so gz-sim can load those legacy names.
+setup_gz_ignition_system_plugin_compat() {
+    local compat_dir="/tmp/avians_gz_ignition_compat_plugins"
+    mkdir -p "$compat_dir" 2>/dev/null || true
+
+    # Map: legacy ignition-gazebo-* -> current gz-sim-* plugin
+    local legacy_plugins=(
+        "ignition-gazebo-diff-drive-system"
+        "ignition-gazebo-joint-controller-system"
+        "ignition-gazebo-pose-publisher-system"
+        "ignition-gazebo-linearbatteryplugin-system"
+        "ignition-gazebo-joint-state-publisher-system"
+    )
+    local target_plugins=(
+        "gz-sim-diff-drive-system"
+        "gz-sim-joint-controller-system"
+        "gz-sim-pose-publisher-system"
+        "gz-sim-linearbatteryplugin-system"
+        "gz-sim-joint-state-publisher-system"
+    )
+
+    local i
+    local created=0
+    for i in "${!legacy_plugins[@]}"; do
+        local legacy="${legacy_plugins[$i]}"
+        local target="${target_plugins[$i]}"
+        local target_lib=""
+
+        # Prefer the canonical gz-sim plugin .so (version-agnostic symlink).
+        shopt -s nullglob
+        local candidates=(
+            /usr/lib/*/gz-sim-*/plugins/lib${target}.so
+            /usr/lib/gz-sim-*/plugins/lib${target}.so
+            /usr/lib/*/gz-sim-*/plugins/lib${target}.so.*
+            /usr/lib/gz-sim-*/plugins/lib${target}.so.*
+        )
+        shopt -u nullglob
+
+        if [ ${#candidates[@]} -gt 0 ]; then
+            target_lib="${candidates[0]}"
+        fi
+
+        if [ -z "$target_lib" ]; then
+            # Fallback: try ldconfig (some distros install as libgz-simN-*)
+            target_lib="$(ldconfig -p 2>/dev/null | awk -v pat="libgz-sim[0-9]+-${target#gz-sim-}\\.so" '$1 ~ pat {print $NF; exit}')"
+        fi
+
+        if [ -n "$target_lib" ] && [ -e "$target_lib" ]; then
+            ln -sf "$target_lib" "$compat_dir/lib${legacy}.so" 2>/dev/null || true
+            created=$((created + 1))
+        fi
+    done
+
+    if [ "$created" -gt 0 ]; then
+        export GZ_SIM_SYSTEM_PLUGIN_PATH="${compat_dir}${GZ_SIM_SYSTEM_PLUGIN_PATH:+:${GZ_SIM_SYSTEM_PLUGIN_PATH}}"
+        export IGN_GAZEBO_SYSTEM_PLUGIN_PATH="${compat_dir}${IGN_GAZEBO_SYSTEM_PLUGIN_PATH:+:${IGN_GAZEBO_SYSTEM_PLUGIN_PATH}}"
+        print_status $GREEN "✅ Enabled ignition→gz system plugin compatibility ($compat_dir)"
+    else
+        print_status $YELLOW "⚠️  Could not set up ignition→gz plugin compatibility (missing gz-sim plugins?)"
+    fi
+}
+
+# Patch Fuel cached tugbot model (MovAi) to use gz-sim8 plugin filenames + class names.
+# The upstream model uses ignition::gazebo::* system plugin names which no longer match.
+patch_fuel_tugbot_model_for_gz_sim() {
+    if ! command -v gz > /dev/null 2>&1; then
+        return 0
+    fi
+
+    local gz_version
+    gz_version="$(gz sim --versions 2>/dev/null | head -n 1)"
+    local gz_major="${gz_version%%.*}"
+    if [[ -z "$gz_major" || ! "$gz_major" =~ ^[0-9]+$ ]]; then
+        gz_major="8"
+    fi
+    local systems_ns="gz::sim::v${gz_major}::systems"
+
+    local fuel_root="${HOME}/.gz/fuel"
+    if [ ! -d "$fuel_root" ]; then
+        return 0
+    fi
+
+    local sdf_files=()
+    mapfile -t sdf_files < <(find "$fuel_root" -type f -ipath "*/models/tugbot/*/model.sdf" 2>/dev/null)
+    if [ ${#sdf_files[@]} -eq 0 ]; then
+        return 0
+    fi
+
+    local patched_any=0
+    local sdf
+    for sdf in "${sdf_files[@]}"; do
+        if grep -q "ignition-gazebo-diff-drive-system" "$sdf" 2>/dev/null || \
+           grep -q "ignition::gazebo::systems::DiffDrive" "$sdf" 2>/dev/null; then
+            # One-time backup (best-effort)
+            if [ ! -f "${sdf}.bak_pre_gzsim${gz_major}" ]; then
+                cp "$sdf" "${sdf}.bak_pre_gzsim${gz_major}" 2>/dev/null || true
+            fi
+
+            sed -i \
+                -e 's/filename="ignition-gazebo-diff-drive-system"/filename="gz-sim-diff-drive-system"/g' \
+                -e "s/name=\"ignition::gazebo::systems::DiffDrive\"/name=\"${systems_ns}::DiffDrive\"/g" \
+                -e 's/filename="ignition-gazebo-joint-controller-system"/filename="gz-sim-joint-controller-system"/g' \
+                -e "s/name=\"ignition::gazebo::systems::JointController\"/name=\"${systems_ns}::JointController\"/g" \
+                -e 's/filename="ignition-gazebo-pose-publisher-system"/filename="gz-sim-pose-publisher-system"/g' \
+                -e "s/name=\"ignition::gazebo::systems::PosePublisher\"/name=\"${systems_ns}::PosePublisher\"/g" \
+                -e 's/filename="ignition-gazebo-linearbatteryplugin-system"/filename="gz-sim-linearbatteryplugin-system"/g' \
+                -e "s/name=\"ignition::gazebo::systems::LinearBatteryPlugin\"/name=\"${systems_ns}::LinearBatteryPlugin\"/g" \
+                -e 's/filename="ignition-gazebo-joint-state-publisher-system"/filename="gz-sim-joint-state-publisher-system"/g' \
+                -e "s/name=\"ignition::gazebo::systems::JointStatePublisher\"/name=\"${systems_ns}::JointStatePublisher\"/g" \
+                "$sdf" 2>/dev/null || true
+
+            patched_any=1
+        fi
+    done
+
+    if [ "$patched_any" -eq 1 ]; then
+        print_status $GREEN "✅ Patched Fuel tugbot model plugins for gz-sim${gz_major} (DiffDrive should work now)"
+    fi
+}
+
 wait_for_node() {
     local node_name=$1
     local timeout=${2:-10}
@@ -423,9 +561,10 @@ show_menu() {
     echo "4) 🎮 Manual velocity control test (bypass PID/Gazebo plugin check)"
     echo "5) 🧹 Kill all ROS processes"
     echo "6) 🗺️  Octomap Planning Mode (New)"
+    echo "7) 🕹️  Tugbot teleop (all worlds, optional start drone stack)"
     echo "0) 🚪 Exit"
     echo ""
-    read -p "Select (0-5): " choice
+    read -p "Select (0-7): " choice
 }
 
 # System status check
@@ -496,6 +635,13 @@ system_status_check() {
 launch_gazebo() {
     print_status $BLUE "🎮 Launching Gazebo Simulation"
     echo "==============================="
+
+    # Patch Fuel tugbot model to be compatible with gz-sim8 (Harmonic).
+    # Requires a Gazebo restart to take effect if it's already running.
+    patch_fuel_tugbot_model_for_gz_sim
+
+    # Ensure legacy Fuel models using ignition-gazebo-* system plugins can load.
+    setup_gz_ignition_system_plugin_compat
     
     if check_process "gz sim"; then
         print_status $YELLOW "⚠️  Gazebo already running"
@@ -531,7 +677,22 @@ launch_gazebo() {
     export HOME="$HOME"
     export USER="$USER"
     export DISPLAY="${DISPLAY:-:0}"
-    ros2 launch drone_description gz.launch.py world_file:="$WORLD_PATH" > /tmp/gazebo.log 2>&1 &
+
+    # All worlds now have tugbot, so always use GUI config for teleop
+    local gui_cfg
+    gui_cfg="$(resolve_gui_config_path "$(pwd)")"
+    if [ -n "$gui_cfg" ]; then
+        ros2 launch drone_description gz.launch.py \
+            world_file:="$WORLD_PATH" \
+            use_gui_config:=true \
+            gui_config:="$gui_cfg" \
+            > /tmp/gazebo.log 2>&1 &
+    else
+        ros2 launch drone_description gz.launch.py \
+            world_file:="$WORLD_PATH" \
+            use_gui_config:=true \
+            > /tmp/gazebo.log 2>&1 &
+    fi
     local gazebo_pid=$!
     
     # Wait for Gazebo to start
@@ -539,6 +700,10 @@ launch_gazebo() {
     while [ $count -lt 30 ]; do
         if check_process "gz sim"; then
             print_status $GREEN "✅ Gazebo started successfully"
+
+            # Tugbot is now available in all worlds
+            print_status $GREEN "🕹️ Tugbot virtual teleop is available in Gazebo GUI (Teleop panel)"
+            print_status $YELLOW "   Publishing to: /model/tugbot/cmd_vel"
             
             # Wait for camera topic
             if wait_for_topic "/camera/image_raw" 15; then
@@ -1235,6 +1400,128 @@ system_diagnostics_test() {
     print_status $YELLOW "💡 Run option 5 to start full integration test"
 }
 
+# Tugbot joystick teleop (ROS joy -> Twist -> ros_gz_bridge -> Gazebo)
+tugbot_joystick_teleop() {
+    print_status $BLUE "🕹️ Tugbot Joystick Teleop"
+    echo "=========================="
+
+    # Tugbot is now available in all worlds
+    print_status $YELLOW "📍 Current world: $WORLD_MODE"
+
+    if ! check_process "gz sim"; then
+        print_status $YELLOW "⚠️  Gazebo not running - starting it first..."
+        if ! launch_gazebo; then
+            print_status $RED "❌ Cannot start tugbot teleop without Gazebo"
+            return 1
+        fi
+    fi
+
+    # Pick a joystick device
+    local js_dev="/dev/input/js0"
+    local js_candidates=()
+    shopt -s nullglob
+    js_candidates=(/dev/input/js*)
+    shopt -u nullglob
+
+    if [ ! -e "$js_dev" ]; then
+        if [ ${#js_candidates[@]} -eq 0 ]; then
+            print_status $YELLOW "⚠️  No physical joystick devices found under /dev/input (js*)"
+            print_status $YELLOW "💡 Use the on-screen Gazebo Teleop plugin (virtual joystick) instead:"
+            print_status $YELLOW "   - Topic: /model/tugbot/cmd_vel"
+            print_status $YELLOW "💡 Or use keyboard teleop in terminal (requires ros_gz_bridge):"
+            print_status $YELLOW "   - ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=/tugbot/cmd_vel"
+            return 0
+        fi
+        js_dev="${js_candidates[0]}"
+    fi
+
+    # Physical joystick teleop uses ROS topics, so ros_gz_bridge must be running.
+    # Depending on launch, the node is typically named /parameter_bridge.
+    if ! ros2 node list 2>/dev/null | grep -Eq "/parameter_bridge|/ros_gz_bridge"; then
+        print_status $RED "❌ ros_gz_bridge (parameter_bridge) is not running."
+        print_status $YELLOW "💡 Start Gazebo via this script (it launches the bridge), then retry."
+        print_status $YELLOW "💡 Check: ros2 node list | grep -E \"/parameter_bridge|/ros_gz_bridge\""
+        print_status $YELLOW "💡 Logs: tail -n 80 /tmp/gazebo.log"
+        return 1
+    fi
+
+    if [ ${#js_candidates[@]} -gt 1 ]; then
+        print_status $YELLOW "🎮 Multiple joystick devices detected:"
+        local idx=1
+        for dev in "${js_candidates[@]}"; do
+            echo "  $idx) $dev"
+            idx=$((idx + 1))
+        done
+        read -p "Select joystick device (Enter=1): " dev_choice
+        if [ -n "$dev_choice" ] && [ "$dev_choice" -ge 1 ] 2>/dev/null && [ "$dev_choice" -le ${#js_candidates[@]} ]; then
+            js_dev="${js_candidates[$((dev_choice - 1))]}"
+        fi
+    fi
+
+    # Stop existing teleop if running
+    if check_process "joy_node" || check_process "teleop_node"; then
+        print_status $YELLOW "⚠️  Existing tugbot teleop processes detected."
+        read -p "Restart tugbot teleop (kill & relaunch)? (y/n): " restart_teleop
+        if [ "$restart_teleop" = "y" ]; then
+            pkill -f "ros2 run joy joy_node" 2>/dev/null || true
+            pkill -f "ros2 run teleop_twist_joy teleop_node" 2>/dev/null || true
+            pkill -f "joy_node" 2>/dev/null || true
+            pkill -f "teleop_node" 2>/dev/null || true
+            sleep 1
+        else
+            print_status $GREEN "✅ Keeping existing teleop running"
+            return 0
+        fi
+    fi
+
+    local cfg_dir="/opt/ros/${ROS_DISTRO}/share/teleop_twist_joy/config"
+    local cfg_file="${cfg_dir}/xbox.config.yaml"
+
+    print_status $YELLOW "🎮 Select joystick preset (default: xbox)"
+    echo "1) xbox (default)"
+    echo "2) ps5"
+    echo "3) ps3"
+    echo "4) xd3 (Logitech Extreme 3D Pro)"
+    echo "5) atk3 (Logitech Attack3)"
+    read -p "Select (1-5, Enter=1): " joy_choice
+    case "$joy_choice" in
+        2) cfg_file="${cfg_dir}/ps5.config.yaml" ;;
+        3) cfg_file="${cfg_dir}/ps3.config.yaml" ;;
+        4) cfg_file="${cfg_dir}/xd3.config.yaml" ;;
+        5) cfg_file="${cfg_dir}/atk3.config.yaml" ;;
+        ""|1) cfg_file="${cfg_dir}/xbox.config.yaml" ;;
+        *) print_status $YELLOW "⚠️  Invalid choice, using xbox preset" ;;
+    esac
+
+    if [ ! -f "$cfg_file" ]; then
+        print_status $RED "❌ teleop_twist_joy config not found: $cfg_file"
+        return 1
+    fi
+
+    print_status $YELLOW "🕹️ Starting joy_node ($js_dev)..."
+    ros2 run joy joy_node \
+        --ros-args \
+        -p dev:="$js_dev" \
+        -p deadzone:=0.05 \
+        -p autorepeat_rate:=20.0 \
+        > /tmp/tugbot_joy.log 2>&1 &
+    sleep 1
+
+    print_status $YELLOW "🚗 Starting teleop_twist_joy -> /tugbot/cmd_vel ..."
+    ros2 run teleop_twist_joy teleop_node \
+        --ros-args \
+        --params-file "$cfg_file" \
+        -r cmd_vel:=/tugbot/cmd_vel \
+        > /tmp/tugbot_teleop.log 2>&1 &
+    sleep 1
+
+    print_status $GREEN "✅ Tugbot joystick teleop is running!"
+    print_status $YELLOW "💡 Notes:"
+    print_status $YELLOW "   - Hold the configured enable button to send cmd_vel (see $cfg_file)"
+    print_status $YELLOW "   - Logs: tail -f /tmp/tugbot_joy.log /tmp/tugbot_teleop.log"
+    print_status $YELLOW "   - To stop: use option 5 (Kill all ROS processes)"
+}
+
 # Waypoint controller regression test
 waypoint_controller_test() {
     print_status $BLUE "🧭 Waypoint Controller Test (Takeoff → Fly 10m @45° → Hold)"
@@ -1709,6 +1996,17 @@ main() {
                 ;;
             6)
                 octomap_planning_test
+                ;;
+            7)
+                echo ""
+                print_status $BLUE "🕹️ Tugbot teleop (available in all worlds)"
+                print_status $YELLOW "Start the drone stack too (like option 2)?"
+                read -p "Start full drone stack now? (Y/n): " start_drone_stack
+                if [[ "$start_drone_stack" != "n" && "$start_drone_stack" != "N" ]]; then
+                    full_integration_test || true
+                fi
+
+                tugbot_joystick_teleop
                 ;;
             0)
                 print_status $GREEN "👋 Goodbye!"
