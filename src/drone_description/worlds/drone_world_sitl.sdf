@@ -741,13 +741,20 @@
 
     </include>
 
-    <!-- Tugbot for teleoperation testing -->
+    <!-- Tugbot for teleoperation testing (keeps cmd_vel bindings) -->
     <include>
       <uri>
         https://fuel.ignitionrobotics.org/1.0/MovAi/models/Tugbot
       </uri>
       <name>tugbot</name>
       <pose>5 5 0.132279 0 0 0</pose>
+    </include>
+
+    <!-- Prius for YOLO detection tests (no control binding) -->
+    <include>
+      <uri>../objects/prius/model.sdf</uri>
+      <name>prius</name>
+      <pose>-5 -2 0 0 0 0.9</pose>
     </include>
 
   </world>
