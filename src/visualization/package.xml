@@ -2,7 +2,7 @@
 <package format="3">
   <name>visualization</name>
   <version>0.0.1</version>
-  <description>Visualization tools for AVIANS_ROS2 (RViz markers, paths, status).</description>
+  <description>Visualization tools for DroneSim (RViz markers, paths, status).</description>
 
   <maintainer email="zuoyang0601@gmail.com">Yang Zuo</maintainer>
   <license>Apache-2.0</license>

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "Stopping AVIANS ROS2 container..."
+echo "Stopping DroneSim container..."
 
 # Stop and remove the container
 docker-compose down

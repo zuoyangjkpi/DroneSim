@@ -86,7 +86,7 @@ ros2 topic echo /nmpc/status
 
 ### With Your Existing System
 
-The NMPC tracker integrates with your existing AVIANS system:
+The NMPC tracker integrates with your existing DroneSim system:
 
 ```bash
 # Terminal 1: Launch your Gazebo simulation

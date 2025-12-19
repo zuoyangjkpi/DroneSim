@@ -13,7 +13,7 @@ from std_msgs.msg import String
 from .api_client import QwenAPIError, QwenMissionClient, build_fallback_plan
 
 SYSTEM_PROMPT = """
-You are a YAML mission planner for AVIANS drone system. Follow these rules EXACTLY:
+You are a YAML mission planner for the DroneSim drone system. Follow these rules EXACTLY:
 
 CRITICAL FORMATTING RULES:
 1. Output ONLY valid YAML (no prose, no markdown code fences like ```yaml)

@@ -1,15 +1,15 @@
 # PX4 Bridge Package
 
-Bridge between AVIANS ROS2 system and PX4 autopilot using uXRCE-DDS.
+Bridge between DroneSim system and PX4 autopilot using uXRCE-DDS.
 
 ## Overview
 
-This package enables communication between the AVIANS ROS2 control system (running on NVIDIA Orin NX) and the Pixhawk 6X autopilot running PX4 v1.16.0 firmware.
+This package enables communication between the DroneSim control system (running on NVIDIA Orin NX) and the Pixhawk 6X autopilot running PX4 v1.16.0 firmware.
 
 ## Architecture
 
 ```
-AVIANS ROS2 (Orin NX)                    Pixhawk 6X (PX4 v1.16.0)
+DroneSim (Orin NX)                       Pixhawk 6X (PX4 v1.16.0)
 ━━━━━━━━━━━━━━━━━━━━                    ━━━━━━━━━━━━━━━━━━━━━━━━
 
 ┌─────────────────────┐                 ┌──────────────────────┐
@@ -21,23 +21,23 @@ AVIANS ROS2 (Orin NX)                    Pixhawk 6X (PX4 v1.16.0)
            v                                       v
 ┌─────────────────────┐  uXRCE-DDS    ┌──────────────────────┐
 │  PX4 Bridge Node    │◄─────────────►│  PX4 Firmware        │
-│  /fmu/in/*          │   (Serial/    │  AVIANS Controller   │
+│  /fmu/in/*          │   (Serial/    │  DroneSim Controller │
 │  /fmu/out/*         │    Ethernet)  │  uORB Topics         │
 └─────────────────────┘                └──────────────────────┘
 ```
 
 ## Communication Topics
 
-### From AVIANS to PX4 (`/fmu/in/`):
+### From DroneSim to PX4 (`/fmu/in/`):
 - `/fmu/in/offboard_control_mode` - Control mode selection
 - `/fmu/in/trajectory_setpoint` - Position/velocity/acceleration commands
 - `/fmu/in/vehicle_command` - Arm/disarm and mode commands
 
-### From PX4 to AVIANS (`/fmu/out/`):
+### From PX4 to DroneSim (`/fmu/out/`):
 - `/fmu/out/vehicle_status` - PX4 system status
 - `/fmu/out/vehicle_odometry` - Vehicle state estimation
 
-### AVIANS Internal Topics:
+### DroneSim Internal Topics:
 - `/X3/odometry` - Drone odometry from sensors
 - `/drone/control/velocity_setpoint` - NMPC velocity commands
 - `/drone/control/waypoint_command` - Waypoint commands
@@ -110,7 +110,7 @@ You should see topics like:
 ros2 topic echo /fmu/out/vehicle_status
 ```
 
-## Integration with AVIANS
+## Integration with DroneSim
 
 The bridge automatically:
 1. Subscribes to NMPC control commands
@@ -120,7 +120,7 @@ The bridge automatically:
 
 ## Frame Conventions
 
-- **ROS2/AVIANS**: ENU (East-North-Up)
+- **ROS2/DroneSim**: ENU (East-North-Up)
 - **PX4**: NED (North-East-Down)
 
 The bridge handles conversion automatically:

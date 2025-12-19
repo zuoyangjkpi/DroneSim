@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# AVIANS ROS2 PORT1 - Comprehensive Test Suite
-# ============================================
+# DroneSim - Comprehensive Test Suite
+# ===================================
 
-echo "🚀 AVIANS ROS2 PORT1 - Comprehensive Test Suite"
-echo "================================================"
+echo "🚀 DroneSim - Comprehensive Test Suite"
+echo "======================================"
 
 # Color codes for output
 RED='\033[0;31m'
@@ -152,7 +152,7 @@ resolve_gui_config_path() {
 # (gz-sim8 / ROS Jazzy), the equivalent plugins are named "gz-sim-*-system".
 # This helper creates lightweight symlinks so gz-sim can load those legacy names.
 setup_gz_ignition_system_plugin_compat() {
-    local compat_dir="/tmp/avians_gz_ignition_compat_plugins"
+    local compat_dir="/tmp/dronesim_gz_ignition_compat_plugins"
     mkdir -p "$compat_dir" 2>/dev/null || true
 
     # Map: legacy ignition-gazebo-* -> current gz-sim-* plugin
@@ -1200,7 +1200,7 @@ full_integration_test() {
     # fi
     
     print_status $BLUE "========================================"
-    print_status $GREEN "🎉 AVIANS system is running!"
+    print_status $GREEN "🎉 DroneSim system is running!"
     print_status $YELLOW "💡 Expected behavior:"
     print_status $YELLOW "   - See drone model in Gazebo"
     print_status $YELLOW "   - Drone should start flying and tracking walking_person in Gazebo"

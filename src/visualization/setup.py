@@ -15,7 +15,7 @@ setup(
     zip_safe=True,
     maintainer='Yang Zuo',
     maintainer_email='zuoyang0601@gmail.com',
-    description='Visualization tools for AVIANS_ROS2 (RViz markers, paths, status).',
+    description='Visualization tools for DroneSim (RViz markers, paths, status).',
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={

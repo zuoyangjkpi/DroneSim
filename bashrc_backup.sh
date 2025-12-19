@@ -110,8 +110,8 @@ fi
 # 8) Project paths
 # --------------------------
 export AIRSHIP_WS="$HOME/Edited_AirshipMPC"
-export DRONE_WS="$HOME/AVIANS_ROS2"
-export PX4_WS="$HOME/AVIANS_PX4"
+export DRONE_WS="$HOME/DroneSim"
+export PX4_WS="$HOME/DroneSim_PX4"
 
 # --------------------------
 # 9) ROS helpers
@@ -197,7 +197,7 @@ setup_airship_ros2() {
 
 # ROS2 (Jazzy) development environment
 setup_drone_ros2() {
-  echo "🚀 Setting up AVIANS (ROS2 / Jazzy)..."
+  echo "🚀 Setting up DroneSim (ROS2 / Jazzy)..."
   conda activate drone || { echo "❌ conda env 'drone' does not exist"; return 1; }
 
   # Keep the environment clean
@@ -269,7 +269,7 @@ setup_px4() {
   fi
 
   echo "🎯 PX4 build environment ready."
-  echo "💡 Example: make px4_fmu-v6x_avians_v1"
+  echo "💡 Example: make px4_fmu-v6x_dronesim_v1"
 }
 
 # Quick aliases

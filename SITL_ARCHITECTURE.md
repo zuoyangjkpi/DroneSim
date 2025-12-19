@@ -1,6 +1,6 @@
-# AVIANS_ROS2 + SLAM SITL Architecture
+# DroneSim + SLAM SITL Architecture
 
-Software-In-The-Loop (SITL) simulation architecture for integrating AVIANS autonomous control system with semantic SLAM.
+Software-In-The-Loop (SITL) simulation architecture for integrating DroneSim autonomous control system with semantic SLAM.
 
 ## System Overview
 
@@ -187,8 +187,8 @@ SLAM System ─→ /machine_1/command ─→ slam_sim_bridge ─→ /drone/contr
 ### Recommended Full Integration Launch:
 
 ```bash
-# Terminal 1: Start AVIANS SITL (Gazebo + Controllers)
-cd ~/AVIANS_ROS2
+# Terminal 1: Start DroneSim SITL (Gazebo + Controllers)
+cd ~/DroneSim
 ./SITL.sh --lake
 
 # Terminal 2: Start SLAM System
@@ -196,7 +196,7 @@ cd ~/SLAM
 ./slam_sitl.sh
 
 # Note: slam_sitl.sh should be modified to NOT start its own simulation
-# It should only start SLAM components that subscribe to topics from AVIANS SITL
+# It should only start SLAM components that subscribe to topics from DroneSim SITL
 ```
 
 ---
@@ -279,7 +279,7 @@ ros2 topic hz /X3/cmd_vel
 
 ## Future Improvements
 
-1. **Unified Launch File**: Create single launch file that coordinates both AVIANS and SLAM systems
+1. **Unified Launch File**: Create single launch file that coordinates both DroneSim and SLAM systems
 2. **Dynamic Reconfigure**: Add parameters for PID gains, camera settings
 3. **Multi-UAV Support**: Extend to multiple drones with unique namespaces
 4. **Hardware-In-Loop**: Add support for real flight controller (PX4/ArduPilot)
@@ -312,7 +312,7 @@ To run `SITL.sh` (with or without world arguments like `--lake`), the
 following local packages must be built in this workspace:
 
 ```bash
-cd ~/AVIANS_ROS2
+cd ~/DroneSim
 colcon build --symlink-install \
   --packages-select \
     custom_msgs \

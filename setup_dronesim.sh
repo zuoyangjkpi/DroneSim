@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# AVIANS ROS2 PORT1 - Automatic Setup and Build Script
+# DroneSim - Automatic Setup and Build Script
 # For Ubuntu 24.04 + ROS2 Jazzy
 # Author: Soja
 # Date: 2025.08.26
@@ -8,7 +8,7 @@
 set -e  # Exit on any error
 
 echo "=========================================="
-echo "AVIANS ROS2 PORT1 Setup Script"
+echo "DroneSim Setup Script"
 echo "Ubuntu 24.04 + ROS2 Jazzy"
 echo "=========================================="
 
@@ -51,7 +51,7 @@ if ! grep -q "24.04" /etc/os-release; then
     fi
 fi
 
-print_status "Starting AVIANS ROS2 setup..."
+print_status "Starting DroneSim setup..."
 
 # 1. Update system
 print_status "Updating system packages..."
@@ -212,7 +212,7 @@ print_status "Installing ROS dependencies with rosdep..."
 rosdep install --from-paths src --ignore-src -r -y
 
 # 13. Build the workspace
-print_status "Building AVIANS ROS2 workspace..."
+print_status "Building DroneSim workspace..."
 source /opt/ros/jazzy/setup.bash
 
 # Build in stages to handle dependencies
@@ -275,14 +275,14 @@ fi
 
 # 16. Create test script
 print_status "Creating test script..."
-cat > test_avians.sh << 'EOF'
+cat > test_dronesim.sh << 'EOF'
 #!/bin/bash
-# AVIANS ROS2 Test Script
+# DroneSim Test Script
 
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
-echo "Available AVIANS packages:"
+echo "Available DroneSim packages:"
 ros2 pkg list | grep -E "(neural_network|uav_msgs|pose_cov|projection|target_tracker)"
 
 echo ""
@@ -290,16 +290,16 @@ echo "Testing neural network detector node:"
 timeout 5s ros2 run neural_network_detector yolo12_detector_node --ros-args --log-level info || echo "Node test completed"
 
 echo ""
-echo "AVIANS ROS2 system is ready!"
+echo "DroneSim system is ready!"
 EOF
 
-chmod +x test_avians.sh
+chmod +x test_dronesim.sh
 
 print_success "=========================================="
-print_success "AVIANS ROS2 PORT1 Setup Completed!"
+print_success "DroneSim setup completed!"
 print_success "=========================================="
 print_success "Next steps:"
 print_success "1. Restart your terminal or run: source ~/.bashrc"
-print_success "2. Test the installation: ./test_avians.sh"
-print_success "3. Start developing with AVIANS ROS2!"
+print_success "2. Test the installation: ./test_dronesim.sh"
+print_success "3. Start developing with DroneSim!"
 print_success "=========================================="

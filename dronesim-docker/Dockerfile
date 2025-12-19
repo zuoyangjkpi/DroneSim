@@ -17,12 +17,12 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user
-RUN useradd -m -s /bin/bash aviansuser && \
-    echo "aviansuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+RUN useradd -m -s /bin/bash dronesimuser && \
+    echo "dronesimuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# Switch to aviansuser
-USER aviansuser
-WORKDIR /home/aviansuser
+# Switch to dronesimuser
+USER dronesimuser
+WORKDIR /home/dronesimuser
 
 # Install Miniconda
 RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
@@ -31,7 +31,7 @@ RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -
     ~/miniconda3/bin/conda init bash
 
 # Ensure PATH includes conda
-ENV PATH="/home/aviansuser/miniconda3/bin:$PATH"
+ENV PATH="/home/dronesimuser/miniconda3/bin:$PATH"
 
 # Copy the conda environment spec and create it
 COPY airship_ros2_env.yml /tmp/airship_ros2_env.yml
@@ -88,7 +88,7 @@ RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
 RUN git clone https://github.com/zuoyangjkpi/Edited_PORT1.git AVIANS_ROS2_PORT1
 
 # Change to the workspace dir
-WORKDIR /home/aviansuser/AVIANS_ROS2_PORT1
+WORKDIR /home/dronesimuser/AVIANS_ROS2_PORT1
 
 # Run the setup script
 RUN source ~/.bashrc && \
@@ -106,20 +106,20 @@ RUN source ~/.bashrc && \
     colcon build
 
 # Source the workspace setup
-RUN echo "source /home/aviansuser/AVIANS_ROS2_PORT1/install/setup.bash" >> ~/.bashrc
+RUN echo "source /home/dronesimuser/AVIANS_ROS2_PORT1/install/setup.bash" >> ~/.bashrc
 
 # Create the startup script
-RUN echo '#!/bin/bash' > /home/aviansuser/start_avians.sh && \
-    echo 'source ~/.bashrc' >> /home/aviansuser/start_avians.sh && \
-    echo 'conda activate airship_ros2' >> /home/aviansuser/start_avians.sh && \
-    echo 'source /opt/ros/jazzy/setup.bash' >> /home/aviansuser/start_avians.sh && \
-    echo 'source /home/aviansuser/AVIANS_ROS2_PORT1/install/setup.bash' >> /home/aviansuser/start_avians.sh && \
-    echo 'echo "AVIANS ROS2 environment ready!"' >> /home/aviansuser/start_avians.sh && \
-    echo 'exec "$@"' >> /home/aviansuser/start_avians.sh && \
-    chmod +x /home/aviansuser/start_avians.sh
+RUN echo '#!/bin/bash' > /home/dronesimuser/start_dronesim.sh && \
+    echo 'source ~/.bashrc' >> /home/dronesimuser/start_dronesim.sh && \
+    echo 'conda activate airship_ros2' >> /home/dronesimuser/start_dronesim.sh && \
+    echo 'source /opt/ros/jazzy/setup.bash' >> /home/dronesimuser/start_dronesim.sh && \
+    echo 'source /home/dronesimuser/AVIANS_ROS2_PORT1/install/setup.bash' >> /home/dronesimuser/start_dronesim.sh && \
+    echo 'echo "DroneSim environment ready!"' >> /home/dronesimuser/start_dronesim.sh && \
+    echo 'exec "$@"' >> /home/dronesimuser/start_dronesim.sh && \
+    chmod +x /home/dronesimuser/start_dronesim.sh
 
 # Entrypoint
-ENTRYPOINT ["/home/aviansuser/start_avians.sh"]
+ENTRYPOINT ["/home/dronesimuser/start_dronesim.sh"]
 CMD ["/bin/bash"]
 
 # Expose common ports

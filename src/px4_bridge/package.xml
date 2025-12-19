@@ -3,7 +3,7 @@
 <package format="3">
   <name>px4_bridge</name>
   <version>1.0.0</version>
-  <description>Bridge between AVIANS ROS2 system and PX4 autopilot via uXRCE-DDS</description>
+  <description>Bridge between DroneSim system and PX4 autopilot via uXRCE-DDS</description>
   <maintainer email="zuoyang0601@gmail.com">Yang Zuo</maintainer>
   <license>Apache-2.0</license>
 

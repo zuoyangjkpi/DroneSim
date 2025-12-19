@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SITL Launch Script for AVIANS_ROS2 + SLAM Integration
+# SITL Launch Script for DroneSim + SLAM Integration
 # Launches Gazebo simulation, Guidance Controller, RViz, and SLAM Bridge
 
 # Parse arguments

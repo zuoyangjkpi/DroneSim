@@ -1,13 +1,13 @@
 version: '3.8'
 
 services:
-  avians:
+  dronesim:
     build: 
       context: .
       dockerfile: Dockerfile
-    image: avians-ros2:latest
-    container_name: avians-ros2-container
-    hostname: avians-ros2
+    image: dronesim-ros2:latest
+    container_name: dronesim-ros2-container
+    hostname: dronesim-ros2
     
     # Networking
     network_mode: host
@@ -23,14 +23,14 @@ services:
     volumes:
       # X11 forwarding
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      - ${HOME}/.Xauthority:/home/aviansuser/.Xauthority:ro
+      - ${HOME}/.Xauthority:/home/dronesimuser/.Xauthority:ro
       
       # Shared folder (optional for development)
-      - ./shared:/home/aviansuser/shared:rw
+      - ./shared:/home/dronesimuser/shared:rw
       
       # Persistent data volumes
-      - avians_workspace:/home/aviansuser/AVIANS_ROS2_PORT1
-      - avians_conda:/home/aviansuser/miniconda3
+      - dronesim_workspace:/home/dronesimuser/AVIANS_ROS2_PORT1
+      - dronesim_conda:/home/dronesimuser/miniconda3
     
     # Device access
     devices:
@@ -52,7 +52,7 @@ services:
     ipc: host
     
     # Working directory
-    working_dir: /home/aviansuser/AVIANS_ROS2_PORT1
+    working_dir: /home/dronesimuser/AVIANS_ROS2_PORT1
     
     # Keep container running interactively
     tty: true
@@ -63,9 +63,9 @@ services:
 
 # Named volumes
 volumes:
-  avians_workspace:
+  dronesim_workspace:
     driver: local
-  avians_conda:
+  dronesim_conda:
     driver: local
 
 # Custom network (if not using host mode)

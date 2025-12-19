@@ -1,8 +1,8 @@
 /**
  * @file px4_bridge_node.cpp
- * @brief Bridge node between AVIANS ROS2 system and PX4 autopilot
+ * @brief Bridge node between DroneSim system and PX4 autopilot
  *
- * This node subscribes to AVIANS NMPC outputs and publishes to PX4 via uXRCE-DDS:
+ * This node subscribes to DroneSim NMPC outputs and publishes to PX4 via uXRCE-DDS:
  * 1. NMPC waypoint commands (position setpoints)
  * 2. NMPC attitude commands (yaw setpoints)
  * 3. State machine status
@@ -37,8 +37,8 @@ public:
     {
         RCLCPP_INFO(this->get_logger(), "🚁 PX4 Bridge Node starting...");
 
-        // Initialize subscribers from AVIANS system
-        init_avians_subscribers();
+        // Initialize subscribers from DroneSim system
+        init_dronesim_subscribers();
 
         // Initialize publishers to PX4
         init_px4_publishers();
@@ -56,7 +56,7 @@ public:
     }
 
 private:
-    void init_avians_subscribers()
+    void init_dronesim_subscribers()
     {
         // Subscribe to drone odometry feedback from PX4
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
@@ -116,7 +116,7 @@ private:
             std::bind(&PX4BridgeNode::px4_status_callback, this, std::placeholders::_1));
     }
 
-    // ========== AVIANS Callbacks ==========
+    // ========== DroneSim Callbacks ==========
 
     void odometry_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
     {
@@ -286,7 +286,7 @@ private:
 
     // ========== Member Variables ==========
 
-    // Subscribers from AVIANS
+    // Subscribers from DroneSim
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr waypoint_sub_;
     rclcpp::Subscription<geometry_msgs::msg::Vector3Stamped>::SharedPtr attitude_sub_;

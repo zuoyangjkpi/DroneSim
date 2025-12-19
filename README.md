@@ -1,10 +1,10 @@
-# 🚁 AVIANS ROS2: Autonomous Drone Simulation & Control
+# 🚁 DroneSim: Autonomous Drone Simulation & Control
 
 ![ROS2](https://img.shields.io/badge/ROS2-Jazzy-blue) ![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04%20LTS-orange) ![Gazebo](https://img.shields.io/badge/Gazebo-Harmonic-green) ![PX4](https://img.shields.io/badge/PX4-v1.16-red)
 
 ## 📖 Overview
 
-**AVIANS ROS2** integrates **SLAM**, **LLM mission planning**, **YOLO detection**, **NMPC tracking**, and **PX4 hardware support** into a unified ROS2 framework for autonomous drone systems.
+**DroneSim** integrates **SLAM**, **LLM mission planning**, **YOLO detection**, **NMPC tracking**, and **PX4 hardware support** into a unified ROS2 framework for autonomous drone systems.
 
 ### Key Features
 - **🗺️ SLAM Integration**: ORB-SLAM3 stereo + ESDF mapping (separate workspace)
@@ -19,11 +19,11 @@
 
 ```bash
 # 1. Clone repository and navigate to it
-cd AVIANS_ROS2
+cd DroneSim
 
 # 2. Run automated installer (installs ROS2 Jazzy, dependencies, ONNX Runtime)
-chmod +x setup_avians_ros2.sh
-./setup_avians_ros2.sh
+chmod +x setup_dronesim.sh
+./setup_dronesim.sh
 
 # 3. Reload environment
 source ~/.bashrc
@@ -44,7 +44,7 @@ sudo apt install -y \
   ros-jazzy-nav-msgs
 
 # Build workspace
-cd ~/AVIANS_ROS2
+cd ~/DroneSim
 source /opt/ros/jazzy/setup.bash
 colcon build --symlink-install
 source install/setup.bash
@@ -56,7 +56,7 @@ For LLM-based mission planning (option 1 in `standalone_test.sh`), configure you
 
 ```bash
 # Navigate to the manual_mission_planner package
-cd ~/AVIANS_ROS2/src/manual_mission_planner/manual_mission_planner
+cd ~/DroneSim/src/manual_mission_planner/manual_mission_planner
 
 # Create .env file from template
 cp .env_example .env
@@ -136,7 +136,7 @@ nano .env
 ## 📦 Package Structure
 
 ```
-AVIANS_ROS2/
+DroneSim/
 ├── src/
 │   ├── slam_sim_bridge/           # SLAM ↔ Simulation adapter
 │   ├── neural_network_detector/   # YOLO v12 detection
@@ -154,7 +154,7 @@ AVIANS_ROS2/
 ├── controller_tuning.sh           # Controller test environment
 ├── standalone_test.sh             # Comprehensive test suite
 ├── pixhawk_hitl_test.sh          # Pixhawk HITL testing
-└── setup_avians_ros2.sh          # Installation script
+└── setup_dronesim.sh             # Installation script
 ```
 
 ---
@@ -218,8 +218,8 @@ ros2 topic hz /X3/odometry              # Expect ~100 Hz
 The SLAM system runs in a **separate workspace** (`~/SLAM/semantic_slam_ws`):
 
 ```bash
-# Terminal 1: Start AVIANS SITL
-cd ~/AVIANS_ROS2 && ./SITL.sh --lake
+# Terminal 1: Start DroneSim SITL
+cd ~/DroneSim && ./SITL.sh --lake
 
 # Terminal 2: Start SLAM System
 cd ~/SLAM && ./slam_sitl.sh
@@ -252,6 +252,6 @@ Apache License 2.0
 
 <div align="center">
 
-**🚁 AVIANS: Autonomous Vision-based Intelligent Aerial Navigation System**
+**🚁 DroneSim: Autonomous Vision-based Intelligent Aerial Navigation System**
 
 </div>

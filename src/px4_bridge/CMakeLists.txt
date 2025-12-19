@@ -17,7 +17,7 @@ find_package(px4_msgs REQUIRED)
 # Include directories
 include_directories(include)
 
-# PX4 Bridge Node - sends data from AVIANS to PX4
+# PX4 Bridge Node - sends data from DroneSim to PX4
 add_executable(px4_bridge_node
   src/px4_bridge_node.cpp
 )

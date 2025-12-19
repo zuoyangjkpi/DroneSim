@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "=========================================="
-echo "Building AVIANS ROS2 Docker image"
+echo "Building DroneSim Docker image"
 echo "=========================================="
 
 # Allow X11 access for Docker

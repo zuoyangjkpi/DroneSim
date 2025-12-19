@@ -1,6 +1,6 @@
 """
 Launch file for PX4 Bridge Node
-Connects AVIANS ROS2 system to PX4 autopilot via uXRCE-DDS
+Connects DroneSim system to PX4 autopilot via uXRCE-DDS
 """
 
 from launch import LaunchDescription

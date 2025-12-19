@@ -1,6 +1,6 @@
-# AVIANS ROS2 Docker Environment
+# DroneSim Docker Environment
 
-This Docker setup ships with the complete AVIANS ROS2 PORT1 workspace, including:
+This Docker setup ships with the DroneSim workspace (PORT1 base), including:
 
 - Ubuntu 24.04 base image
 - Full ROS2 Jazzy desktop install
@@ -13,7 +13,7 @@ This Docker setup ships with the complete AVIANS ROS2 PORT1 workspace, including
 ### 1. Build the image
 
 ```bash
-cd ~/avians-docker
+cd ~/dronesim-docker
 ./build.sh
 ```
 
@@ -38,7 +38,7 @@ cd ~/avians-docker
 ## Directory Layout
 
 ```
-~/avians-docker/
+~/dronesim-docker/
 ├── Dockerfile              # Docker image definition
 ├── docker-compose.yml      # Docker Compose config
 ├── airship_ros2_env.yml    # Conda environment spec
@@ -52,8 +52,8 @@ cd ~/avians-docker
 
 ## Container Environment
 
-- **User**: `aviansuser` (non-root, passwordless sudo)
-- **Workspace**: `/home/aviansuser/AVIANS_ROS2_PORT1`
+- **User**: `dronesimuser` (non-root, passwordless sudo)
+- **Workspace**: `/home/dronesimuser/AVIANS_ROS2_PORT1`
 - **Conda env**: `airship_ros2` (auto-activated)
 - **ROS2**: Jazzy
 - **Network mode**: host (shares the host network)
@@ -64,7 +64,7 @@ The container automatically runs:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
-source /home/aviansuser/AVIANS_ROS2_PORT1/install/setup.bash
+source /home/dronesimuser/AVIANS_ROS2_PORT1/install/setup.bash
 conda activate airship_ros2
 ```
 
@@ -77,8 +77,8 @@ conda activate airship_ros2
 ros2 pkg list | grep -E "(neural_network|uav_msgs|pose_cov|projection|target_tracker)"
 
 # Run tests
-cd /home/aviansuser/AVIANS_ROS2_PORT1
-./test_avians.sh
+cd /home/dronesimuser/AVIANS_ROS2_PORT1
+# run provided test or launch scripts as needed
 
 # Launch a detector node
 ros2 run neural_network_detector yolo12_detector_node
@@ -104,7 +104,7 @@ xhost +local:docker
 
 ### Permission issues
 
-Commands run as `aviansuser`, who has passwordless sudo inside the container.
+Commands run as `dronesimuser`, who has passwordless sudo inside the container.
 
 ### Network conflicts
 
@@ -120,10 +120,10 @@ Feel free to tweak:
 
 ## Moving to a New Machine
 
-1. Copy the entire `avians-docker` folder to the new system.
+1. Copy the entire `dronesim-docker` folder to the new system.
 2. Install Docker and Docker Compose.
 3. Run `./build.sh` to build the image.
 4. Run `./run.sh` to start the container.
 5. Run `./shell.sh` to begin working.
 
-You're ready to use AVIANS ROS2 on the new computer!
+You're ready to use DroneSim on the new computer!

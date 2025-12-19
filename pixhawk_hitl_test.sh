@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# AVIANS Pixhawk Hardware-in-the-Loop (HITL) Test Suite
+# DroneSim Pixhawk Hardware-in-the-Loop (HITL) Test Suite
 # =========================================================
 # This script drives the Pixhawk 6X hardware-in-the-loop test
 # All low-level controllers stay on PX4 firmware; ROS2 handles high-level logic
 
-echo "🚁 AVIANS Pixhawk HITL Test Suite"
+echo "🚁 DroneSim Pixhawk HITL Test Suite"
 echo "===================================="
 
 # Color codes for output
@@ -82,7 +82,7 @@ check_px4_connection() {
         print_status $RED "❌ No PX4 topics found"
         print_status $YELLOW "💡 Make sure:"
         print_status $YELLOW "   1. Pixhawk is connected via USB"
-        print_status $YELLOW "   2. AVIANS firmware is flashed"
+        print_status $YELLOW "   2. DroneSim firmware is flashed"
         print_status $YELLOW "   3. uXRCE-DDS is configured on TELEM2"
         return 1
     fi
@@ -442,7 +442,7 @@ monitor_px4_topics() {
 main() {
     # Check if we're in the right directory
     if [ ! -d "src" ]; then
-        print_status $RED "❌ Error: Please run this script from AVIANS_ROS2 root directory"
+        print_status $RED "❌ Error: Please run this script from DroneSim root directory"
         exit 1
     fi
 
