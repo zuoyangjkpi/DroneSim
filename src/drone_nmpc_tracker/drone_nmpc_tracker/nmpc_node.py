@@ -36,8 +36,8 @@ class NMPCTrackerNode(Node):
         
         # Node state
         self.drone_state_received = False
-        self.person_detected = False
-        self.last_person_detection_time = 0.0
+        self.target_detected = False
+        self.last_target_detection_time = 0.0
         self.control_enabled = False
         self.last_tracking_yaw: float = 0.0
         self._planned_waypoint_sequence: List[np.ndarray] = []
@@ -69,8 +69,8 @@ class NMPCTrackerNode(Node):
         self.declare_parameter('camera_frame', 'X3/camera_link')
         self.declare_parameter('camera_optical_frame', 'X3/camera_rgb_optical_frame')
         # Align with projection_model output topic started in the integration script
-        self.declare_parameter('projected_detection_topic', '/person_detections/world_frame')
-        self.declare_parameter('detection_topic', '/person_detections')
+        self.declare_parameter('projected_detection_topic', '/target_detections/world_frame')
+        self.declare_parameter('detection_topic', '/target_detections')
         self.declare_parameter('detection_score_threshold', 0.5)
         self.declare_parameter('camera_image_width', 640)
         self.declare_parameter('camera_image_height', 480)
@@ -197,7 +197,7 @@ class NMPCTrackerNode(Node):
             sensor_qos
         )
         
-        # Person detection subscriber (using projected detections from projection_model)
+        # Target detection subscriber (using projected detections from projection_model)
         detection_qos = QoSProfile(
             reliability=ReliabilityPolicy.RELIABLE,
             history=HistoryPolicy.KEEP_LAST,
@@ -291,7 +291,7 @@ class NMPCTrackerNode(Node):
             self.get_logger().error(f"Error processing drone state: {e}")
     
     def projected_detection_callback(self, msg: PoseWithCovarianceStamped):
-        """Process projected person detection messages from projection_model."""
+        """Process projected target detection messages from projection_model."""
         try:
             current_time = self.get_clock().now().nanoseconds / 1e9
 
@@ -307,17 +307,17 @@ class NMPCTrackerNode(Node):
             person_velocity = self._estimate_person_velocity(filtered_position, current_time)
 
             # Update controller
-            self.controller.set_person_detection(
+            self.controller.set_target_detection(
                 filtered_position,
                 person_velocity,
                 detection_time=current_time,
                 allow_phase_change=True,
             )
             self._detection_streak += 1
-            self._handle_person_detection(filtered_position, person_velocity)
+            self._handle_target_detection(filtered_position, person_velocity)
 
         except Exception as e:
-            self.get_logger().error(f"Error processing projected person detection: {e}")
+            self.get_logger().error(f"Error processing projected target detection: {e}")
 
     def detection_array_callback(self, msg: NeuralNetworkDetectionArray):
         """Fallback projection when world-frame detections are not available."""
@@ -342,14 +342,14 @@ class NMPCTrackerNode(Node):
         filtered_position = self._filter_person_position(person_position)
         person_velocity = self._estimate_person_velocity(filtered_position, timestamp)
 
-        self.controller.set_person_detection(
+        self.controller.set_target_detection(
             filtered_position,
             person_velocity,
             detection_time=timestamp,
             allow_phase_change=True,
         )
         self._detection_streak += 1
-        self._handle_person_detection(filtered_position, person_velocity)
+        self._handle_target_detection(filtered_position, person_velocity)
     
     def _filter_person_position(self, position: np.ndarray) -> np.ndarray:
         if self._filtered_person_position is None:
@@ -581,21 +581,21 @@ class NMPCTrackerNode(Node):
             [2 * (xz - wy), 2 * (yz + wx), 1 - 2 * (xx + yy)]
         ], dtype=np.float64)
     
-    def _handle_person_detection(self, person_position: np.ndarray, person_velocity: np.ndarray):
-        """Common logic when a person detection is received"""
+    def _handle_target_detection(self, person_position: np.ndarray, person_velocity: np.ndarray):
+        """Common logic when a target detection is received"""
         current_time = self._now()
-        first_detection = not self.person_detected
+        first_detection = not self.target_detected
 
         if self._detection_streak < self.required_detection_confirmations:
             # Still waiting for confirmation streak
-            self.person_detected = False
+            self.target_detected = False
             self._publish_person_estimate(person_position)
             return
 
-        self.person_detected = True
-        self.last_person_detection_time = current_time
+        self.target_detected = True
+        self.last_target_detection_time = current_time
         if first_detection:
-            self.get_logger().info(f"✅ Person detected at {person_position}")
+            self.get_logger().info(f"✅ Target detected at {person_position}")
 
         self._publish_person_estimate(person_position)
 
@@ -619,10 +619,10 @@ class NMPCTrackerNode(Node):
         if self.control_enabled:
             self.get_logger().info("NMPC control enabled by TrackTargetModule")
             # Reset detection state when enabled to avoid stale timeout
-            self.person_detected = False
+            self.target_detected = False
             self._detection_streak = 0
             self._filtered_person_position = None
-            self.last_person_detection_time = self._now()
+            self.last_target_detection_time = self._now()
             self.controller.clear_detection()
         else:
             self.get_logger().info("NMPC control disabled")
@@ -643,22 +643,22 @@ class NMPCTrackerNode(Node):
             self.get_logger().warn("No drone state received - waiting for odometry data")
             return
 
-        if self.person_detected and current_time - self.last_person_detection_time > self.person_timeout:
-            self.person_detected = False
+        if self.target_detected and current_time - self.last_target_detection_time > self.person_timeout:
+            self.target_detected = False
             self.controller.clear_detection()
             self._filtered_person_position = None
             self._detection_streak = 0
-            self.get_logger().warn("Person detection timeout - tracking paused")
+            self.get_logger().warn("Target detection timeout - tracking paused")
 
-        if not self.person_detected:
+        if not self.target_detected:
             return
 
         self._perform_tracking()
 
     def _perform_tracking(self):
         """Bypass NMPC optimization and push precomputed target/waypoints directly."""
-        if not self.person_detected:
-            # If TRACK mode loses the person, let higher-level logic switch modules
+        if not self.target_detected:
+            # If TRACK mode loses the target, let higher-level logic switch modules
             self.get_logger().warn('TRACK mode has no target; ignoring tracking command')
             return
 
@@ -851,7 +851,7 @@ class NMPCTrackerNode(Node):
             pitch_cmd = 0.0
 
         current_pos = self.controller.current_state.data[nmpc_config.STATE_X:nmpc_config.STATE_Z+1]
-        if self.controller.person_detected:
+        if self.controller.target_detected:
             person_pos = self.controller.person_position
             to_person = person_pos - current_pos
             yaw_cmd = math.atan2(to_person[1], to_person[0])
@@ -1049,7 +1049,7 @@ class NMPCTrackerNode(Node):
             )
 
             msg.data = [
-                float(status['person_detected']),
+                float(status['target_detected']),
                 desired_distance,
                 self.fixed_tracking_altitude,  # tracking altitude for visualisation
                 status['optimization_time'],

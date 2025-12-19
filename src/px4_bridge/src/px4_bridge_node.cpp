@@ -166,9 +166,9 @@ private:
 
     void nmpc_status_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg)
     {
-        // msg.data: [person_detected, desired_distance, tracking_altitude, ..., current_distance?]
+        // msg.data: [target_detected, desired_distance, tracking_altitude, ..., current_distance?]
         if (msg->data.size() >= 3) {
-            person_detected_ = (msg->data[0] > 0.5);
+            target_detected_ = (msg->data[0] > 0.5);
             desired_tracking_distance_ = msg->data[1];
             tracking_altitude_ = msg->data[2];
         }
@@ -321,7 +321,7 @@ private:
     bool attitude_enabled_ = false;
 
     // PX4 status
-    bool person_detected_ = false;
+    bool target_detected_ = false;
     bool px4_armed_ = false;
     bool px4_offboard_ = false;
 

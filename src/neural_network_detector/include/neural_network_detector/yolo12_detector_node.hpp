@@ -144,6 +144,17 @@ private:
 
     bool validateDetection(const neural_network_msgs::msg::NeuralNetworkDetection& detection,
     const cv::Size& image_size) const;
+
+    /**
+     * @brief Parameter change callback for runtime reconfiguration
+     * @param parameters Vector of changed parameters
+     * @return SetParametersResult indicating success or failure
+     */
+    rcl_interfaces::msg::SetParametersResult parametersCallback(
+        const std::vector<rclcpp::Parameter>& parameters);
+
+    // Parameter callback handle
+    rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_handle_;
 };
 
 } // namespace yolo12_detector_node

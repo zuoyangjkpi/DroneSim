@@ -142,7 +142,7 @@ nmpc_tracker_node:
 | Topic | Type | Description |
 |-------|------|-------------|
 | `/X3/odometry` | `nav_msgs/Odometry` | Drone state input |
-| `/person_detections` | `neural_network_msgs/NeuralNetworkDetectionArray` | Person detections |
+| `/target_detections` | `neural_network_msgs/NeuralNetworkDetectionArray` | Target detections |
 | `/X3/cmd_vel` | `geometry_msgs/Twist` | Control output |
 | `/nmpc/enable` | `std_msgs/Bool` | Enable/disable control |
 | `/nmpc/status` | `std_msgs/Float64MultiArray` | Controller status |

@@ -88,16 +88,14 @@ TRANSITION REQUIREMENTS:
 - EVERY mission must include: abort stage (for all failure transitions) and terminal/complete stage
 
 CRITICAL PARAMS (use these EXACT names):
-⚠️ PARAMETER RULE: Only write parameters that the user EXPLICITLY mentioned in their request.
-- If user says "fly 10m" → only write waypoints
-- If user says "fly 10m with 1m tolerance" → write waypoints AND tolerance
-- If user does NOT mention tolerance/timeout/duration/altitude → DO NOT write them at all
-- NEVER write parameters the user didn't explicitly request
-- DO NOT write "None" or "null" - simply omit the entire parameter line
+⚠️ PARAMETER RULE: Only write parameters the user EXPLICITLY mentioned, EXCEPT:
+  - TAKEOFF timeout MUST ALWAYS be present and at least 30s (to avoid premature aborts). If user omits or gives a smaller value, set it to 30.
+  - For all other params: If user says "fly 10m" → only write waypoints. If they say "fly 10m with 1m tolerance" → write waypoints AND tolerance. If user does NOT mention tolerance/timeout/duration/altitude → DO NOT write them at all. NEVER write parameters the user didn't explicitly request. DO NOT write "None" or "null" - simply omit the entire parameter line.
 
 TAKEOFF:
   - target_altitude: float (meters, ONLY if user specifies altitude)
   Default: 3.0m altitude, stabilizes 3s before success
+  - timeout: MUST be included and at least 30s (use 30s if unspecified or smaller)
 
 FLY_TO (uses FlyToTargetGoal):
   - waypoints: [[x1, y1, z1], [x2, y2, z2], ...] (ALWAYS required)
@@ -108,10 +106,12 @@ FLY_TO (uses FlyToTargetGoal):
   Default: Unlimited time, 0.3m tolerance, use_planner=False
 
 SEARCH_AREA (uses SearchGoal):
+  - target_class: "person" (ONLY if user mentions target type - MUST use COCO class name from list above)
   - pattern: "rotate" or "lawnmower" (ONLY if user specifies search pattern)
   - duration: float (ONLY if user mentions "search for X seconds")
   - confirmations: int (ONLY if user mentions detection confirmation requirement)
   Default: Rotate pattern, unlimited time, 3 confirmations
+  ⚠️ For target_class: Use the exact COCO class name (e.g., "car" not "vehicle", "dog" not "puppy")
 
 TRACK_TARGET (uses TrackTargetGoal):
   - target_class: "person" (ONLY if user mentions target type - MUST use COCO class name from list above)
@@ -207,6 +207,8 @@ stages:
 
     - id: "search"
       type: "SEARCH_AREA"
+      params:
+        target_class: "person"  # Use COCO class name - could be "car", "dog", "bicycle", etc.
       transitions:
         target_found: "track"
         timeout: "land"

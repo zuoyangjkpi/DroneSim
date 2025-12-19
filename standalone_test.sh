@@ -471,7 +471,7 @@ text_prompt_test() {
         --ros-args \
         -p topics.robot:="/X3/pose_with_covariance" \
         -p topics.camera:="/machine_1/camera/pose" \
-        -p detections_topic:="/person_detections" \
+        -p detections_topic:="/target_detections" \
         > /tmp/projection_model.log 2>&1 &
     sleep 3
 
@@ -624,7 +624,7 @@ system_status_check() {
         print_status $YELLOW "⚠️  Camera topic not available"
     fi
     
-    if ros2 topic list | grep -q "/person_detections"; then
+    if ros2 topic list | grep -q "/target_detections"; then
         print_status $GREEN "✅ Detection topic available"
     else
         print_status $YELLOW "⚠️  Detection topic not available"
@@ -771,7 +771,6 @@ test_yolo_detector() {
         -p "labels_path:=$labels_path" \
         -p "use_gpu:=false" \
         -p "confidence_threshold:=0.3" \
-        -p "desired_class:=0" \
         -p "iou_threshold:=0.4" \
         -p "publish_debug_image:=true" \
         -p "max_update_rate_hz:=2.0" > /tmp/yolo.log 2>&1 &
@@ -785,12 +784,12 @@ test_yolo_detector() {
         print_status $GREEN "✅ YOLO detector started"
         
         # Wait for detection topic
-        if wait_for_topic "/person_detections" 10; then
+        if wait_for_topic "/target_detections" 10; then
             print_status $GREEN "✅ Detection topic is available"
             
             # Check if detections are being published
             print_status $YELLOW "🔍 Checking for detections..."
-            if check_topic_rate "/person_detections" 0.1; then
+            if check_topic_rate "/target_detections" 0.1; then
                 print_status $GREEN "✅ YOLO is publishing detections!"
             else
                 print_status $YELLOW "⚠️  No detections yet (this is normal if no people in view)"
@@ -825,8 +824,8 @@ monitor_topics() {
     fi
     
     # Check detection topic
-    if ros2 topic list | grep -q "/person_detections"; then
-        check_topic_rate "/person_detections" 0.1
+    if ros2 topic list | grep -q "/target_detections"; then
+        check_topic_rate "/target_detections" 0.1
     fi
     
     # Check NMPC topics
@@ -844,7 +843,7 @@ monitor_topics() {
     ros2 topic info /camera/image_raw 2>/dev/null || echo "  Not available"
     
     echo "Detection topic info:"
-    ros2 topic info /person_detections 2>/dev/null || echo "  Not available"
+    ros2 topic info /target_detections 2>/dev/null || echo "  Not available"
     
     echo "NMPC Drone odometry info:"
     ros2 topic info /X3/odometry 2>/dev/null || echo "  Not available"
@@ -979,8 +978,8 @@ full_integration_test() {
         -p topics.camera:="/machine_1/camera/pose" \
         -p topics.optical:="/machine_1/camera/pose_optical" \
         -p camera.info_topic:="/camera/camera_info" \
-        -p projected_object_topic:="/person_detections/world_frame" \
-        -p detections_topic:="/person_detections" \
+        -p projected_object_topic:="/target_detections/world_frame" \
+        -p detections_topic:="/target_detections" \
         > /tmp/projection_model.log 2>&1 &
     local projection_pid=$!
     sleep 3
@@ -1120,7 +1119,7 @@ full_integration_test() {
     #     print_status $RED "  ❌ Camera images not available"
     # fi
     
-    # if wait_for_topic "/person_detections" 5; then
+    # if wait_for_topic "/target_detections" 5; then
     #     print_status $GREEN "  ✅ Person detections available"
     # else
     #     print_status $RED "  ❌ Person detections not available"
@@ -1146,7 +1145,7 @@ full_integration_test() {
     # fi
     
     # # Check new component topics
-    # if wait_for_topic "/person_detections/world_frame" 5; then
+    # if wait_for_topic "/target_detections/world_frame" 5; then
     #     print_status $GREEN "  ✅ Projected detections to world frame available"
     # else
     #     print_status $RED "  ❌ Projected detections to world frame not available"
@@ -1162,7 +1161,7 @@ full_integration_test() {
     # print_status $GREEN "🎯 System functionality verification:"
     
     # # Check topic data rates
-    # if check_topic_rate "/person_detections" 1.0; then
+    # if check_topic_rate "/target_detections" 1.0; then
     #     print_status $GREEN "  ✅ Person detections are being published"
     # else
     #     print_status $YELLOW "  ⚠️  Person detection data rate is low"
@@ -1188,7 +1187,7 @@ full_integration_test() {
     # fi
     
     # # Check new component data rates
-    # if check_topic_rate "/person_detections/world_frame" 1.0; then
+    # if check_topic_rate "/target_detections/world_frame" 1.0; then
     #     print_status $GREEN "  ✅ Projected detections are being published"
     # else
     #     print_status $YELLOW "  ⚠️  Projected detection data rate is low"
@@ -1236,7 +1235,7 @@ nmpc_person_tracking_test() {
         print_status $GREEN "✅ Person simulator started"
         
         # Wait for person detection topic
-        if wait_for_topic "/person_detections" 5; then
+        if wait_for_topic "/target_detections" 5; then
             print_status $GREEN "✅ Person detections available"
         else
             print_status $RED "❌ Person detections not available"
@@ -1278,7 +1277,7 @@ nmpc_person_tracking_test() {
     
     # Check person detection rate
     print_status $YELLOW "🔍 Checking person detection rate..."
-    if check_topic_rate "/person_detections" 5.0; then
+    if check_topic_rate "/target_detections" 5.0; then
         print_status $GREEN "✅ Person detections at good rate"
     else
         print_status $YELLOW "⚠️  Person detection rate lower than expected"
@@ -1356,7 +1355,7 @@ system_diagnostics_test() {
 
     # Test 2: Check YOLO topics
     print_status $BLUE "Test 2: Checking YOLO detection topics"
-    check_topic_diagnostics "/person_detections"
+    check_topic_diagnostics "/target_detections"
     check_topic_diagnostics "/detection_image"
 
     # Test 3: Check drone topics

@@ -59,7 +59,7 @@ public:
     void loadClassNames() {
         try {
             std::string package_share_dir = ament_index_cpp::get_package_share_directory("neural_network_detector");
-            std::string labels_path = package_share_dir + "/models/coco.names";
+            std::string labels_path = package_share_dir + "/YOLOs-CPP/models/coco.names";
 
             std::ifstream file(labels_path);
             if (!file.is_open()) {
@@ -102,7 +102,7 @@ public:
             std::bind(&DetectionVisualizerNode::imageCallback, this, std::placeholders::_1));
 
         detection_sub_ = this->create_subscription<neural_network_msgs::msg::NeuralNetworkDetectionArray>(
-            "/person_detections", 1,
+            "/target_detections", 1,
             std::bind(&DetectionVisualizerNode::detectionCallback, this, std::placeholders::_1));
 
         // Subscribe to NMPC status for tracking distance and altitude
@@ -129,7 +129,7 @@ public:
         annotated_image_pub_ = image_transport_->advertise("/detection_image", 1);
 
         RCLCPP_INFO(this->get_logger(), "Detection visualizer node initialized successfully");
-        RCLCPP_INFO(this->get_logger(), "Subscribing to: /camera/image_raw, /person_detections, /drone/controller/status, /X3/odometry");
+        RCLCPP_INFO(this->get_logger(), "Subscribing to: /camera/image_raw, /target_detections, /drone/controller/status, /X3/odometry");
         RCLCPP_INFO(this->get_logger(), "Publishing to: /detection_image");
     }
 
@@ -150,7 +150,7 @@ private:
 
     void nmpcStatusCallback(const std_msgs::msg::Float64MultiArray::ConstSharedPtr& msg)
     {
-        // msg.data format: [person_detected, desired_distance, tracking_altitude, optimization_time, iterations_used, cost_value, current_distance]
+        // msg.data format: [target_detected, desired_distance, tracking_altitude, optimization_time, iterations_used, cost_value, current_distance]
         if (msg->data.size() >= 3) {
             desired_tracking_distance_ = msg->data[1];
             tracking_altitude_ = msg->data[2];

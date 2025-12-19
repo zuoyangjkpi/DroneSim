@@ -308,8 +308,8 @@ def generate_launch_description():
         }],
         remappings=[
             ('image_raw', '/camera/image_raw'),
-            ('detections', '/person_detections'),
-            ('detection_count', '/person_detection_count'),  
+            ('detections', '/target_detections'),
+            ('detection_count', '/target_detection_count'),  
             ('feedback', '/neural_network_feedback'),
             ('debug_image', '/detection_debug_image'),
         ]
@@ -329,7 +329,7 @@ def generate_launch_description():
             # Topics
             'projected_object_topic': "/machine_1/object_detections/projected_to_world",
             'camera_debug_topic': "/machine_1/object_detections/camera_debug",
-            'detections_topic': "/person_detections",
+            'detections_topic': "/target_detections",
             'tracker_topic': "/machine_1/target_tracker/pose",
             'offset_topic': "/machine_1/target_tracker/offset",
             'feedback_topic': "/neural_network_feedback",

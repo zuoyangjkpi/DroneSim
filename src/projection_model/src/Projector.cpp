@@ -20,7 +20,7 @@ Projector::Projector() : Node("model_distance_from_height_node"), last_time_(rcl
   // Declare and get parameters
   this->declare_parameter("projected_object_topic", "/machine_1/object_detections/projected_to_world");
   this->declare_parameter("camera_debug_topic", "/machine_1/object_detections/camera_debug");
-  this->declare_parameter("detections_topic", "/person_detections");
+  this->declare_parameter("detections_topic", "/target_detections");
   this->declare_parameter("tracker_topic", "/machine_1/target_tracker/pose");
   this->declare_parameter("offset_topic", "/machine_1/target_tracker/offset");
   this->declare_parameter("feedback_topic", "/neural_network_feedback");

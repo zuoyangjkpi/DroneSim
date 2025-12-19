@@ -9,8 +9,41 @@ import math
 import numpy as np
 
 from std_msgs.msg import Bool, Float64MultiArray
+import rcl_interfaces.srv
+import rcl_interfaces.msg
 
 from .action_base import ActionModule, ActionContext, ActionOutcome
+
+
+# ---------------------------------------------------------------------------
+# COCO class name to ID mapping for YOLO detector
+# ---------------------------------------------------------------------------
+
+COCO_CLASS_MAP = {
+    "person": 0, "bicycle": 1, "car": 2, "motorbike": 3, "aeroplane": 4,
+    "bus": 5, "train": 6, "truck": 7, "boat": 8, "traffic light": 9,
+    "fire hydrant": 10, "stop sign": 11, "parking meter": 12, "bench": 13, "bird": 14,
+    "cat": 15, "dog": 16, "horse": 17, "sheep": 18, "cow": 19,
+    "elephant": 20, "bear": 21, "zebra": 22, "giraffe": 23, "backpack": 24,
+    "umbrella": 25, "handbag": 26, "tie": 27, "suitcase": 28, "frisbee": 29,
+    "skis": 30, "snowboard": 31, "sports ball": 32, "kite": 33, "baseball bat": 34,
+    "baseball glove": 35, "skateboard": 36, "surfboard": 37, "tennis racket": 38, "bottle": 39,
+    "wine glass": 40, "cup": 41, "fork": 42, "knife": 43, "spoon": 44,
+    "bowl": 45, "banana": 46, "apple": 47, "sandwich": 48, "orange": 49,
+    "broccoli": 50, "carrot": 51, "hot dog": 52, "pizza": 53, "donut": 54,
+    "cake": 55, "chair": 56, "sofa": 57, "pottedplant": 58, "bed": 59,
+    "diningtable": 60, "toilet": 61, "tvmonitor": 62, "laptop": 63, "mouse": 64,
+    "remote": 65, "keyboard": 66, "cell phone": 67, "microwave": 68, "oven": 69,
+    "toaster": 70, "sink": 71, "refrigerator": 72, "book": 73, "clock": 74,
+    "vase": 75, "scissors": 76, "teddy bear": 77, "hair drier": 78, "toothbrush": 79,
+}
+
+
+def get_coco_class_id(class_name: Optional[str]) -> Optional[int]:
+    """Convert COCO class name to class ID. Returns None if class_name is None or not found."""
+    if class_name is None:
+        return None
+    return COCO_CLASS_MAP.get(class_name.lower())
 
 
 # ---------------------------------------------------------------------------
@@ -59,6 +92,7 @@ class SearchGoal:
     duration: Optional[float] = None  # seconds
     center: Optional[Sequence[float]] = None  # xyz
     confirmations: int = 3
+    target_class: Optional[str] = None  # COCO class name (e.g., "person", "car", "truck")
 
 
 @dataclass
@@ -477,11 +511,67 @@ class TrackTargetModule(ActionModule):
         self._last_detection_time = 0.0
         self._currently_detected = False
 
+    def _reconfigure_yolo_detector(self, target_class: Optional[str]) -> None:
+        """Reconfigure YOLO detector's desired_class parameter at runtime."""
+        if target_class is None:
+            return
+
+        class_id = get_coco_class_id(target_class)
+        if class_id is None:
+            self.context.node.get_logger().warn(
+                f"[TrackTargetModule] Unknown COCO class '{target_class}', cannot reconfigure YOLO detector"
+            )
+            return
+
+        # Use ROS 2 parameter client to reconfigure YOLO detector node
+        from rclpy.parameter import Parameter
+        try:
+            yolo_node_name = "/yolo12_detector_node"
+            param_client = self.context.node.create_client(
+                rcl_interfaces.srv.SetParameters,
+                f"{yolo_node_name}/set_parameters"
+            )
+
+            if not param_client.wait_for_service(timeout_sec=1.0):
+                self.context.node.get_logger().warn(
+                    f"[TrackTargetModule] YOLO detector parameter service not available"
+                )
+                return
+
+            # Create SetParameters request
+            from rcl_interfaces.srv import SetParameters
+            from rcl_interfaces.msg import Parameter as ParamMsg, ParameterValue, ParameterType
+
+            request = SetParameters.Request()
+            param = ParamMsg()
+            param.name = "desired_class"
+            param.value.type = ParameterType.PARAMETER_INTEGER
+            param.value.integer_value = class_id
+            request.parameters = [param]
+
+            # Call service synchronously (with timeout)
+            future = param_client.call_async(request)
+            # Wait briefly for the parameter to be set
+            import time
+            time.sleep(0.1)
+
+            self.context.node.get_logger().info(
+                f"[TrackTargetModule] Reconfigured YOLO detector to detect class '{target_class}' (ID: {class_id})"
+            )
+        except Exception as exc:
+            self.context.node.get_logger().warn(
+                f"[TrackTargetModule] Failed to reconfigure YOLO detector: {exc}"
+            )
+
     def on_start(self, goal: TrackTargetGoal) -> None:
         self._goal = goal
         self._start_time = self.context.now()
         self._last_detection_time = 0.0
         self._currently_detected = False
+
+        # Reconfigure YOLO detector if target_class is specified
+        if goal.target_class:
+            self._reconfigure_yolo_detector(goal.target_class)
 
         # Enable low-level controllers via ActionContext
         self.context.enable_waypoint_control(True)
@@ -604,7 +694,66 @@ class SearchModule(ActionModule):
         # SearchModule is a pure execution module - no detection monitoring
         # MissionSequenceController handles detection and module switching
 
+    def _reconfigure_yolo_detector(self, target_class: Optional[str]) -> None:
+        """Reconfigure YOLO detector's desired_class parameter at runtime."""
+        if target_class is None:
+            return
+
+        class_id = get_coco_class_id(target_class)
+        if class_id is None:
+            self.context.node.get_logger().warn(
+                f"[SearchModule] Unknown COCO class '{target_class}', cannot reconfigure YOLO detector"
+            )
+            return
+
+        # Use ROS 2 parameter client to reconfigure YOLO detector node
+        from rclpy.parameter import Parameter
+        try:
+            yolo_node_name = "/yolo12_detector_node"
+            param_client = self.context.node.create_client(
+                rcl_interfaces.srv.SetParameters,
+                f"{yolo_node_name}/set_parameters"
+            )
+
+            if not param_client.wait_for_service(timeout_sec=1.0):
+                self.context.node.get_logger().warn(
+                    f"[SearchModule] YOLO detector parameter service not available"
+                )
+                return
+
+            # Create SetParameters request
+            from rcl_interfaces.srv import SetParameters
+            from rcl_interfaces.msg import Parameter as ParamMsg, ParameterValue, ParameterType
+
+            request = SetParameters.Request()
+            param = ParamMsg()
+            param.name = "desired_class"
+            param.value.type = ParameterType.PARAMETER_INTEGER
+            param.value.integer_value = class_id
+            request.parameters = [param]
+
+            # Call service synchronously (with timeout)
+            future = param_client.call_async(request)
+            # Wait briefly for the parameter to be set
+            import time
+            time.sleep(0.1)
+
+            self.context.node.get_logger().info(
+                f"[SearchModule] Reconfigured YOLO detector to detect class '{target_class}' (ID: {class_id})"
+            )
+        except Exception as exc:
+            self.context.node.get_logger().warn(
+                f"[SearchModule] Failed to reconfigure YOLO detector: {exc}"
+            )
+
     def on_start(self, goal: SearchGoal) -> None:
+        # Reconfigure YOLO detector if target_class is specified
+        if goal.target_class:
+            self._reconfigure_yolo_detector(goal.target_class)
+            self.context.node.get_logger().info(
+                f"[SearchModule] Searching for target class: {goal.target_class}"
+            )
+
         position = self.context.get_position()
         yaw = self.context.get_yaw() or 0.0
         if position is None:

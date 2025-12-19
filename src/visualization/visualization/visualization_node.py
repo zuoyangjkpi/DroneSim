@@ -20,7 +20,7 @@ class VisualizationNode(Node):
         self.drone_marker_pub = self.create_publisher(MarkerArray, '/drone_position_markers', 10)
 
         self.detection_sub = self.create_subscription(
-            NeuralNetworkDetectionArray, '/person_detections', self.detection_callback, 10)
+            NeuralNetworkDetectionArray, '/target_detections', self.detection_callback, 10)
         self.odom_sub = self.create_subscription(
             Odometry, '/X3/odometry', self.odometry_callback, 10)
         self.person_estimate_sub = self.create_subscription(

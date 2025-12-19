@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 import json
 
 import rclpy
@@ -34,6 +34,7 @@ from .action_modules import (
     TakeoffModule,
     TrackTargetGoal,
     TrackTargetModule,
+    get_coco_class_id,
 )
 
 
@@ -63,6 +64,8 @@ class ActionManagerNode(Node):
 
         # Cache for latest action params from mission_executor
         self._latest_params: Optional[Dict[str, Any]] = None
+        self._target_class: Optional[str] = None
+        self._target_class_id: Optional[int] = None
 
         # Subscriptions
         self.odom_sub = self.create_subscription(
@@ -70,7 +73,7 @@ class ActionManagerNode(Node):
         )
         self.detection_sub = self.create_subscription(
             NeuralNetworkDetectionArray,
-            "/person_detections",
+            "/target_detections",
             self._detection_callback,
             10
         )
@@ -100,7 +103,7 @@ class ActionManagerNode(Node):
         )
 
         # Detection state
-        self._person_detected = False
+        self._target_detected = False
         self._last_detection_time = 0.0
 
         # NMPC tracking details (from /nmpc/internal_status)
@@ -136,9 +139,12 @@ class ActionManagerNode(Node):
                 f"Received params for stage {self._latest_params.get('stage_id')}: "
                 f"{self._latest_params.get('params')}"
             )
+            self._update_target_class_from_params(self._latest_params)
         except json.JSONDecodeError as exc:
             self.get_logger().error(f"Failed to parse action params: {exc}")
             self._latest_params = None
+            self._target_class = None
+            self._target_class_id = None
 
     def _create_goal_from_params(self, goal_class, default_goal):
         """Create a goal object from cached params, or use default."""
@@ -214,15 +220,21 @@ class ActionManagerNode(Node):
 
     def _detection_callback(self, msg: NeuralNetworkDetectionArray) -> None:
         """Process YOLO detections and update global detection state."""
-        self._person_detected = len(msg.detections) > 0
-        if self._person_detected:
+        detected = False
+        if self._target_class_id is None:
+            detected = len(msg.detections) > 0
+        else:
+            detected = any(det.object_class == self._target_class_id for det in msg.detections)
+
+        self._target_detected = detected
+        if detected:
             self._last_detection_time = self.get_clock().now().nanoseconds / 1e9
 
     def _nmpc_status_callback(self, msg: Float64MultiArray) -> None:
         """Process NMPC internal status and extract tracking details."""
         if not msg.data or len(msg.data) < 6:
             return
-        # NMPC publishes: [person_detected, desired_distance, altitude, opt_time, iterations, cost, current_distance]
+        # NMPC publishes: [target_detected, desired_distance, altitude, opt_time, iterations, cost, current_distance]
         self._desired_tracking_distance = float(msg.data[1])
         self._tracking_altitude = float(msg.data[2])
         self._optimization_time = float(msg.data[3])
@@ -236,10 +248,10 @@ class ActionManagerNode(Node):
     def _publish_status(self) -> None:
         """Publish global controller status for all action modules."""
         msg = Float64MultiArray()
-        # data[0]: person detected (from YOLO via ActionManager)
+        # data[0]: target detected (from YOLO via ActionManager)
         # data[1-6]: tracking details (from NMPC via /nmpc/internal_status)
         msg.data = [
-            float(self._person_detected),
+            float(self._target_detected),
             self._desired_tracking_distance,
             self._tracking_altitude,
             self._optimization_time,
@@ -248,6 +260,26 @@ class ActionManagerNode(Node):
             self._current_tracking_distance,
         ]
         self.status_pub.publish(msg)
+
+    def _update_target_class_from_params(self, params: Optional[Dict[str, Any]]) -> None:
+        """Update target class filter based on latest action parameters."""
+        target_class = None
+        class_id = None
+        if params:
+            param_block = params.get("params") or {}
+            maybe_class = param_block.get("target_class")
+            if isinstance(maybe_class, str) and maybe_class:
+                target_class = maybe_class
+                class_id = get_coco_class_id(maybe_class)
+                if class_id is None:
+                    self.get_logger().warn(
+                        f"Unknown target_class '{maybe_class}' provided; detections will not be filtered"
+                    )
+            elif maybe_class:
+                self.get_logger().warn(f"target_class param has unexpected type: {type(maybe_class)}")
+
+        self._target_class = target_class if class_id is not None else None
+        self._target_class_id = class_id
 
     def _start_action(self, name: str, goal) -> bool:
         # Global mutex check: cancel any other running action first

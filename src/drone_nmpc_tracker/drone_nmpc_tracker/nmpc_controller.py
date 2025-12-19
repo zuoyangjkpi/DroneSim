@@ -66,7 +66,7 @@ class DroneNMPCController:
         # Person tracking state
         self.person_position = np.array([0.0, 0.0, 0.0])
         self.person_velocity = np.array([0.0, 0.0, 0.0])
-        self.person_detected = False
+        self.target_detected = False
         self.last_detection_time: float = 0.0
         self.tracking_height_offset = nmpc_config.TRACKING_HEIGHT_OFFSET
         self._last_horizontal_direction = np.array([1.0, 0.0], dtype=np.float64)
@@ -110,21 +110,21 @@ class DroneNMPCController:
         self.current_state[self.config.STATE_ROLL:self.config.STATE_YAW+1] = orientation
         self.current_state[self.config.STATE_WX:self.config.STATE_WZ+1] = angular_velocity
     
-    def set_person_detection(
+    def set_target_detection(
         self,
         position: np.ndarray,
         velocity: np.ndarray = None,
         detection_time: Optional[float] = None,
         allow_phase_change: bool = True,
     ):
-        """Set detected person position and velocity"""
+        """Set detected target position and velocity"""
         self.person_position = position.copy()
         if velocity is not None:
             self.person_velocity = velocity.copy()
         else:
             self.person_velocity = np.array([0.0, 0.0, 0.0])
 
-        self.person_detected = True
+        self.target_detected = True
         current_time = detection_time if detection_time is not None else time.time()
         self.last_detection_time = current_time
 
@@ -141,7 +141,7 @@ class DroneNMPCController:
         allow_phase_change: bool = True,
     ):
         """Advance desired tracking target - now simply enforces fixed horizontal spacing."""
-        if not self.person_detected:
+        if not self.target_detected:
             return
         # keep signature for compatibility with callers; allow_phase_change is unused
         _ = allow_phase_change
@@ -149,7 +149,7 @@ class DroneNMPCController:
 
     def _update_tracking_target(self):
         """Update target position to maintain a fixed horizontal distance while facing the person."""
-        if not self.person_detected:
+        if not self.target_detected:
             return
 
         desired_distance = self.config.DESIRED_TRACKING_DISTANCE_XY
@@ -191,7 +191,7 @@ class DroneNMPCController:
             self._last_debug_log_time = now
 
     def clear_detection(self):
-        self.person_detected = False
+        self.target_detected = False
         self._last_target_position = None
         self.person_velocity = np.zeros(3)
         self._last_target_attitude = None
@@ -333,7 +333,7 @@ class DroneNMPCController:
         cost += np.sum(self.config.W_VELOCITY * vel**2)
         
         # Person tracking specific costs
-        if self.person_detected:
+        if self.target_detected:
             # Distance to person cost - with adaptive weight based on error magnitude
             drone_pos = state.data[self.config.STATE_X:self.config.STATE_Z+1]
             delta = drone_pos - self.person_position
@@ -548,14 +548,14 @@ class DroneNMPCController:
     
     def get_status(self) -> dict:
         """Get controller status"""
-        if self.person_detected:
+        if self.target_detected:
             delta = self.current_state.data[self.config.STATE_X:self.config.STATE_Z+1] - self.person_position
             horizontal_distance = float(np.linalg.norm(delta[:2]))
         else:
             horizontal_distance = 0.0
 
         status = {
-            'person_detected': self.person_detected,
+            'target_detected': self.target_detected,
             'current_tracking_distance': horizontal_distance,
             'tracking_distance': horizontal_distance,  # Legacy alias for downstream nodes
             'desired_tracking_distance': self.config.DESIRED_TRACKING_DISTANCE_XY,

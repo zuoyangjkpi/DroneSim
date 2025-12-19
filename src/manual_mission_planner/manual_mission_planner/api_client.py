@@ -158,6 +158,7 @@ stages:
     - id: "search"
       type: "SEARCH_AREA"
       params:
+        target_class: "person"  # COCO class: person, car, truck, dog, etc.
         pattern: "rotate"
         duration: 120.0
         confirmations: 3

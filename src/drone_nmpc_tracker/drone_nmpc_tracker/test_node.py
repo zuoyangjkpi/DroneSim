@@ -40,7 +40,7 @@ class NMPCTestNode(Node):
         # Publishers
         self.detection_pub = self.create_publisher(
             NeuralNetworkDetectionArray,
-            '/person_detections',
+            '/target_detections',
             10
         )
         
@@ -225,7 +225,7 @@ def main(args=None):
         print("NMPC Tracker Test Node")
         print("="*50)
         print("This node provides simulated data for testing the NMPC tracker:")
-        print("- Person detections at /person_detections")
+        print("- Target detections at /target_detections")
         print("- Drone odometry at /X3/odometry")
         print("- Enable signal at /nmpc/enable")
         print("\nThe simulated person moves in a circular pattern.")

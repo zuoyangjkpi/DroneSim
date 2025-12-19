@@ -55,7 +55,7 @@ class MissionSequenceController(Node):
         )
 
         # Detection monitoring state
-        self._person_detected = False
+        self._target_detected = False
         self._detection_confirmations = 0
         self._required_confirmations = 3  # Require 3 consecutive detections
 
@@ -66,7 +66,7 @@ class MissionSequenceController(Node):
     # ROS callbacks
     # ------------------------------------------------------------------
     def _status_callback(self, msg: Float64MultiArray) -> None:
-        """Monitor person detection from ActionManager and auto-switch to TRACK during SEARCH."""
+        """Monitor target detection from ActionManager and auto-switch to TRACK during SEARCH."""
         if not msg.data:
             return
 
@@ -75,14 +75,14 @@ class MissionSequenceController(Node):
         if detected:
             self._detection_confirmations = min(self._detection_confirmations + 1, self._required_confirmations)
             if self._detection_confirmations >= self._required_confirmations:
-                self._person_detected = True
+                self._target_detected = True
         else:
             self._detection_confirmations = 0
-            self._person_detected = False
+            self._target_detected = False
 
-        # Auto-switch from SEARCH to TRACK when person detected
-        if self.state == SequenceState.SEARCH and self._person_detected:
-            self.get_logger().info("Person detected during search → switching to TRACK")
+        # Auto-switch from SEARCH to TRACK when target detected
+        if self.state == SequenceState.SEARCH and self._target_detected:
+            self.get_logger().info("Target detected during search → switching to TRACK")
             self._transition(SequenceState.TRACK)
 
     def _odom_callback(self, msg: Odometry) -> None:

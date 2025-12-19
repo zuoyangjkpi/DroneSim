@@ -130,7 +130,9 @@ class NMPCConfig:
         
         # ========== ROS2 Topic Names ==========
         self.TOPIC_DRONE_STATE = '/X3/odometry'
-        self.TOPIC_PERSON_DETECTIONS = '/person_detections'
+        self.TOPIC_TARGET_DETECTIONS = '/target_detections'
+        # Backwards compatibility alias
+        self.TOPIC_PERSON_DETECTIONS = self.TOPIC_TARGET_DETECTIONS
         self.TOPIC_CONTROL_OUTPUT = '/drone/control/waypoint_command'
         self.TOPIC_WAYPOINT_CMD = '/drone/control/waypoint_command'
         self.TOPIC_ATTITUDE_CMD = '/drone/control/attitude_command'

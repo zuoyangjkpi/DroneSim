@@ -50,10 +50,10 @@ YOLO12DetectorNode::YOLO12DetectorNode(const rclcpp::NodeOptions & options)
     
     // Create publishers
     detection_pub_ = this->create_publisher<neural_network_msgs::msg::NeuralNetworkDetectionArray>(
-        "/person_detections", rclcpp::QoS(10));
+        "/target_detections", rclcpp::QoS(10));
     
     detection_count_pub_ = this->create_publisher<neural_network_msgs::msg::NeuralNetworkNumberOfDetections>(
-        "/person_detection_count", rclcpp::QoS(10));
+        "/target_detection_count", rclcpp::QoS(10));
 
     
      if (publish_debug_image_) {
@@ -68,7 +68,11 @@ YOLO12DetectorNode::YOLO12DetectorNode(const rclcpp::NodeOptions & options)
     } else {
         min_detection_interval_ = rclcpp::Duration::from_seconds(0.0);
     }
-    
+
+    // Register parameter change callback for runtime reconfiguration
+    param_callback_handle_ = this->add_on_set_parameters_callback(
+        std::bind(&YOLO12DetectorNode::parametersCallback, this, std::placeholders::_1));
+
     RCLCPP_INFO(this->get_logger(), "YOLO12 Detector Node initialized successfully");
 }
 
@@ -613,6 +617,33 @@ std::vector<Detection> YOLO12DetectorNode::filterDetections(
     }
     
     return filtered;
+}
+
+rcl_interfaces::msg::SetParametersResult YOLO12DetectorNode::parametersCallback(
+    const std::vector<rclcpp::Parameter>& parameters)
+{
+    rcl_interfaces::msg::SetParametersResult result;
+    result.successful = true;
+
+    for (const auto& param : parameters) {
+        if (param.get_name() == "desired_class") {
+            int new_class = param.as_int();
+            if (new_class != desired_class_) {
+                desired_class_ = new_class;
+                RCLCPP_INFO(this->get_logger(),
+                    "Runtime parameter update: desired_class changed to %d", desired_class_);
+            }
+        } else if (param.get_name() == "confidence_threshold") {
+            float new_threshold = static_cast<float>(param.as_double());
+            if (new_threshold != confidence_threshold_) {
+                confidence_threshold_ = new_threshold;
+                RCLCPP_INFO(this->get_logger(),
+                    "Runtime parameter update: confidence_threshold changed to %.2f", confidence_threshold_);
+            }
+        }
+    }
+
+    return result;
 }
 
 } // namespace yolo12_detector_node
