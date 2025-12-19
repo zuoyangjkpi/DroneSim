@@ -123,7 +123,8 @@ void YOLO12DetectorNode::initializeParameters()
     this->declare_parameter<bool>("use_gpu", false);
     this->declare_parameter<float>("confidence_threshold", 0.5f);
     this->declare_parameter<float>("iou_threshold", 0.45f);
-    this->declare_parameter<int>("desired_class", 1);
+    // Default to COCO class 0 (person) so Option2 human tracking works without runtime reconfigure
+    this->declare_parameter<int>("desired_class", 0);
     this->declare_parameter<int>("desired_width", 300);
     this->declare_parameter<int>("desired_height", 300);
     this->declare_parameter<float>("aspect_ratio", 1.33333f);

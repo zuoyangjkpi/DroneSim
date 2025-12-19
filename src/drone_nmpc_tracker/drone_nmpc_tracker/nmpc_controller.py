@@ -177,7 +177,7 @@ class DroneNMPCController:
         self.target_position = new_target
         self._last_target_position = new_target.copy()
 
-        to_person = person_pos - np.array([new_target[0], new_target[1], target_z])
+        to_person = person_pos - np.array([drone_pos[0], drone_pos[1], drone_pos[2]])
         desired_yaw = math.atan2(to_person[1], to_person[0])
         self._desired_yaw = self._wrap_angle(desired_yaw)
 
