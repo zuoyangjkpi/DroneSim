@@ -115,21 +115,15 @@ ros2 topic echo /fmu/out/vehicle_status
 The bridge automatically:
 1. Subscribes to NMPC control commands
 2. Converts ROS2 messages to PX4 format
-3. Handles coordinate frame conversions (ENU ↔ NED)
+3. Publishes external odometry to PX4
 4. Publishes PX4 status back to ROS2
 
 ## Frame Conventions
 
-- **ROS2/DroneSim**: ENU (East-North-Up)
-- **PX4**: NED (North-East-Down)
+- **ROS2/DroneSim**: ENU (East-North-Up), FLU body frame
+- **PX4 dronesim modules**: ENU/FLU (no conversion in the bridge)
 
-The bridge handles conversion automatically:
-```cpp
-// ROS2 (ENU) -> PX4 (NED)
-px4_north = ros2_x
-px4_east  = -ros2_y  // Negated!
-px4_down  = -ros4_z  // Negated!
-```
+The bridge passes position/yaw and odometry through as-is (ENU/FLU).
 
 ## Next Steps
 

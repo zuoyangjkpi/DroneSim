@@ -110,6 +110,10 @@ private:
         vehicle_command_pub_ = this->create_publisher<px4_msgs::msg::VehicleCommand>(
             "/fmu/in/vehicle_command", 10);
 
+        // Vehicle odometry - external position feedback from ROS2
+        vehicle_odometry_pub_ = this->create_publisher<px4_msgs::msg::VehicleOdometry>(
+            "/fmu/in/vehicle_visual_odometry", 10);
+
         // Subscribe to PX4 status
         vehicle_status_sub_ = this->create_subscription<px4_msgs::msg::VehicleStatus>(
             "/fmu/out/vehicle_status", 10,
@@ -122,6 +126,8 @@ private:
     {
         current_odom_ = msg;
         odom_received_ = true;
+
+        publish_vehicle_odometry(msg);
     }
 
     void waypoint_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
@@ -256,32 +262,62 @@ private:
         px4_msgs::msg::TrajectorySetpoint msg{};
         msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
 
-        // Position setpoint from NMPC waypoint controller
-        // Convert from ENU (ROS2) to NED (PX4)
-        // ENU: X=East, Y=North, Z=Up
-        // NED: X=North, Y=East, Z=Down
-        msg.position[0] = current_waypoint_->pose.position.y;   // North (ENU Y)
-        msg.position[1] = current_waypoint_->pose.position.x;   // East (ENU X)
-        msg.position[2] = -current_waypoint_->pose.position.z;  // Down (negated ENU Z)
+        // Position setpoint from NMPC waypoint controller (ENU)
+        msg.position[0] = current_waypoint_->pose.position.x;
+        msg.position[1] = current_waypoint_->pose.position.y;
+        msg.position[2] = current_waypoint_->pose.position.z;
 
         // Yaw setpoint from attitude command if available
         if (attitude_received_ && current_attitude_) {
             // Attitude command is [roll, pitch, yaw] in ENU
-            // Convert yaw from ENU to NED: yaw_NED = -yaw_ENU + π/2
-            float yaw_enu = current_attitude_->vector.z;
-            float yaw_ned = -yaw_enu + M_PI / 2.0;
-
-            // Normalize to [-π, π]
-            while (yaw_ned > M_PI) yaw_ned -= 2.0 * M_PI;
-            while (yaw_ned < -M_PI) yaw_ned += 2.0 * M_PI;
-
-            msg.yaw = yaw_ned;
+            msg.yaw = current_attitude_->vector.z;
         } else {
             // NaN signals PX4 to maintain current yaw
             msg.yaw = std::nan("");
         }
 
         trajectory_setpoint_pub_->publish(msg);
+    }
+
+    void publish_vehicle_odometry(const nav_msgs::msg::Odometry::SharedPtr &msg)
+    {
+        px4_msgs::msg::VehicleOdometry odom{};
+        const uint64_t now_us = this->get_clock()->now().nanoseconds() / 1000;
+
+        odom.timestamp = now_us;
+        odom.timestamp_sample = now_us;
+
+        // Frames are ENU/FLU in DroneSim; mark as unknown to avoid NED assumptions.
+        odom.pose_frame = px4_msgs::msg::VehicleOdometry::POSE_FRAME_UNKNOWN;
+        odom.velocity_frame = px4_msgs::msg::VehicleOdometry::VELOCITY_FRAME_UNKNOWN;
+
+        odom.position[0] = msg->pose.pose.position.x;
+        odom.position[1] = msg->pose.pose.position.y;
+        odom.position[2] = msg->pose.pose.position.z;
+
+        odom.q[0] = msg->pose.pose.orientation.w;
+        odom.q[1] = msg->pose.pose.orientation.x;
+        odom.q[2] = msg->pose.pose.orientation.y;
+        odom.q[3] = msg->pose.pose.orientation.z;
+
+        odom.velocity[0] = msg->twist.twist.linear.x;
+        odom.velocity[1] = msg->twist.twist.linear.y;
+        odom.velocity[2] = msg->twist.twist.linear.z;
+
+        odom.angular_velocity[0] = NAN;
+        odom.angular_velocity[1] = NAN;
+        odom.angular_velocity[2] = NAN;
+
+        for (int i = 0; i < 3; ++i) {
+            odom.position_variance[i] = 0.0f;
+            odom.orientation_variance[i] = 0.0f;
+            odom.velocity_variance[i] = 0.0f;
+        }
+
+        odom.reset_counter = 0;
+        odom.quality = 0;
+
+        vehicle_odometry_pub_->publish(odom);
     }
 
     // ========== Member Variables ==========
@@ -299,6 +335,7 @@ private:
     rclcpp::Publisher<px4_msgs::msg::OffboardControlMode>::SharedPtr offboard_control_mode_pub_;
     rclcpp::Publisher<px4_msgs::msg::TrajectorySetpoint>::SharedPtr trajectory_setpoint_pub_;
     rclcpp::Publisher<px4_msgs::msg::VehicleCommand>::SharedPtr vehicle_command_pub_;
+    rclcpp::Publisher<px4_msgs::msg::VehicleOdometry>::SharedPtr vehicle_odometry_pub_;
 
     // Subscriber from PX4
     rclcpp::Subscription<px4_msgs::msg::VehicleStatus>::SharedPtr vehicle_status_sub_;
