@@ -1,25 +1,25 @@
 waypoint_controller:
   ros__parameters:
     control_frequency: 50.0      
-    position_tolerance: 0.3
+    position_tolerance: 0.2
     velocity_tolerance: 0.1
     waypoint_timeout: 5.0
 
-    kp_xy: 1.2                  
-    ki_xy: 0.4                  
-    kd_xy: 0.5                   
+    kp_xy: 0.8                  
+    ki_xy: 0.3                  
+    kd_xy: 0.0                   
 
     kp_z: 1.0                    
     ki_z: 0.3
-    kd_z: 1.5
+    kd_z: 0.0
 
     max_velocity_xy: 4.0         
     max_velocity_z: 4.0
 
     max_vertical_error: 1.5
-    integral_limit_xy: 2.0
+    integral_limit_xy: 1.5
     integral_limit_z: 2.0
-    cf_v_xy: 0.8                
+    cf_v_xy: 0.9                
     cf_v_z: 0.9
 
 yaw_controller:
@@ -34,3 +34,4 @@ yaw_controller:
     cf_yaw_rate: 0.9
     yaw_integral_limit: 0.5
     attitude_command_timeout: 5.0
+    auto_enable_on_command: true

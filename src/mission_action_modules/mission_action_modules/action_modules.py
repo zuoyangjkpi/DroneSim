@@ -68,9 +68,11 @@ class HoverGoal:
 class FlyToTargetGoal:
     waypoints: Sequence[Sequence[float]]  # List of [x, y, z]
     yaw_targets: Optional[Sequence[float]] = None  # radians, optional per waypoint
+    yaw_relative: bool = False  # If True, yaw_targets are relative offsets from current yaw
     tolerance: Optional[float] = None  # meters
     timeout_per_leg: Optional[float] = None  # seconds
     use_planner: bool = False  # If True, treat waypoints[0] as goal and plan path
+    coordinate_frame: str = "absolute"  # "absolute", "world", or "body"
 
 
 @dataclass
@@ -332,12 +334,110 @@ class FlyToTargetModule(ActionModule):
             self.fail("No waypoints provided")
             return
 
-        self._waypoints = [
-            np.array(wp, dtype=float) for wp in goal.waypoints
-        ]
-        self._yaw_targets = (
-            list(goal.yaw_targets) if goal.yaw_targets is not None else None
-        )
+        # Get current position for relative coordinate transformations
+        current_pos = self.context.get_position()
+        if current_pos is None:
+            # If coordinate_frame is not absolute, we need odometry
+            coord_frame = getattr(goal, 'coordinate_frame', 'absolute')
+            if coord_frame in ('world', 'body'):
+                self.fail("No odometry available for relative waypoints")
+                return
+            # For absolute coordinates, we'll try to proceed even without position
+            # (though controllers will likely fail during execution)
+        
+        # Determine coordinate frame
+        coord_frame = getattr(goal, 'coordinate_frame', 'absolute')
+        current_yaw = self.context.get_yaw()
+        yaw_targets = list(goal.yaw_targets) if goal.yaw_targets is not None else None
+        yaw_relative = bool(getattr(goal, "yaw_relative", False))
+        if yaw_targets and yaw_relative:
+            if current_yaw is None:
+                self.fail("No yaw information for relative yaw targets")
+                return
+            base_yaw = current_yaw
+            yaw_targets = [
+                self.context._wrap_angle(base_yaw + float(yaw))
+                for yaw in yaw_targets
+            ]
+            self.context.node.get_logger().info(
+                f"Converted {len(yaw_targets)} relative yaw targets using base yaw {np.degrees(base_yaw):.1f}°"
+            )
+        
+        if coord_frame == "world":
+            # World(ENU) relative coordinates: add to current position
+            if current_pos is None:
+                self.fail("No odometry available for world-frame waypoints")
+                return
+            self._waypoints = [
+                current_pos + np.array(wp, dtype=float)
+                for wp in goal.waypoints
+            ]
+            self.context.node.get_logger().info(
+                f"Converted {len(goal.waypoints)} world-relative waypoints to absolute"
+            )
+            
+        elif coord_frame == "body":
+            # Body(FLU) relative coordinates: requires yaw rotation
+            if current_pos is None:
+                self.fail("No odometry available for body-frame waypoints")
+                return
+            
+            if current_yaw is None:
+                self.fail("No yaw information for body-frame waypoints")
+                return
+            
+            # CRITICAL FIX: Use target yaw if specified, not current yaw!
+            # This ensures stages like "turn 90° and stay in place" calculate body frame
+            # based on the TARGET heading, not the current heading
+            effective_yaw = current_yaw
+            if yaw_targets is not None and len(yaw_targets) > 0:
+                effective_yaw = yaw_targets[0]
+                self.context.node.get_logger().info(
+                    f"Using target yaw {np.degrees(effective_yaw):.1f}° (not current {np.degrees(current_yaw):.1f}°) "
+                    f"for body-frame transformation"
+                )
+            
+            # 2D rotation matrix (ignoring pitch/roll, only yaw)
+            # Body frame: +X=forward, +Y=right, +Z=up
+            rotation = np.array([
+                [np.cos(effective_yaw), -np.sin(effective_yaw), 0],
+                [np.sin(effective_yaw),  np.cos(effective_yaw), 0],
+                [0,                    0,                   1]
+            ])
+            
+            self._waypoints = []
+            for wp in goal.waypoints:
+                body_offset = np.array(wp, dtype=float)
+                world_offset = rotation @ body_offset
+                absolute_wp = current_pos + world_offset
+                self._waypoints.append(absolute_wp)
+            
+            self.context.node.get_logger().info(
+                f"Converted {len(goal.waypoints)} body-frame waypoints "
+                f"(yaw={np.degrees(effective_yaw):.1f}°) to absolute"
+            )
+            
+        else:  # "absolute" or unspecified
+            # Keep existing behavior: direct use of absolute coordinates (backward compatible)
+            self._waypoints = [
+                np.array(wp, dtype=float) for wp in goal.waypoints
+            ]
+        
+        # CRITICAL FIX: Lock yaw at stage start to prevent drift between stages
+        # If no yaw_targets specified, use current yaw and maintain it throughout this stage
+        if yaw_targets is not None:
+            self._yaw_targets = list(yaw_targets)
+        else:
+            # Lock the current yaw as the target for this stage
+            if current_yaw is not None:
+                # Use current yaw for all waypoints in this stage
+                self._yaw_targets = [current_yaw] * len(self._waypoints)
+                self.context.node.get_logger().info(
+                    f"No yaw_targets specified, locking current yaw {np.degrees(current_yaw):.1f}° for this stage"
+                )
+            else:
+                self._yaw_targets = None
+        
         self._tolerance = (
             goal.tolerance
             if goal.tolerance is not None
@@ -443,7 +543,32 @@ class FlyToTargetModule(ActionModule):
         distance = float(np.linalg.norm(position - target))
         elapsed = self.context.now() - self._start_time
 
-        if distance <= self._tolerance:
+        # CRITICAL FIX: Check yaw error if yaw_targets are specified
+        yaw_satisfied = True
+        yaw_error_deg = 0.0
+        if self._yaw_targets and self._current_idx < len(self._yaw_targets):
+            target_yaw = self._yaw_targets[self._current_idx]
+            if target_yaw is not None:
+                current_yaw = self.context.get_yaw()
+                if current_yaw is not None:
+                    # Calculate yaw error (wrap to [-pi, pi])
+                    yaw_error = target_yaw - current_yaw
+                    yaw_error = (yaw_error + np.pi) % (2 * np.pi) - np.pi
+                    yaw_error_deg = np.degrees(abs(yaw_error))
+                    # Yaw tolerance: 5 degrees
+                    yaw_tolerance_deg = 5.0
+                    yaw_satisfied = yaw_error_deg <= yaw_tolerance_deg
+                    
+                    # Debug logging every 2 seconds
+                    if elapsed % 2.0 < 0.2:
+                        self.context.node.get_logger().info(
+                            f"[FlyDebug] Dist={distance:.3f}m (Tol={self._tolerance:.3f}m), "
+                            f"YawErr={yaw_error_deg:.1f}° (Tol={yaw_tolerance_deg:.1f}°), "
+                            f"YawSat={yaw_satisfied}"
+                        )
+
+        # Both position AND yaw (if specified) must be satisfied
+        if distance <= self._tolerance and yaw_satisfied:
             self._current_idx += 1
             self._start_time = self.context.now()
             if self._current_idx >= len(self._waypoints):
@@ -470,7 +595,7 @@ class FlyToTargetModule(ActionModule):
         # Refresh the waypoint every 0.5 s so the controller never times out
         now = self.context.now()
         if now - self._last_waypoint_refresh >= 0.5:
-            self.context.send_waypoint(target)
+            self._command_current_waypoint()
             self._last_waypoint_refresh = now
 
 

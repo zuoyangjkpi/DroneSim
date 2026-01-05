@@ -45,6 +45,7 @@ class YawController(Node):
         self.declare_parameter('cf_yaw_rate', 1.0)
         self.declare_parameter('yaw_integral_limit', 1.2)
         self.declare_parameter('attitude_command_timeout', 3.0)
+        self.declare_parameter('auto_enable_on_command', True)
 
         self.control_frequency = float(self.get_parameter('control_frequency').value)
         self.yaw_tolerance = float(self.get_parameter('yaw_tolerance').value)
@@ -56,6 +57,7 @@ class YawController(Node):
         self.cf_yaw_rate = float(np.clip(self.get_parameter('cf_yaw_rate').value, 0.0, 1.0))
         self.yaw_integral_limit = abs(float(self.get_parameter('yaw_integral_limit').value))
         self.command_timeout = float(self.get_parameter('attitude_command_timeout').value)
+        self.auto_enable_on_command = bool(self.get_parameter('auto_enable_on_command').value)
 
         # State
         self.current_yaw = None
@@ -122,6 +124,9 @@ class YawController(Node):
         yaw_cmd = float(msg.vector.z)
         if not math.isfinite(yaw_cmd):
             return
+        if self.auto_enable_on_command and not self.controller_active:
+            self.controller_active = True
+            self.file_logger.info('yaw_controller_auto_enabled')
         yaw_cmd = self._wrap_angle(yaw_cmd)
         if self.target_yaw is None:
             self.target_yaw = yaw_cmd

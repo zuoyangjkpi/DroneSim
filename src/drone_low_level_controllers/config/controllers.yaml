@@ -23,15 +23,15 @@ multicopter_controller_node:
     # =========================
     # Velocity PID (world frame) -> accel_cmd
     # =========================
-    kp_vel_xy: 2.5
-    ki_vel_xy: 0.1
-    kd_vel_xy: 0.0
+    kp_vel_xy: 3.5
+    ki_vel_xy: 0.0
+    kd_vel_xy: 2.0
 
     kp_vel_z: 3.5
-    ki_vel_z: 0.1
-    kd_vel_z: 0.0
+    ki_vel_z: 0.0
+    kd_vel_z: 1.0
 
-    vel_integral_limit: 0.5
+    vel_integral_limit: 2.0
     vel_d_filter_tau: 0.05
 
     # =========================
@@ -66,8 +66,8 @@ multicopter_controller_node:
     min_thrust: 0.0           # N
 
     max_acc_xy: 3.5           # m/s^2
-    max_acc_z_up: 2.5         # m/s^2
-    max_acc_z_down: 2.5       # m/s^2
+    max_acc_z_up: 3.5         # m/s^2
+    max_acc_z_down: 3.5       # m/s^2
 
     max_torque_xy: 5.0        # N*m
     max_torque_z: 7.0         # N*m

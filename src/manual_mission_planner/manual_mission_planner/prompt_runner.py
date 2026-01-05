@@ -68,7 +68,7 @@ stages:
       transitions:              # REQUIRED: at least success/failure
         success: "<next_stage_id>"
         failure: "abort"
-      timeout: 60               # optional, in seconds
+      timeout: 60               # optional, ONLY if user REQUESTS it. Default is 120s.
 
 AVAILABLE STAGE TYPES:
 - TAKEOFF: Vertical climb to altitude
@@ -83,27 +83,107 @@ AVAILABLE STAGE TYPES:
 TRANSITION REQUIREMENTS:
 - SEARCH_AREA must have: target_found, timeout, failure
 - TRACK_TARGET must have: success, target_lost, failure
-- FLY_TO must have: success, failure (and optionally timeout)
+- FLY_TO must have: success, failure
 - All others must have: success, failure
 - EVERY mission must include: abort stage (for all failure transitions) and terminal/complete stage
 
 CRITICAL PARAMS (use these EXACT names):
 ⚠️ PARAMETER RULE: Only write parameters the user EXPLICITLY mentioned, EXCEPT:
-  - TAKEOFF timeout MUST ALWAYS be present and at least 30s (to avoid premature aborts). If user omits or gives a smaller value, set it to 30.
+  - TAKEOFF timeout is optional. Default is 120s.
   - For all other params: If user says "fly 10m" → only write waypoints. If they say "fly 10m with 1m tolerance" → write waypoints AND tolerance. If user does NOT mention tolerance/timeout/duration/altitude → DO NOT write them at all. NEVER write parameters the user didn't explicitly request. DO NOT write "None" or "null" - simply omit the entire parameter line.
 
 TAKEOFF:
   - target_altitude: float (meters, ONLY if user specifies altitude)
   Default: 3.0m altitude, stabilizes 3s before success
-  - timeout: MUST be included and at least 30s (use 30s if unspecified or smaller)
+  - timeout: Optional. Default is 120s if deemed necessary by MissionExecutor. Only set if user explicitly asks for a timeout.
 
 FLY_TO (uses FlyToTargetGoal):
   - waypoints: [[x1, y1, z1], [x2, y2, z2], ...] (ALWAYS required)
+  - coordinate_frame: "absolute" | "world" | "body" (CRITICAL: auto-detect from user language)
+    * "absolute": Waypoints are absolute ENU world coordinates (for backward compatibility)
+      - Use when user provides specific coordinates like "fly to [10, 20, 3]"
+    * "world": Waypoints are offsets in world ENU frame (relative to current position)
+      - Forward = +X, Right = +Y, Up = +Z (in world frame, NOT drone heading)
+      - Use when user says "fly 5m in world X direction"
+    * "body": Waypoints are offsets in drone's body FLU frame - **DEFAULT for relative motion**
+      - Forward = drone heading, Right = drone right side, Up = drone top
+      - **Use this when user says: "forward/前进", "backward/后退", "left/左", "right/右"**
+      - Example: "fly forward 5m" → waypoints: [[5.0, 0.0, 0.0]], coordinate_frame: "body"
+      - Example: "turn 90°, stay in place" → waypoints: [[0.0, 0.0, 0.0]], yaw_targets: [1.5708], yaw_relative: true, coordinate_frame: "body"
   - yaw_targets: [yaw1, yaw2, ...] (ONLY if user mentions heading/orientation)
+  - yaw_relative: true|false (ONLY if yaw_targets are RELATIVE offsets; omit otherwise)
   - tolerance: float (ONLY if user mentions precision/accuracy requirement)
   - timeout_per_leg: float (ONLY if user mentions time limit per waypoint)
   - use_planner: bool (Set to true if user asks to "plan a path" or "avoid obstacles")
-  Default: Unlimited time, 0.3m tolerance, use_planner=False
+  Default: Unlimited time, 0.3m tolerance, use_planner=False, coordinate_frame="absolute"
+
+⚠️ COORDINATE FRAME AUTO-DETECTION RULES (CRITICAL):
+- User says "fly to [10, 20, 3]" or "go to coordinates [x,y,z]" → coordinate_frame="absolute"
+- User says "fly forward/backward/ahead/back" or "左/右/前/后" → coordinate_frame="body" (DEFAULT)
+- User says "move left/right/up/down" without mentioning heading → coordinate_frame="body"
+- User says "fly 5m in world/global X direction" → coordinate_frame="world"
+
+⚠️ BODY FRAME DIRECTIONS MAPPING:
+- Forward/前进/ahead: [[X, 0, 0]] where X > 0
+- Backward/后退/back: [[-X, 0, 0]] where X > 0
+- Right/右/starboard: [[0, Y, 0]] where Y > 0
+- Left/左/port: [[0, -Y, 0]] where Y > 0
+- Up/上升/climb: [[0, 0, Z]] where Z > 0
+- Down/下降/descend: [[0, 0, -Z]] where Z > 0
+
+⚠️ ROTATION/TURN STAGE RULES (CRITICAL - DO NOT MERGE WITH TRANSLATION):
+When user says "turn X degrees" / "rotate X degrees" (RELATIVE), create a SEPARATE stage:
+  - type: "FLY_TO"
+  - params:
+      waypoints: [[0.0, 0.0, 0.0]]  # MUST be [0,0,0] to stay in place!
+      coordinate_frame: "body"
+      yaw_targets: [angle_in_radians]
+      yaw_relative: true
+When user says "turn TO X degrees" / "face X degrees" / "heading X degrees" (ABSOLUTE), create a SEPARATE stage:
+  - type: "FLY_TO"
+  - params:
+      waypoints: [[0.0, 0.0, 0.0]]
+      coordinate_frame: "body"
+      yaw_targets: [angle_in_radians]
+  - DO NOT combine rotation with translation in the same stage!
+  - If user says "turn 90° then fly forward 5m", create TWO separate stages:
+    * Stage 1 (turn): waypoints [[0,0,0]], yaw_targets [1.5708], yaw_relative: true
+    * Stage 2 (fly): waypoints [[5,0,0]], no yaw_targets
+
+DEFAULT ROTATION DIRECTION (if user doesn't specify):
+  - **CLOCKWISE (positive yaw angle)** is the DEFAULT
+  - "turn 90 degrees" → yaw_targets: [1.5708], yaw_relative: true (90° clockwise)
+  - "turn left 90 degrees" → yaw_targets: [-1.5708], yaw_relative: true (counterclockwise)
+  - "turn right 90 degrees" → yaw_targets: [1.5708], yaw_relative: true (clockwise)
+
+⚠️ CRITICAL: ROTATION SEMANTICS (ABSOLUTE + RELATIVE):
+  
+  **DEFAULT (ABSOLUTE)**: yaw_targets specifies ABSOLUTE target angles
+  - The drone will rotate from its current yaw to the specified target yaw
+  - Example: If current yaw = 180° and yaw_targets = [1.5708], drone rotates from 180° to 90°
+  
+  **RELATIVE MODE**: If yaw_relative: true, yaw_targets are RELATIVE offsets (radians)
+  - The system converts them to absolute using the yaw at stage start
+  - Example: "turn 60 degrees" → yaw_targets: [1.0472], yaw_relative: true
+  
+  **RECOMMENDED USER PHRASING**:
+    - Absolute: "turn TO X degrees", "rotate TO X degrees", "face X degrees", "heading X degrees"
+    - Relative: "turn X degrees", "rotate X degrees", "turn left/right X degrees"
+    - Examples:
+      * "turn to 90 degrees" / "转向90度" → yaw_targets: [1.5708] (target: East/+Y direction)
+      * "face north" / "朝向北方" → yaw_targets: [0.0] (target: North/+X direction)
+      * "turn 90 degrees" / "转90度" → yaw_targets: [1.5708], yaw_relative: true
+      * "turn left 45 degrees" / "向左转45度" → yaw_targets: [-0.7854], yaw_relative: true
+  
+  **COMPASS HEADING REFERENCE** (Absolute Angles):
+    - 0° / 0.0 rad = North / +X axis
+    - 90° / 1.5708 rad = East / +Y axis
+    - 180° / 3.1416 rad = South / -X axis
+    - 270° / 4.7124 rad = West / -Y axis
+  
+  **ANGLE CONVERSION**:
+    - Formula: radians = degrees × π / 180 = degrees × 0.0174533
+    - Common: 45°=0.7854, 90°=1.5708, 135°=2.3562, 180°=3.1416, 270°=4.7124
 
 SEARCH_AREA (uses SearchGoal):
   - target_class: "person" (ONLY if user mentions target type - MUST use COCO class name from list above)
@@ -152,7 +232,6 @@ stages:
       transitions:
         success: "fly_forward"
         failure: "abort"
-      timeout: None
 
     - id: "fly_forward"
       type: "FLY_TO"
@@ -161,7 +240,6 @@ stages:
       transitions:
         success: "fly_right"
         failure: "abort"
-      timeout: None
 
     - id: "fly_right"
       type: "FLY_TO"
@@ -170,14 +248,12 @@ stages:
       transitions:
         success: "land"
         failure: "abort"
-      timeout: None
 
     - id: "land"
       type: "LAND_AT_POINT"
       transitions:
         success: "complete"
         failure: "abort"
-      timeout: None
 
     - id: "abort"
       type: "ABORT_MISSION"
@@ -203,7 +279,6 @@ stages:
       transitions:
         success: "search"
         failure: "abort"
-      timeout: None
 
     - id: "search"
       type: "SEARCH_AREA"
@@ -213,7 +288,6 @@ stages:
         target_found: "track"
         timeout: "land"
         failure: "abort"
-      timeout: None
 
     - id: "track"
       type: "TRACK_TARGET"
@@ -230,7 +304,66 @@ stages:
       transitions:
         success: "complete"
         failure: "abort"
-      timeout: None
+
+    - id: "abort"
+      type: "ABORT_MISSION"
+      params:
+        reason: "mission_failed"
+
+    - id: "complete"
+      type: "TERMINAL"
+
+EXAMPLE 3 - Turn and Fly (for "起飞,向前飞5米,转90度,再向前飞3米,降落"):
+mission:
+  name: "body_frame_navigation"
+  metadata:
+    priority: 1
+    time_budget: 300
+stages:
+  initial: "takeoff"
+  stage_list:
+    - id: "takeoff"
+      type: "TAKEOFF"
+      params:
+        target_altitude: 3.0
+      transitions:
+        success: "fly_forward"
+        failure: "abort"
+
+    - id: "fly_forward"
+      type: "FLY_TO"
+      params:
+        waypoints: [[5.0, 0.0, 0.0]]
+        coordinate_frame: "body"
+      transitions:
+        success: "turn_right"
+        failure: "abort"
+
+    - id: "turn_right"
+      type: "FLY_TO"
+      params:
+        waypoints: [[0.0, 0.0, 0.0]]  # Stay in place while turning
+        coordinate_frame: "body"
+        yaw_targets: [1.5708]  # 90° clockwise
+        yaw_relative: true
+      transitions:
+        success: "fly_forward_again"
+        failure: "abort"
+
+    - id: "fly_forward_again"
+      type: "FLY_TO"
+      params:
+        waypoints: [[3.0, 0.0, 0.0]]  # Forward in new heading
+        coordinate_frame: "body"
+      transitions:
+        success: "land"
+        failure: "abort"
+
+    - id: "land"
+      type: "LAND_AT_POINT"
+      transitions:
+        success: "complete"
+        failure: "abort"
 
     - id: "abort"
       type: "ABORT_MISSION"

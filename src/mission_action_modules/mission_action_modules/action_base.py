@@ -66,13 +66,13 @@ class ActionDefaults:
     """Default parameters derived from current system behaviour."""
 
     takeoff_altitude: float = 3.0  # meters
-    takeoff_timeout: float = 60.0  # seconds
+    takeoff_timeout: float = 120.0  # seconds
     takeoff_stable_duration: float = 5.0  # seconds within tolerance before succeeding
     hover_duration: float = 5.0  # seconds
     search_yaw_rate: float = 0.03  # rad/s 
     search_altitude: float = 3.0  # meters
-    inspect_timeout: float = 15.0  # seconds
-    land_timeout: float = 20.0  # seconds
+    inspect_timeout: float = 120.0  # seconds
+    land_timeout: float = 120.0  # seconds
     altitude_tolerance: float = 0.1  # meters
     position_tolerance: float = 0.3  # meters
 
@@ -158,6 +158,8 @@ class ActionContext:
         msg = Bool()
         msg.data = bool(enabled)
         self._waypoint_enable_pub.publish(msg)
+        # Keep yaw control enabled in sync with waypoint control.
+        self._yaw_enable_pub.publish(msg)
 
     def enable_yaw_control(self, enabled: bool) -> None:
         msg = Bool()

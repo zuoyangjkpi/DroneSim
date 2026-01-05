@@ -124,6 +124,8 @@ class MissionExecutorNode(Node):
             params = raw_stage.get("params") or {}
             transitions = raw_stage.get("transitions") or {}
             timeout = self._coerce_float(raw_stage.get("timeout"))
+            if timeout is None:
+                timeout = 120.0
             if not stage_id or not stage_type:
                 self.get_logger().warn(f"Skipping malformed stage entry: {raw_stage}")
                 continue
