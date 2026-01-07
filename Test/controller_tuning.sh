@@ -3,7 +3,14 @@
 # Controller Tuning Script
 # Launches minimal simulation stack for controller tuning
 
+# Change to DroneSim root directory (parent of Test/)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DRONESIM_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$DRONESIM_ROOT" || exit 1
+
 echo "🚀 Starting Controller Tuning Environment..."
+echo "📂 DroneSim root: $DRONESIM_ROOT"
+echo "📊 Plots will be saved to: $SCRIPT_DIR/"
 
 # Cleanup function
 cleanup() {
@@ -121,7 +128,7 @@ ros2 run drone_guidance_controllers yaw_controller --ros-args --params-file "$GU
 YAW_PID=$!
 sleep 1
 
-ros2 run drone_low_level_controllers controller_node --ros-args --params-file "$VELOCITY_PARAMS" &
+ros2 run drone_low_level_controllers controller_node --ros-args --params-file "$VELOCITY_PARAMS" --log-level ERROR &
 CTRL_PID=$!
 sleep 1
 
@@ -133,7 +140,7 @@ sleep 2
 
 # 9. Start Tuning Interface
 echo "🎹 Starting Tuning Interface..."
-python3 controller_tuning.py
+python3 "$SCRIPT_DIR/controller_tuning.py"
 
 # Cleanup after python script exits
 cleanup

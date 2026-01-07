@@ -7,6 +7,8 @@ from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Imu
 import time
 import threading
+import matplotlib
+matplotlib.use('TkAgg')  # Force interactive backend
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -196,34 +198,46 @@ def main():
             continue
             
         times, rates = node.run_step_test(axis, mag, 1.5) # Dynamic thrust capture used
-        
+
         # Plotting
         if len(times) > 0:
             times = np.array(times) - times[0]
             rates = np.array(rates)
-            
-            plt.figure()
-            if 'roll' in axis:
-                plt.plot(times, rates[:, 0], label='Roll Rate')
-            if 'pitch' in axis:
-                plt.plot(times, rates[:, 1], label='Pitch Rate')
-            if 'yaw' in axis:
-                plt.plot(times, rates[:, 2], label='Yaw Rate')
-                
-            plt.axhline(y=mag, color='r', linestyle='--', label='Setpoint')
-            plt.grid(True)
-            plt.legend()
-            plt.title(f'Step Response: {axis} {mag} rad/s')
-            plt.xlabel('Time (s)')
-            plt.ylabel('Rate (rad/s)')
-            
-            # Save plot
-            filename = f"step_{axis}_{int(time.time())}.png"
-            plt.savefig(filename)
-            print(f"Plot saved to {filename}")
 
-            # Display plot interactively
-            plt.show(block=False)  # Non-blocking so user can continue
+            # Create figure
+            fig = plt.figure(figsize=(10, 6))
+            if 'roll' in axis:
+                plt.plot(times, rates[:, 0], 'b-', linewidth=2, label='Roll Rate (Actual)')
+            if 'pitch' in axis:
+                plt.plot(times, rates[:, 1], 'b-', linewidth=2, label='Pitch Rate (Actual)')
+            if 'yaw' in axis:
+                plt.plot(times, rates[:, 2], 'b-', linewidth=2, label='Yaw Rate (Actual)')
+
+            plt.axhline(y=mag, color='r', linestyle='--', linewidth=2, label=f'Setpoint ({mag} rad/s)')
+            plt.grid(True, alpha=0.3)
+            plt.legend(loc='best', fontsize=12)
+            plt.title(f'Step Response: {axis} {mag} rad/s', fontsize=14, fontweight='bold')
+            plt.xlabel('Time (s)', fontsize=12)
+            plt.ylabel('Rate (rad/s)', fontsize=12)
+
+            # Save plot with absolute path
+            import os
+            save_dir = "/home/soja/DroneSim/Test"
+            filename = f"step_{axis}_{int(time.time())}.png"
+            filepath = os.path.join(save_dir, filename)
+            plt.savefig(filepath, dpi=150, bbox_inches='tight')
+            print(f"\n✅ Plot saved to: {filepath}")
+            print(f"   Open with: eog {filepath}")
+            print(f"   Or: cd {save_dir} && ls -lh step_*.png")
+
+            # Try to display - use pause instead of show for better compatibility
+            print("📊 Attempting to open plot window...")
+            plt.ion()  # Turn on interactive mode
+            plt.show()
+            plt.pause(0.1)  # Small pause to render
+
+            input("\n⏸️  Press ENTER to close plot and continue...")
+            plt.close(fig)
             
     node.destroy_node()
     rclpy.shutdown()
