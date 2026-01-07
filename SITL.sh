@@ -4,7 +4,7 @@
 # Launches Gazebo simulation, Guidance Controller, RViz, and SLAM Bridge
 
 # Parse arguments
-WORLD_FILE="drone_world_stereo_sitl.sdf"
+WORLD_FILE="drone_world_sitl.sdf"
 WORLD_MODE="default"
 
 case "$1" in

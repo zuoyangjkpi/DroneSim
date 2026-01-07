@@ -751,11 +751,13 @@
     </include>
 
     <!-- Prius for YOLO detection tests (no control binding) -->
+    <!-- DISABLED: Model file not found
     <include>
       <uri>../objects/prius/model.sdf</uri>
       <name>prius</name>
       <pose>-5 -2 0 0 0 0.9</pose>
     </include>
+    -->
 
   </world>
 </sdf>
