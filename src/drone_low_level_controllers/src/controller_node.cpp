@@ -1,11 +1,14 @@
 #include <actuator_msgs/msg/actuators.hpp>
 #include <geometry_msgs/msg/twist_stamped.hpp>
+#include <geometry_msgs/msg/vector3.hpp>
 #include <geometry_msgs/msg/vector3_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <std_msgs/msg/bool.hpp>
+#include <std_msgs/msg/float64.hpp>
 #include <std_msgs/msg/float64_multi_array.hpp>
+#include <std_msgs/msg/int32.hpp>
 
 #include <Eigen/Dense>
 #include <algorithm>
@@ -148,6 +151,42 @@ public:
         "/imu/data", 10, // Assuming bridge or SDF provides this
         std::bind(&ControllerNode::imu_callback, this, std::placeholders::_1));
 
+    // Tuning Subscribers
+    tuning_mode_sub_ = this->create_subscription<std_msgs::msg::Int32>(
+        "/drone/debug/mode", 10,
+        [this](const std_msgs::msg::Int32::SharedPtr msg) {
+          tuning_mode_ = msg->data;
+          RCLCPP_INFO(this->get_logger(), "Tuning Mode set to: %d",
+                      tuning_mode_);
+        });
+
+    cmd_att_sub_ = this->create_subscription<geometry_msgs::msg::Vector3>(
+        "/drone/debug/cmd_att", 10,
+        [this](const geometry_msgs::msg::Vector3::SharedPtr msg) {
+          if (tuning_mode_ == 1) {
+            std::lock_guard<std::mutex> lock(cache_mutex_);
+            cached_att_sp_ << msg->x, msg->y, msg->z;
+          }
+        });
+
+    cmd_rate_sub_ = this->create_subscription<geometry_msgs::msg::Vector3>(
+        "/drone/debug/cmd_rate", 10,
+        [this](const geometry_msgs::msg::Vector3::SharedPtr msg) {
+          if (tuning_mode_ == 2) {
+            tuning_rate_sp_ = Vector3d(msg->x, msg->y, msg->z);
+          }
+        });
+
+    cmd_thrust_sub_ = this->create_subscription<std_msgs::msg::Float64>(
+        "/drone/debug/cmd_thrust", 10,
+        [this](const std_msgs::msg::Float64::SharedPtr msg) {
+          if (tuning_mode_ > 0) {
+            std::lock_guard<std::mutex> lock(cache_mutex_);
+            cached_thrust_ =
+                std::clamp(msg->data, g_.min_thrust, g_.max_thrust);
+          }
+        });
+
     // Init Mixer
     build_mixer();
 
@@ -157,20 +196,23 @@ public:
 
     // Validate frequencies
     if (outer_freq < 10.0 || outer_freq > 500.0) {
-      RCLCPP_WARN(this->get_logger(),
-                  "outer_loop_frequency %.1f Hz out of range [10-500], using 100 Hz",
-                  outer_freq);
+      RCLCPP_WARN(
+          this->get_logger(),
+          "outer_loop_frequency %.1f Hz out of range [10-500], using 100 Hz",
+          outer_freq);
       outer_freq = 100.0;
     }
     if (inner_freq < 50.0 || inner_freq > 2000.0) {
-      RCLCPP_WARN(this->get_logger(),
-                  "inner_loop_frequency %.1f Hz out of range [50-2000], using 500 Hz",
-                  inner_freq);
+      RCLCPP_WARN(
+          this->get_logger(),
+          "inner_loop_frequency %.1f Hz out of range [50-2000], using 500 Hz",
+          inner_freq);
       inner_freq = 500.0;
     }
     if (inner_freq <= outer_freq) {
       RCLCPP_WARN(this->get_logger(),
-                  "inner_loop_frequency (%.1f Hz) must be > outer_loop_frequency (%.1f Hz), adjusting to %.1f Hz",
+                  "inner_loop_frequency (%.1f Hz) must be > "
+                  "outer_loop_frequency (%.1f Hz), adjusting to %.1f Hz",
                   inner_freq, outer_freq, outer_freq * 2.0);
       inner_freq = outer_freq * 2.0;
     }
@@ -189,9 +231,11 @@ public:
 
     RCLCPP_INFO(this->get_logger(),
                 "Controller (C++) initialized with DUAL-TIMER Mode:");
-    RCLCPP_INFO(this->get_logger(), "  - Outer Loop: %.1f Hz (%.2f ms, Velocity Control)",
+    RCLCPP_INFO(this->get_logger(),
+                "  - Outer Loop: %.1f Hz (%.2f ms, Velocity Control)",
                 outer_freq, 1000.0 / outer_freq);
-    RCLCPP_INFO(this->get_logger(), "  - Inner Loop: %.1f Hz (%.2f ms, Attitude + Rate Control)",
+    RCLCPP_INFO(this->get_logger(),
+                "  - Inner Loop: %.1f Hz (%.2f ms, Attitude + Rate Control)",
                 inner_freq, 1000.0 / inner_freq);
     RCLCPP_INFO(this->get_logger(), "  - Sensor callbacks: Cache data only");
   }
@@ -207,7 +251,12 @@ private:
   // ----------------------------------------------------------------------
   // State
   // ----------------------------------------------------------------------
+  // State
+  // ----------------------------------------------------------------------
   bool enabled_ = true;
+  int tuning_mode_ = 0; // 0: Normal, 1: Attitude, 2: Rate
+  Vector3d tuning_rate_sp_ =
+      Vector3d::Zero(); // Direct rate setpoint for mode 2
 
   // Sensor Data Buffers (Thread-safe)
   std::mutex imu_mutex_;
@@ -233,7 +282,7 @@ private:
   rclcpp::Time last_vel_loop_time_;
 
   // Cached Outer Loop Outputs (for Inner Loop)
-  std::mutex cache_mutex_;  // Protects cached_att_sp_ and cached_thrust_
+  std::mutex cache_mutex_; // Protects cached_att_sp_ and cached_thrust_
   Vector3d cached_att_sp_ = Vector3d::Zero(); // Roll, Pitch, Yaw
   double cached_thrust_ = 0.0;
 
@@ -260,7 +309,8 @@ private:
     // Timeouts
     this->declare_parameter("velocity_setpoint_timeout", 0.8);
     this->declare_parameter("angular_setpoint_timeout", 0.8);
-    this->declare_parameter("control_enabled", false);  // Controlled by action modules
+    this->declare_parameter("control_enabled",
+                            false); // Controlled by action modules
     this->declare_parameter("odom_twist_in_world", true);
 
     // Velocity PID
@@ -461,11 +511,12 @@ private:
   // ==========================================
   void imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg) {
     std::lock_guard<std::mutex> lock(imu_mutex_);
-    latest_imu_.orientation = Quaterniond(msg->orientation.w, msg->orientation.x,
-                                          msg->orientation.y, msg->orientation.z);
-    latest_imu_.angular_velocity = Vector3d(msg->angular_velocity.x,
-                                            msg->angular_velocity.y,
-                                            msg->angular_velocity.z);
+    latest_imu_.orientation =
+        Quaterniond(msg->orientation.w, msg->orientation.x, msg->orientation.y,
+                    msg->orientation.z);
+    latest_imu_.angular_velocity =
+        Vector3d(msg->angular_velocity.x, msg->angular_velocity.y,
+                 msg->angular_velocity.z);
     latest_imu_.timestamp = this->get_clock()->now();
     latest_imu_.valid = true;
   }
@@ -478,6 +529,13 @@ private:
       return;
 
     rclcpp::Time now = this->get_clock()->now();
+
+    // TUNING MODE 1 or 2: Bypass Velocity Loop
+    if (tuning_mode_ > 0) {
+      // In tuning mode, we rely on callbacks updating cached_att_sp_ or we skip
+      // to inner loop Just publish debug accel as zero or keep last
+      return;
+    }
 
     // Check setpoint timeout
     if (last_vsp_time_.nanoseconds() == 0 ||
@@ -507,10 +565,10 @@ private:
 
     // Time delta
     double dt = (last_vel_loop_time_.nanoseconds() == 0)
-                    ? 0.01  // 100Hz = 10ms
+                    ? 0.01 // 100Hz = 10ms
                     : (now - last_vel_loop_time_).seconds();
     last_vel_loop_time_ = now;
-    dt = std::clamp(dt, 0.001, 0.1);  // Clamp to reasonable range
+    dt = std::clamp(dt, 0.001, 0.1); // Clamp to reasonable range
 
     // 1. Velocity PID
     Vector3d v_w = odom_local.velocity_world;
@@ -643,6 +701,80 @@ private:
 
     rclcpp::Time now = this->get_clock()->now();
 
+    // TUNING MODE 2: Bypass Attitude P, Use Rate Setpoint Directly
+    if (tuning_mode_ == 2) {
+      // We still need valid IMU data for rate error
+      // Get latest IMU data (thread-safe)
+      ImuData imu_local;
+      {
+        std::lock_guard<std::mutex> lock(imu_mutex_);
+        if (!latest_imu_.valid)
+          return;
+        imu_local = latest_imu_;
+      }
+
+      // Get thrust (updated by debug topic)
+      double thrust_local;
+      {
+        std::lock_guard<std::mutex> lock(cache_mutex_);
+        thrust_local = cached_thrust_;
+      }
+
+      // Time delta logic
+      double dt = (last_rate_loop_time_.nanoseconds() == 0)
+                      ? 0.002
+                      : (now - last_rate_loop_time_).seconds();
+      last_rate_loop_time_ = now;
+      dt = std::clamp(dt, 0.0001, 0.01);
+
+      // Current Rate
+      Vector3d pqr = imu_local.angular_velocity;
+
+      // Use direct rate setpoint from tuning topic
+      Vector3d pqr_sp = tuning_rate_sp_;
+
+      // 4. Rate PID -> Torque (Duplicated logic, could be refactored but
+      // keeping inline for clarity)
+      Vector3d rate_err = pqr_sp - pqr;
+
+      rate_int_err_ += rate_err * dt;
+      rate_int_err_ = rate_int_err_.cwiseMax(-g_.rate_integral_limit)
+                          .cwiseMin(g_.rate_integral_limit);
+
+      Vector3d rate_d = (rate_err - rate_prev_err_) / dt;
+      rate_prev_err_ = rate_err;
+
+      Vector3d kp_r(g_.kp_rate_roll, g_.kp_rate_pitch, g_.kp_rate_yaw);
+      Vector3d ki_r(g_.ki_rate_roll, g_.ki_rate_pitch, g_.ki_rate_yaw);
+      Vector3d kd_r(g_.kd_rate_roll, g_.kd_rate_pitch, g_.kd_rate_yaw);
+
+      Vector3d alpha_cmd = kp_r.cwiseProduct(rate_err) +
+                           ki_r.cwiseProduct(rate_int_err_) +
+                           kd_r.cwiseProduct(rate_d);
+
+      Vector3d I_vec(p_.inertia_xx, p_.inertia_yy, p_.inertia_zz);
+      Vector3d tau = alpha_cmd.cwiseProduct(I_vec);
+
+      // Torque Saturation
+      tau.x() = std::clamp(tau.x(), -g_.max_torque_xy, g_.max_torque_xy);
+      tau.y() = std::clamp(tau.y(), -g_.max_torque_xy, g_.max_torque_xy);
+      tau.z() = std::clamp(tau.z(), -g_.max_torque_z, g_.max_torque_z);
+
+      // 5. Mixer
+      Eigen::Vector4d mix_cmd;
+      mix_cmd << thrust_local, tau.x(), tau.y(), tau.z();
+
+      Eigen::VectorXd omega_sq = mixer_pinv_ * mix_cmd;
+      Eigen::VectorXd omega = omega_sq.cwiseMax(0.0).cwiseSqrt();
+
+      for (int i = 0; i < omega.size(); ++i) {
+        omega(i) = std::clamp(omega(i), p_.min_motor_speed, p_.max_motor_speed);
+      }
+
+      publish_motors(omega);
+      return;
+    }
+
     // Check angular velocity setpoint timeout
     if (last_wsp_time_.nanoseconds() == 0 ||
         (now - last_wsp_time_).seconds() > wsp_timeout_) {
@@ -680,10 +812,10 @@ private:
 
     // Time delta
     double dt = (last_rate_loop_time_.nanoseconds() == 0)
-                    ? 0.002  // 500Hz = 2ms
+                    ? 0.002 // 500Hz = 2ms
                     : (now - last_rate_loop_time_).seconds();
     last_rate_loop_time_ = now;
-    dt = std::clamp(dt, 0.0001, 0.01);  // Clamp to reasonable range
+    dt = std::clamp(dt, 0.0001, 0.01); // Clamp to reasonable range
 
     // Current attitude
     Vector3d euler = quat_to_euler(imu_local.orientation);
@@ -691,12 +823,12 @@ private:
 
     // 3. Attitude P -> Rate Setpoint
     Vector3d att_err = att_sp_local - euler;
-    att_err.z() = angle_wrap(att_err.z());  // Wrap yaw error
+    att_err.z() = angle_wrap(att_err.z()); // Wrap yaw error
 
     Vector3d pqr_sp;
     pqr_sp.x() = g_.kp_att_roll * att_err.x();
     pqr_sp.y() = g_.kp_att_pitch * att_err.y();
-    pqr_sp.z() = yaw_rate_sp_;  // Direct yaw rate control
+    pqr_sp.z() = yaw_rate_sp_; // Direct yaw rate control
 
     // Saturation
     pqr_sp.head<2>() =
@@ -799,6 +931,11 @@ private:
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr
       debug_mixer_pub_;
 
+  rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr tuning_mode_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::Vector3>::SharedPtr cmd_att_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::Vector3>::SharedPtr cmd_rate_sub_;
+  rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr cmd_thrust_sub_;
+
   rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr vsp_sub_;
   rclcpp::Subscription<geometry_msgs::msg::Vector3Stamped>::SharedPtr wsp_sub_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr enable_sub_;
@@ -806,8 +943,9 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
 
   // Timers
-  rclcpp::TimerBase::SharedPtr outer_loop_timer_;  // 100Hz - Velocity control
-  rclcpp::TimerBase::SharedPtr inner_loop_timer_;  // 500Hz - Attitude + Rate control
+  rclcpp::TimerBase::SharedPtr outer_loop_timer_; // 100Hz - Velocity control
+  rclcpp::TimerBase::SharedPtr
+      inner_loop_timer_; // 500Hz - Attitude + Rate control
 };
 
 int main(int argc, char **argv) {
