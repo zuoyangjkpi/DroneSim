@@ -52,10 +52,12 @@ struct ControllerGains {
   double vel_integral_limit;
   double vel_d_filter_tau;
 
-  // Attitude P
+  // Attitude PI (roll/pitch only; yaw via yaw rate setpoint)
   double kp_att_roll;
   double kp_att_pitch;
-  double kp_att_yaw;
+  double ki_att_roll;
+  double ki_att_pitch;
+  double attitude_integral_limit;
 
   // Rate PID
   double kp_rate_roll;
@@ -156,6 +158,9 @@ public:
         "/drone/debug/mode", 10,
         [this](const std_msgs::msg::Int32::SharedPtr msg) {
           tuning_mode_ = msg->data;
+          if (tuning_mode_ == 2) {
+            att_int_err_.setZero();
+          }
           RCLCPP_INFO(this->get_logger(), "Tuning Mode set to: %d",
                       tuning_mode_);
         });
@@ -292,6 +297,7 @@ private:
   Vector3d rate_int_err_ = Vector3d::Zero();
   Vector3d rate_prev_err_ = Vector3d::Zero();
   rclcpp::Time last_rate_loop_time_;
+  Vector3d att_int_err_ = Vector3d::Zero();
 
   // Mixer
   Eigen::MatrixXd mixer_pinv_;
@@ -323,10 +329,12 @@ private:
     this->declare_parameter("vel_integral_limit", 3.0);
     this->declare_parameter("vel_d_filter_tau", 0.05);
 
-    // Attitude P
+    // Attitude PI (roll/pitch only)
     this->declare_parameter("kp_att_roll", 5.0);
     this->declare_parameter("kp_att_pitch", 5.0);
-    this->declare_parameter("kp_att_yaw", 3.0);
+    this->declare_parameter("ki_att_roll", 0.0);
+    this->declare_parameter("ki_att_pitch", 0.0);
+    this->declare_parameter("attitude_integral_limit", 1.0);
 
     // Rate PID
     this->declare_parameter("kp_rate_roll", 0.20);
@@ -384,7 +392,10 @@ private:
 
     g_.kp_att_roll = this->get_parameter("kp_att_roll").as_double();
     g_.kp_att_pitch = this->get_parameter("kp_att_pitch").as_double();
-    g_.kp_att_yaw = this->get_parameter("kp_att_yaw").as_double();
+    g_.ki_att_roll = this->get_parameter("ki_att_roll").as_double();
+    g_.ki_att_pitch = this->get_parameter("ki_att_pitch").as_double();
+    g_.attitude_integral_limit =
+        this->get_parameter("attitude_integral_limit").as_double();
 
     g_.kp_rate_roll = this->get_parameter("kp_rate_roll").as_double();
     g_.ki_rate_roll = this->get_parameter("ki_rate_roll").as_double();
@@ -460,6 +471,7 @@ private:
     if (!enabled_) {
       // Reset integrators
       vel_int_err_.setZero();
+      att_int_err_.setZero();
       rate_int_err_.setZero();
       vel_prev_err_.setZero();
       rate_prev_err_.setZero();
@@ -821,14 +833,43 @@ private:
     Vector3d euler = quat_to_euler(imu_local.orientation);
     Vector3d pqr = imu_local.angular_velocity;
 
-    // 3. Attitude P -> Rate Setpoint
+    // 3. Attitude PI (roll/pitch only) -> Rate Setpoint
     Vector3d att_err = att_sp_local - euler;
-    att_err.z() = angle_wrap(att_err.z()); // Wrap yaw error
+    att_err.z() = 0.0;
+
+    att_int_err_ += att_err * dt;
+    if (g_.ki_att_roll > 0.0) {
+      double limit = g_.attitude_integral_limit;
+      double rate_limit = g_.max_rate_xy / g_.ki_att_roll;
+      if (limit > 0.0) {
+        limit = std::min(limit, rate_limit);
+      } else {
+        limit = rate_limit;
+      }
+      att_int_err_.x() = std::clamp(att_int_err_.x(), -limit, limit);
+    } else {
+      att_int_err_.x() = 0.0;
+    }
+    if (g_.ki_att_pitch > 0.0) {
+      double limit = g_.attitude_integral_limit;
+      double rate_limit = g_.max_rate_xy / g_.ki_att_pitch;
+      if (limit > 0.0) {
+        limit = std::min(limit, rate_limit);
+      } else {
+        limit = rate_limit;
+      }
+      att_int_err_.y() = std::clamp(att_int_err_.y(), -limit, limit);
+    } else {
+      att_int_err_.y() = 0.0;
+    }
+    att_int_err_.z() = 0.0;
 
     Vector3d pqr_sp;
-    pqr_sp.x() = g_.kp_att_roll * att_err.x();
-    pqr_sp.y() = g_.kp_att_pitch * att_err.y();
-    pqr_sp.z() = yaw_rate_sp_; // Direct yaw rate control
+    pqr_sp.x() = g_.kp_att_roll * att_err.x() +
+                 g_.ki_att_roll * att_int_err_.x();
+    pqr_sp.y() = g_.kp_att_pitch * att_err.y() +
+                 g_.ki_att_pitch * att_int_err_.y();
+    pqr_sp.z() = yaw_rate_sp_; // Yaw controlled via yaw rate setpoint
 
     // Saturation
     pqr_sp.head<2>() =

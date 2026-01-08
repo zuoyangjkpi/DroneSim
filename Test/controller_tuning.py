@@ -518,10 +518,10 @@ def main():
     time.sleep(10)
     
     rate_duration = 1.5
-    att_duration = 2.0
-    yaw_duration = 3.0
-    vel_duration = 2.0
-    pos_duration = 5.0
+    att_duration = 2.5
+    yaw_duration = 3.5
+    vel_duration = 4.0
+    pos_duration = 6.0
 
     while True:
         print("\n--- Controller Tuning Interface ---")

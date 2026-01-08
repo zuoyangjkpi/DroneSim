@@ -23,23 +23,27 @@ multicopter_controller_node:
     # =========================
     # Velocity PID (world frame) -> accel_cmd
     # =========================
-    kp_vel_xy: 3.5
-    ki_vel_xy: 0.0
-    kd_vel_xy: 2.0
+    kp_vel_xy: 9.0
+    ki_vel_xy: 0.6
+    kd_vel_xy: 1.2
 
-    kp_vel_z: 3.5
-    ki_vel_z: 0.0
+    kp_vel_z: 7.5
+    ki_vel_z: 0.5
     kd_vel_z: 1.0
 
-    vel_integral_limit: 2.0
+    vel_integral_limit: 5.0
     vel_d_filter_tau: 0.05
 
     # =========================
-    # Attitude P (euler error -> body rates)
+    # Attitude PI (roll/pitch -> body rates; yaw via yaw_controller)
     # =========================
-    kp_att_roll: 6.0
-    kp_att_pitch: 6.0
-    kp_att_yaw: 6.0
+    kp_att_roll: 5.5
+    ki_att_roll: 0.08
+
+    kp_att_pitch: 5.5
+    ki_att_pitch: 0.12
+
+    attitude_integral_limit: 3.0
 
     # =========================
     # Rate PID (body rates -> torques)
