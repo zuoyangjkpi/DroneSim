@@ -45,7 +45,7 @@ multicopter_controller_node:
     # Rate PID (body rates -> torques)
     # =========================
     kp_rate_roll: 12.0
-    ki_rate_roll: 2.5
+    ki_rate_roll: 4.0
     kd_rate_roll: 0.0
 
     kp_rate_pitch: 12.0

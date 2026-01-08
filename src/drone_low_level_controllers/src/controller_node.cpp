@@ -163,7 +163,7 @@ public:
     cmd_att_sub_ = this->create_subscription<geometry_msgs::msg::Vector3>(
         "/drone/debug/cmd_att", 10,
         [this](const geometry_msgs::msg::Vector3::SharedPtr msg) {
-          if (tuning_mode_ == 1) {
+          if (tuning_mode_ == 1 || tuning_mode_ == 3) {
             std::lock_guard<std::mutex> lock(cache_mutex_);
             cached_att_sp_ << msg->x, msg->y, msg->z;
           }
@@ -180,7 +180,7 @@ public:
     cmd_thrust_sub_ = this->create_subscription<std_msgs::msg::Float64>(
         "/drone/debug/cmd_thrust", 10,
         [this](const std_msgs::msg::Float64::SharedPtr msg) {
-          if (tuning_mode_ > 0) {
+          if (tuning_mode_ == 1 || tuning_mode_ == 2 || tuning_mode_ == 3) {
             std::lock_guard<std::mutex> lock(cache_mutex_);
             cached_thrust_ =
                 std::clamp(msg->data, g_.min_thrust, g_.max_thrust);
@@ -254,7 +254,7 @@ private:
   // State
   // ----------------------------------------------------------------------
   bool enabled_ = true;
-  int tuning_mode_ = 0; // 0: Normal, 1: Attitude, 2: Rate
+  int tuning_mode_ = 0; // 0: Normal, 1/3: Attitude, 2: Rate, 4: Velocity, 5: Position
   Vector3d tuning_rate_sp_ =
       Vector3d::Zero(); // Direct rate setpoint for mode 2
 
@@ -530,8 +530,8 @@ private:
 
     rclcpp::Time now = this->get_clock()->now();
 
-    // TUNING MODE 1 or 2: Bypass Velocity Loop
-    if (tuning_mode_ > 0) {
+    // TUNING MODE 1/2/3: Bypass Velocity Loop
+    if (tuning_mode_ == 1 || tuning_mode_ == 2 || tuning_mode_ == 3) {
       // In tuning mode, we rely on callbacks updating cached_att_sp_ or we skip
       // to inner loop Just publish debug accel as zero or keep last
       return;
