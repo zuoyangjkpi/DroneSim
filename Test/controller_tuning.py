@@ -60,9 +60,12 @@ class TuningNode(Node):
         self.current_thrust_hover = 0.0
         self.target_waypoint = None
         self.odom_twist_in_world = False  # Keep in sync with controllers.yaml
+        self.tuning_mode = 0
+        self.default_yaw_cmd = self._load_initial_yaw()
         
         # Timer for continuous waypoint publishing
         self.waypoint_timer = self.create_timer(0.1, self.waypoint_timer_callback)  # 10Hz
+        self.yaw_timer = self.create_timer(0.01, self.yaw_hold_timer_callback)  # 100Hz
 
     def mixer_callback(self, msg):
         if len(msg.data) >= 1:
@@ -150,6 +153,33 @@ class TuningNode(Node):
     def _wrap_angle(self, angle):
         return (angle + math.pi) % (2.0 * math.pi) - math.pi
 
+    def _load_initial_yaw(self):
+        world_file = "/home/soja/DroneSim/src/drone_description/worlds/drone_world.sdf"
+        try:
+            with open(world_file, "r", encoding="utf-8", errors="ignore") as f:
+                data = f.read()
+        except OSError:
+            return 0.0
+
+        idx = data.find("model://x3")
+        if idx == -1:
+            return 0.0
+
+        pose_start = data.find("<pose>", idx)
+        pose_end = data.find("</pose>", pose_start)
+        if pose_start == -1 or pose_end == -1:
+            return 0.0
+
+        pose_str = data[pose_start + len("<pose>"):pose_end].strip()
+        parts = pose_str.split()
+        if len(parts) < 6:
+            return 0.0
+
+        try:
+            return float(parts[5])
+        except ValueError:
+            return 0.0
+
     def enable_drone(self):
         msg = Bool()
         msg.data = True
@@ -177,6 +207,16 @@ class TuningNode(Node):
         if self.target_waypoint is not None:
             self.waypoint_pub.publish(self.target_waypoint)
 
+    def yaw_hold_timer_callback(self):
+        if self.tuning_mode != 0:
+            return
+        msg = Vector3Stamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.vector.x = 0.0
+        msg.vector.y = 0.0
+        msg.vector.z = float(self.default_yaw_cmd)
+        self.attitude_pub.publish(msg)
+
     def set_waypoint(self, x, y, z):
         msg = PoseStamped()
         msg.header.stamp = self.get_clock().now().to_msg()
@@ -195,6 +235,11 @@ class TuningNode(Node):
         msg = Int32()
         msg.data = mode
         self.mode_pub.publish(msg)
+        self.tuning_mode = mode
+        if mode == 0:
+            self.set_attitude_enable(True)
+        else:
+            self.set_attitude_enable(False)
         self.get_logger().info(f'Set Tuning Mode: {mode}')
 
     def _start_recording(self):
@@ -326,8 +371,8 @@ class TuningNode(Node):
         hold_att = Vector3(x=float(att_base[0]), y=float(att_base[1]), z=float(att_base[2]))
 
         self.set_waypoint_enable(False)
-        self.set_attitude_enable(True)
         self.set_mode(3)
+        self.set_attitude_enable(True)
         self._start_recording()
 
         self.get_logger().info(f'Applying Yaw Step via yaw_controller: {yaw_target:.3f} rad for {duration}s')
@@ -349,7 +394,6 @@ class TuningNode(Node):
 
         self._stop_recording()
         self.set_mode(0)
-        self.set_attitude_enable(False)
         self.set_waypoint_enable(True)
         self.get_logger().info('Test Complete. Recovering to Position Control.')
         self.takeoff(2.0)
@@ -458,8 +502,8 @@ def main():
     time.sleep(1)
     node.takeoff(2.0)
     
-    print("Waiting 30s for stability...")
-    time.sleep(30)
+    print("Waiting 10s for stability...")
+    time.sleep(10)
     
     rate_duration = 1.5
     att_duration = 2.0
