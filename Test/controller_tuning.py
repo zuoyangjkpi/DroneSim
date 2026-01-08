@@ -62,10 +62,12 @@ class TuningNode(Node):
         self.odom_twist_in_world = False  # Keep in sync with controllers.yaml
         self.tuning_mode = 0
         self.default_yaw_cmd = self._load_initial_yaw()
+        self.enable_burst_remaining = 0
         
         # Timer for continuous waypoint publishing
         self.waypoint_timer = self.create_timer(0.1, self.waypoint_timer_callback)  # 10Hz
         self.yaw_timer = self.create_timer(0.01, self.yaw_hold_timer_callback)  # 100Hz
+        self.enable_timer = self.create_timer(0.1, self.enable_burst_timer_callback)  # 10Hz
 
     def mixer_callback(self, msg):
         if len(msg.data) >= 1:
@@ -180,13 +182,23 @@ class TuningNode(Node):
         except ValueError:
             return 0.0
 
-    def enable_drone(self):
+    def _publish_enable(self):
         msg = Bool()
         msg.data = True
         self.enable_pub.publish(msg)
         self.enable_pub_x3.publish(msg)
         self.enable_pub_wp.publish(msg)
+ 
+    def enable_drone(self, burst_seconds=5.0):
+        self._publish_enable()
+        self.enable_burst_remaining = int(max(0.0, burst_seconds) / 0.1)
         self.get_logger().info('Drone Enabled (Published to /drone/control/velocity_enable, /X3/enable, /drone/control/waypoint_enable)')
+
+    def enable_burst_timer_callback(self):
+        if self.enable_burst_remaining <= 0:
+            return
+        self._publish_enable()
+        self.enable_burst_remaining -= 1
 
     def set_waypoint_enable(self, enabled):
         msg = Bool()
