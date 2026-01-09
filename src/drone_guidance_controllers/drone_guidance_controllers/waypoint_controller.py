@@ -243,41 +243,14 @@ class WaypointController(Node):
             self.waypoint_reached_pub.publish(waypoint_reached_msg)
         self._waypoint_reached = reached_now
 
-        if reached_now:
-            position_error = np.clip(
-                position_error,
-                -self.position_tolerance,
-                self.position_tolerance
-            )
+        # Do not clamp position_error at the tolerance when reached.
+        # This avoids a discrete jump in the commanded velocity near the threshold.
 
         # PID control
         # Integral term (with windup prevention)
         previous_integral = self.position_error_integral.copy()
         self.position_error_integral += position_error * dt
 
-        # Different integral management for XY vs Z
-        integral_deadband = np.array([0.01, 0.01, 0.005])  # Small deadband for Z
-        decay_factor_xy = 0.2
-        decay_factor_z = 0.1  # More conservative for Z direction
-
-        for i in range(3):
-            if i < 2:  # XY directions - aggressive integral management
-                if abs(position_error[i]) < integral_deadband[i]:
-                    self.position_error_integral[i] *= decay_factor_xy
-            else:  # Z direction - conservative integral management
-                # Only apply deadband decay for very small errors (hovering precision)
-                if abs(position_error[i]) < integral_deadband[i]:
-                    self.position_error_integral[i] *= decay_factor_z
-
-        # Anti-windup: reset integral if error flips sign
-        for i in range(3):
-            if i < 2:  # XY directions - aggressive reset
-                if position_error[i] * self.position_error_previous[i] <= 0.0:
-                    self.position_error_integral[i] *= decay_factor_xy
-            else:  # Z direction - conservative reset to maintain altitude stability
-                # Only reset for significant error changes (>5cm) to avoid hover instability
-                if position_error[i] * self.position_error_previous[i] <= 0.0 and abs(position_error[i]) > 0.05:
-                    self.position_error_integral[i] *= decay_factor_z
         max_integral = np.array([
             self.integral_limit_xy,
             self.integral_limit_xy,

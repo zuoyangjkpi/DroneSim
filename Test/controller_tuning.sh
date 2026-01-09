@@ -11,14 +11,28 @@ cd "$DRONESIM_ROOT" || exit 1
 echo "🚀 Starting Controller Tuning Environment..."
 echo "📂 DroneSim root: $DRONESIM_ROOT"
 echo "📊 Plots will be saved to: $SCRIPT_DIR/"
+echo "📝 Debug logs will be saved to: $SCRIPT_DIR/Debug/"
+
+# Debug mode flag (default: false)
+DEBUG=${DEBUG:-false}
+LOG_DELAY=${LOG_DELAY:-12}
+LOGGER_PID_FILE="/tmp/flight_debug_logger.pid"
+LOGGER_SPAWNER_PID=""
 
 # Cleanup function
 cleanup() {
     echo ""
     echo "🛑 Stopping all processes..."
+    if [ -f "$LOGGER_PID_FILE" ]; then
+        LOGGER_PID=$(cat "$LOGGER_PID_FILE")
+        kill "$LOGGER_PID" 2>/dev/null
+        rm -f "$LOGGER_PID_FILE"
+    fi
+    kill $LOGGER_SPAWNER_PID 2>/dev/null
     kill $GZ_PID $YOLO_PID $TF_PID $RVIZ_PID $STATE_PUB_PID $TF_UAV_PID $WAYPOINT_PID $YAW_PID $CTRL_PID $MGR_PID 2>/dev/null
     pkill -f "gz sim" 2>/dev/null
     pkill -f "controller_tuning.py" 2>/dev/null
+    pkill -f "flight_debug_logger.py" 2>/dev/null
     pkill -f "yolo12_detector_node" 2>/dev/null
     pkill -f "nmpc_tracker_node" 2>/dev/null
     exit
@@ -39,6 +53,7 @@ startup_cleanup() {
     # Kill tuning-specific processes
     pkill -f "controller_tuning.py" 2>/dev/null
     pkill -f "controller_tuning_node" 2>/dev/null
+    pkill -f "flight_debug_logger.py" 2>/dev/null
 
     # Kill other nodes that might be running
     pkill -f "yolo12_detector_node" 2>/dev/null
@@ -55,6 +70,7 @@ startup_cleanup() {
 
     # Force kill stubborn processes
     pkill -9 -f "controller_tuning.py" 2>/dev/null
+    pkill -9 -f "flight_debug_logger.py" 2>/dev/null
     pkill -9 -f "waypoint_controller" 2>/dev/null
     pkill -9 -f "yaw_controller" 2>/dev/null
     pkill -9 -f "controller_node" 2>/dev/null
@@ -140,6 +156,27 @@ sleep 2
 
 # 9. Start Tuning Interface
 echo "🎹 Starting Tuning Interface..."
+LOGGER_SCRIPT="$SCRIPT_DIR/Debug/flight_debug_logger.py"
+
+# Only start logger if DEBUG=true
+if [ "$DEBUG" = "true" ]; then
+    if [ -f "$LOGGER_SCRIPT" ]; then
+        echo "⏱️  Will start flight logger after ${LOG_DELAY}s (post-takeoff)..."
+        (
+            sleep "$LOG_DELAY"
+            echo "📝 Starting flight debug logger..."
+            python3 "$LOGGER_SCRIPT" > /dev/null 2>&1 &
+            echo $! > "$LOGGER_PID_FILE"
+            wait
+        ) &
+        LOGGER_SPAWNER_PID=$!
+    else
+        echo "⚠️  Logger script not found: $LOGGER_SCRIPT"
+    fi
+else
+    echo "ℹ️  Debug mode disabled. Logger will not start. (Set DEBUG=true to enable)"
+fi
+
 python3 "$SCRIPT_DIR/controller_tuning.py"
 
 # Cleanup after python script exits
