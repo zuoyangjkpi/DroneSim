@@ -11,6 +11,7 @@ from geometry_msgs.msg import TwistStamped, Vector3Stamped, Vector3, PoseStamped
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Imu
 from std_msgs.msg import Bool, Float64, Float64MultiArray, Int32
+from actuator_msgs.msg import Actuators
 
 
 def _quat_to_euler(x, y, z, w):
@@ -55,19 +56,28 @@ class FlightDebugLogger(Node):
             "time_s",
             "odom_pos_x", "odom_pos_y", "odom_pos_z",
             "odom_vel_x", "odom_vel_y", "odom_vel_z",
+            "odom_ang_vel_x", "odom_ang_vel_y", "odom_ang_vel_z",
             "odom_roll", "odom_pitch", "odom_yaw",
             "imu_ang_vel_x", "imu_ang_vel_y", "imu_ang_vel_z",
+            "imu_lin_acc_x", "imu_lin_acc_y", "imu_lin_acc_z",
             "imu_roll", "imu_pitch", "imu_yaw",
             "vel_sp_x", "vel_sp_y", "vel_sp_z",
             "wp_cmd_x", "wp_cmd_y", "wp_cmd_z",
             "wp_enable",
+            "wp_reached",
             "rate_sp_x", "rate_sp_y", "rate_sp_z",
             "att_cmd_roll", "att_cmd_pitch", "att_cmd_yaw",
             "att_sp_roll", "att_sp_pitch", "att_sp_yaw",
             "accel_sp_x", "accel_sp_y", "accel_sp_z",
+            "cmd_att_roll", "cmd_att_pitch", "cmd_att_yaw",
             "cmd_rate_x", "cmd_rate_y", "cmd_rate_z",
             "cmd_thrust",
+            "vel_enable", "att_enable", "x3_enable",
+            "att_reached",
+            "controller_status",
             "mixer_0", "mixer_1", "mixer_2", "mixer_3",
+            "motor_0", "motor_1", "motor_2", "motor_3",
+            "motor_4", "motor_5", "motor_6", "motor_7",
             "mode",
         ]
         self.csv_writer.writerow(self.columns)
@@ -94,6 +104,9 @@ class FlightDebugLogger(Node):
             Bool, "/drone/control/waypoint_enable", self._cb_wp_enable, enable_qos
         )
         self.create_subscription(
+            Bool, "/drone/control/waypoint_reached", self._cb_wp_reached, 10
+        )
+        self.create_subscription(
             Vector3Stamped,
             "/drone/control/angular_velocity_setpoint",
             self._cb_rate_sp,
@@ -109,13 +122,34 @@ class FlightDebugLogger(Node):
             Vector3Stamped, "/drone/debug/accel_setpoint", self._cb_accel_sp, 10
         )
         self.create_subscription(
+            Vector3, "/drone/debug/cmd_att", self._cb_cmd_att, 10
+        )
+        self.create_subscription(
             Vector3, "/drone/debug/cmd_rate", self._cb_cmd_rate, 10
         )
         self.create_subscription(
             Float64, "/drone/debug/cmd_thrust", self._cb_cmd_thrust, 10
         )
         self.create_subscription(
+            Bool, "/drone/control/velocity_enable", self._cb_vel_enable, enable_qos
+        )
+        self.create_subscription(
+            Bool, "/drone/control/attitude_enable", self._cb_att_enable, enable_qos
+        )
+        self.create_subscription(
+            Bool, "/X3/enable", self._cb_x3_enable, enable_qos
+        )
+        self.create_subscription(
+            Bool, "/drone/control/attitude_reached", self._cb_att_reached, 10
+        )
+        self.create_subscription(
+            Float64MultiArray, "/drone/controller/status", self._cb_ctrl_status, 10
+        )
+        self.create_subscription(
             Float64MultiArray, "/drone/debug/mixer_input", self._cb_mixer, 10
+        )
+        self.create_subscription(
+            Actuators, "/X3/command/motor_speed", self._cb_motor_speed, 10
         )
         self.create_subscription(Int32, "/drone/debug/mode", self._cb_mode, 10)
 
@@ -135,6 +169,9 @@ class FlightDebugLogger(Node):
         self._set("odom_vel_x", msg.twist.twist.linear.x)
         self._set("odom_vel_y", msg.twist.twist.linear.y)
         self._set("odom_vel_z", msg.twist.twist.linear.z)
+        self._set("odom_ang_vel_x", msg.twist.twist.angular.x)
+        self._set("odom_ang_vel_y", msg.twist.twist.angular.y)
+        self._set("odom_ang_vel_z", msg.twist.twist.angular.z)
         q = msg.pose.pose.orientation
         roll, pitch, yaw = _quat_to_euler(q.x, q.y, q.z, q.w)
         self._set("odom_roll", roll)
@@ -145,6 +182,9 @@ class FlightDebugLogger(Node):
         self._set("imu_ang_vel_x", msg.angular_velocity.x)
         self._set("imu_ang_vel_y", msg.angular_velocity.y)
         self._set("imu_ang_vel_z", msg.angular_velocity.z)
+        self._set("imu_lin_acc_x", msg.linear_acceleration.x)
+        self._set("imu_lin_acc_y", msg.linear_acceleration.y)
+        self._set("imu_lin_acc_z", msg.linear_acceleration.z)
         q = msg.orientation
         roll, pitch, yaw = _quat_to_euler(q.x, q.y, q.z, q.w)
         self._set("imu_roll", roll)
@@ -163,6 +203,9 @@ class FlightDebugLogger(Node):
 
     def _cb_wp_enable(self, msg: Bool):
         self._set("wp_enable", 1.0 if msg.data else 0.0)
+
+    def _cb_wp_reached(self, msg: Bool):
+        self._set("wp_reached", 1.0 if msg.data else 0.0)
 
     def _cb_rate_sp(self, msg: Vector3Stamped):
         self._set("rate_sp_x", msg.vector.x)
@@ -184,6 +227,11 @@ class FlightDebugLogger(Node):
         self._set("accel_sp_y", msg.vector.y)
         self._set("accel_sp_z", msg.vector.z)
 
+    def _cb_cmd_att(self, msg: Vector3):
+        self._set("cmd_att_roll", msg.x)
+        self._set("cmd_att_pitch", msg.y)
+        self._set("cmd_att_yaw", msg.z)
+
     def _cb_cmd_rate(self, msg: Vector3):
         self._set("cmd_rate_x", msg.x)
         self._set("cmd_rate_y", msg.y)
@@ -192,10 +240,33 @@ class FlightDebugLogger(Node):
     def _cb_cmd_thrust(self, msg: Float64):
         self._set("cmd_thrust", msg.data)
 
+    def _cb_vel_enable(self, msg: Bool):
+        self._set("vel_enable", 1.0 if msg.data else 0.0)
+
+    def _cb_att_enable(self, msg: Bool):
+        self._set("att_enable", 1.0 if msg.data else 0.0)
+
+    def _cb_x3_enable(self, msg: Bool):
+        self._set("x3_enable", 1.0 if msg.data else 0.0)
+
+    def _cb_att_reached(self, msg: Bool):
+        self._set("att_reached", 1.0 if msg.data else 0.0)
+
+    def _cb_ctrl_status(self, msg: Float64MultiArray):
+        if msg.data:
+            self._set("controller_status", ",".join(f"{v:.6f}" for v in msg.data))
+        else:
+            self._set("controller_status", "")
+
     def _cb_mixer(self, msg: Float64MultiArray):
         data = list(msg.data)
         for i in range(4):
             self._set(f"mixer_{i}", data[i] if i < len(data) else None)
+
+    def _cb_motor_speed(self, msg: Actuators):
+        data = list(msg.velocity) if hasattr(msg, "velocity") else []
+        for i in range(8):
+            self._set(f"motor_{i}", data[i] if i < len(data) else None)
 
     def _cb_mode(self, msg: Int32):
         self._set("mode", msg.data)

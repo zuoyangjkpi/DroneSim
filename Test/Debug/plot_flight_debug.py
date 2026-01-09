@@ -93,6 +93,27 @@ def main():
     )
     _plot_group(
         rows, t,
+        ["imu_roll", "imu_pitch", "imu_yaw"],
+        "IMU Attitude",
+        "rad",
+        os.path.join(out_dir, "imu_attitude.png"),
+    )
+    _plot_group(
+        rows, t,
+        ["imu_lin_acc_x", "imu_lin_acc_y", "imu_lin_acc_z"],
+        "IMU Linear Accel",
+        "m/s^2",
+        os.path.join(out_dir, "imu_linear_accel.png"),
+    )
+    _plot_group(
+        rows, t,
+        ["odom_ang_vel_x", "odom_ang_vel_y", "odom_ang_vel_z"],
+        "Odometry Angular Velocity",
+        "rad/s",
+        os.path.join(out_dir, "odom_ang_vel.png"),
+    )
+    _plot_group(
+        rows, t,
         ["vel_sp_x", "vel_sp_y", "vel_sp_z"],
         "Velocity Setpoint",
         "m/s",
@@ -107,10 +128,10 @@ def main():
     )
     _plot_group(
         rows, t,
-        ["wp_enable"],
-        "Waypoint Enable",
+        ["wp_enable", "wp_reached", "vel_enable", "att_enable", "x3_enable", "att_reached"],
+        "Enable/Reached Flags",
         "bool",
-        os.path.join(out_dir, "waypoint_enable.png"),
+        os.path.join(out_dir, "enable_flags.png"),
     )
     _plot_group(
         rows, t,
@@ -142,6 +163,13 @@ def main():
     )
     _plot_group(
         rows, t,
+        ["cmd_att_roll", "cmd_att_pitch", "cmd_att_yaw"],
+        "Tuning Cmd Attitude",
+        "rad",
+        os.path.join(out_dir, "cmd_att.png"),
+    )
+    _plot_group(
+        rows, t,
         ["cmd_rate_x", "cmd_rate_y", "cmd_rate_z"],
         "Tuning Cmd Rate",
         "rad/s",
@@ -153,6 +181,14 @@ def main():
         "Mixer Input",
         "cmd",
         os.path.join(out_dir, "mixer_input.png"),
+    )
+    _plot_group(
+        rows, t,
+        ["motor_0", "motor_1", "motor_2", "motor_3",
+         "motor_4", "motor_5", "motor_6", "motor_7"],
+        "Motor Speed",
+        "rad/s",
+        os.path.join(out_dir, "motor_speed.png"),
     )
 
     print(f"Plots saved to: {out_dir}")

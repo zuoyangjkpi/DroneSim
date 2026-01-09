@@ -24,8 +24,8 @@ multicopter_controller_node:
     # Velocity PID (world frame) -> accel_cmd
     # =========================
     kp_vel_xy: 9.0
-    ki_vel_xy: 0.6
-    kd_vel_xy: 1.2
+    ki_vel_xy: 0.45
+    kd_vel_xy: 1.4
 
     kp_vel_z: 7.5
     ki_vel_z: 0.5

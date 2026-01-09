@@ -77,7 +77,7 @@ nano .env
 | `SITL.sh` | **Main SITL environment** | `./SITL.sh [--lake\|--factory\|--factory_rc]` |
 | `controller_tuning.sh` | Controller step testing | `./controller_tuning.sh` |
 | `standalone_test.sh` | Comprehensive test suite | `./standalone_test.sh` |
-| `pixhawk_hitl_test.sh` | Hardware-in-loop testing | `./pixhawk_hitl_test.sh` |
+| `HITL.sh` | Hardware-in-loop testing | `./HITL.sh` |
 
 ### SITL.sh - Launched Nodes
 
@@ -153,7 +153,7 @@ DroneSim/
 ├── SITL.sh                        # Main SITL launcher
 ├── controller_tuning.sh           # Controller test environment
 ├── standalone_test.sh             # Comprehensive test suite
-├── pixhawk_hitl_test.sh          # Pixhawk HITL testing
+├── HITL.sh          # Pixhawk HITL testing
 └── setup_dronesim.sh             # Installation script
 ```
 
